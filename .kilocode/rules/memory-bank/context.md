@@ -1,87 +1,53 @@
-# Active Context: Next.js Starter Template
+# Active Context: GitHub Browser (desktop-style repo explorer)
 
 ## Current State
 
-**Template Status**: ✅ Ready for development
+**Status**: ✅ GitHub Browser built and passing typecheck + lint + production build.
 
-The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. It's ready for AI-assisted expansion to build any type of application.
+A web app (Next.js 16, TS, Tailwind 4) that browses GitHub repositories with a
+desktop file-explorer UX: tabbed browsing, a tree sidebar, right-click context
+menus, drag-and-drop tab reordering / open, multi-selection, and touch support
+(long-press for context menus, tap to open).
 
 ## Recently Completed
 
-- [x] Base Next.js 16 setup with App Router
-- [x] TypeScript configuration with strict mode
-- [x] Tailwind CSS 4 integration
-- [x] ESLint configuration
-- [x] Memory bank documentation
-- [x] Recipe system for common features
+- [x] GitHub REST API client (`src/lib/github.ts`) with caching + rate-limit errors
+- [x] App state store: reducer + async helpers (`src/lib/store.tsx`)
+- [x] Reusable `ContextMenu` with keyboard nav + `UIProvider` owning one menu (`ui-context.tsx`)
+- [x] `AddressBar`: repo input (owner/repo or URL), branch switcher, recent repos, repo meta
+- [x] `Tabs`: drag-to-reorder, middle-click close, drop tree node to open in new tab
+- [x] `Explorer`: expand/collapse tree, multi-select (Ctrl/Shift), context menu, drag, touch long-press
+- [x] `FileView`: folder grid + breadcrumbs; code viewer with line numbers + lightweight syntax highlighting; image preview
+- [x] Home screen with feature hints + recent repos; title bar + status bar for desktop feel
+- [x] Relaxed 3 experimental react-hooks lint rules (set-state-in-effect, immutability, refs) — intentional patterns
 
 ## Current Structure
 
-| File/Directory | Purpose | Status |
-|----------------|---------|--------|
-| `src/app/page.tsx` | Home page | ✅ Ready |
-| `src/app/layout.tsx` | Root layout | ✅ Ready |
-| `src/app/globals.css` | Global styles | ✅ Ready |
-| `.kilocode/` | AI context & recipes | ✅ Ready |
+| File | Purpose |
+|------|---------|
+| `src/app/page.tsx` | App shell: Home vs Workspace, title/status bar |
+| `src/lib/github.ts` | GitHub API client (repo, contents, file, branches) |
+| `src/lib/store.tsx` | Global state (reducer + async loaders) |
+| `src/lib/dnd.ts` | Shared drag-and-drop mime/type |
+| `src/lib/highlight.tsx` | Dependency-free tokenizer for code view |
+| `src/components/ui-context.tsx` | Single context menu + global close handling |
+| `src/components/ContextMenu.tsx` | Keyboard-navigable context menu |
+| `src/components/AddressBar.tsx` | Repo open / branch / meta |
+| `src/components/Explorer.tsx` | Tree sidebar |
+| `src/components/Tabs.tsx` | Draggable tab bar |
+| `src/components/FileView.tsx` | Folder grid + code/image viewer |
+| `src/components/icons.tsx` | Inline SVG icons (no icon dependency) |
 
-## Current Focus
+## Key Decisions
 
-The template is ready. Next steps depend on user requirements:
-
-1. What type of application to build
-2. What features are needed
-3. Design/branding preferences
-
-## Quick Start Guide
-
-### To add a new page:
-
-Create a file at `src/app/[route]/page.tsx`:
-```tsx
-export default function NewPage() {
-  return <div>New page content</div>;
-}
-```
-
-### To add components:
-
-Create `src/components/` directory and add components:
-```tsx
-// src/components/ui/Button.tsx
-export function Button({ children }: { children: React.ReactNode }) {
-  return <button className="px-4 py-2 bg-blue-600 text-white rounded">{children}</button>;
-}
-```
-
-### To add a database:
-
-Follow `.kilocode/recipes/add-database.md`
-
-### To add API routes:
-
-Create `src/app/api/[route]/route.ts`:
-```tsx
-import { NextResponse } from "next/server";
-
-export async function GET() {
-  return NextResponse.json({ message: "Hello" });
-}
-```
-
-## Available Recipes
-
-| Recipe | File | Use Case |
-|--------|------|----------|
-| Add Database | `.kilocode/recipes/add-database.md` | Data persistence with Drizzle + SQLite |
-
-## Pending Improvements
-
-- [ ] Add more recipes (auth, email, etc.)
-- [ ] Add example components
-- [ ] Add testing setup recipe
+- No extra UI deps (no dnd-kit, zustand, etc.) — built with React + Tailwind only.
+- Files fetched via `contents` API; large dirs lazy-loaded on expand.
+- Desktop UX conventions: single-click selects, double-click opens, middle-click
+  opens new tab, right-click / long-press → context menu, Ctrl/Shift multi-select.
 
 ## Session History
 
 | Date | Changes |
 |------|---------|
-| Initial | Template created with base setup |
+| Initial | Next.js template created |
+| 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch) |

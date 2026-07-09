@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js Template",
-  description: "A minimal Next.js starter template",
+  title: "GitHub Browser — Desktop-style repository explorer",
+  description:
+    "Browse GitHub repositories with a desktop file-explorer UX: tabs, context menus, drag & drop and touch support.",
 };
 
 export default function RootLayout({

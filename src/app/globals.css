@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Desktop-style scrollbars */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+  background-clip: content-box;
+}
+
+/* Disable iOS tap highlight for a native feel */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection while dragging tabs/nodes */
+.dragging,
+.dragging * {
+  user-select: none;
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StoreProvider, useStore } from "@/lib/store";
+import { StagingProvider } from "@/lib/staging";
 import { UIProvider } from "@/components/ui-context";
 import { AddressBar } from "@/components/AddressBar";
 import { Explorer } from "@/components/Explorer";
@@ -194,13 +195,15 @@ function Workspace() {
 export default function Page() {
   return (
     <StoreProvider>
-      <UIProvider>
-        <SearchProvider>
-          <div className="h-screen w-screen overflow-hidden">
-            <Workspace />
-          </div>
-        </SearchProvider>
-      </UIProvider>
+      <StagingProvider>
+        <UIProvider>
+          <SearchProvider>
+            <div className="h-screen w-screen overflow-hidden">
+              <Workspace />
+            </div>
+          </SearchProvider>
+        </UIProvider>
+      </StagingProvider>
     </StoreProvider>
   );
 }

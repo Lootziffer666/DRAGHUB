@@ -11,11 +11,14 @@ import {
   Search,
   Spinner,
   Star,
+  Upload,
   X,
 } from "./icons";
+import { UploadPanel } from "./UploadPanel";
 
 export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
   const { state, openRepo, setBranch, closeRepo } = useStore();
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [value, setValue] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
   const [branchOpen, setBranchOpen] = useState(false);
@@ -160,6 +163,15 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
           </a>
 
           <button
+            onClick={() => setUploadOpen(true)}
+            title="Upload files"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 text-sm text-neutral-200 hover:border-blue-600 hover:text-blue-300"
+          >
+            <Upload width={14} height={14} />
+            Upload
+          </button>
+
+          <button
             onClick={closeRepo}
             title="Close repository"
             className="flex h-8 items-center justify-center rounded-md px-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
@@ -186,6 +198,8 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
           </span>
         </div>
       )}
+
+      <UploadPanel open={uploadOpen} onClose={() => setUploadOpen(false)} />
     </div>
   );
 }

@@ -23,14 +23,37 @@ export type RepoMeta = {
 
 const API = "https://api.github.com";
 
+const TOKEN_KEY = "gh-browser-token";
+
+export function getGithubToken(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  const t = localStorage.getItem(TOKEN_KEY);
+  return t && t.trim() ? t.trim() : null;
+}
+
+export function setGithubToken(token: string): void {
+  if (typeof localStorage === "undefined") return;
+  if (token && token.trim()) localStorage.setItem(TOKEN_KEY, token.trim());
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function clearGithubToken(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getGithubToken();
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(`${API}${path}`, {
     ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   if (res.status === 403 || res.status === 429) {
@@ -54,6 +77,33 @@ async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await res.json()) as T;
+}
+
+export type GhResponse = {
+  ok: boolean;
+  status: number;
+  json: <T = unknown>() => Promise<T>;
+  text: () => Promise<string>;
+};
+
+export async function ghRequest(
+  path: string,
+  init?: RequestInit
+): Promise<GhResponse> {
+  const token = getGithubToken();
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...init, headers });
+  return {
+    ok: res.ok,
+    status: res.status,
+    json: async () => (await res.json()) as never,
+    text: async () => await res.text(),
+  };
 }
 
 export async function fetchRepoMeta(

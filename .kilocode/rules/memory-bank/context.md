@@ -21,6 +21,12 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 - [x] Home screen with feature hints + recent repos; title bar + status bar for desktop feel
 - [x] Relaxed 3 experimental react-hooks lint rules (set-state-in-effect, immutability, refs) — intentional patterns
 - [x] GitHub **Search** as isolated feature module (`src/features/search/`): repos, related-by-topic, releases & APK discovery; Cmd/Ctrl+K, modal panel, provider/hook pattern
+- [x] **Upload/Commit feature**: PAT auth, unpacked upload of zip/7z/rar, staging cache (IndexedDB) kept until commit succeeds, auto-split large commits, Git LFS support
+  - `src/lib/github.ts`: added PAT token helpers + `ghRequest` raw fetcher
+  - `src/lib/extract.ts`: zip (JSZip) + 7z/rar (libarchive.js WASM) extraction
+  - `src/lib/github-write.ts`: commit splitting + LFS batch upload + `.gitattributes`
+  - `src/lib/staging.tsx` + `src/lib/staging-db.ts`: IndexedDB-backed cache + provider
+  - `src/components/UploadPanel.tsx` + `AddressBar` Upload button: UI
 
 ## Current Structure
 
@@ -38,6 +44,10 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 | `src/components/Tabs.tsx` | Draggable tab bar |
 | `src/components/FileView.tsx` | Folder grid + code/image viewer |
 | `src/components/icons.tsx` | Inline SVG icons (no icon dependency) |
+| `src/lib/extract.ts` | Archive extraction: zip (JSZip) + 7z/rar (libarchive.js) |
+| `src/lib/github-write.ts` | Commit engine: blob/tree/commit, auto-split, Git LFS |
+| `src/lib/staging.tsx` + `staging-db.ts` | IndexedDB staging cache persisted until commit succeeds |
+| `src/components/UploadPanel.tsx` | Upload modal UI (token, dropzone, staged list, options) |
 | `src/features/search/` | **Isolated feature module**: `github-search.ts` (API), `SearchPanel.tsx` (UI), `index.tsx` (`SearchProvider`/`useSearch`/`SearchButton`) |
 
 ## Key Decisions
@@ -61,3 +71,4 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | Initial | Next.js template created |
 | 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch) |
 | 2026-07-09 | Added GitHub Search feature module (repos / related / releases+APK) |
+| 2026-07-09 | Added Upload/Commit feature (archive unpack, staging cache, commit splitting, LFS) |

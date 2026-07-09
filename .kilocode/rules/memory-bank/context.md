@@ -20,6 +20,7 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 - [x] `FileView`: folder grid + breadcrumbs; code viewer with line numbers + lightweight syntax highlighting; image preview
 - [x] Home screen with feature hints + recent repos; title bar + status bar for desktop feel
 - [x] Relaxed 3 experimental react-hooks lint rules (set-state-in-effect, immutability, refs) — intentional patterns
+- [x] GitHub **Search** as isolated feature module (`src/features/search/`): repos, related-by-topic, releases & APK discovery; Cmd/Ctrl+K, modal panel, provider/hook pattern
 
 ## Current Structure
 
@@ -37,6 +38,7 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 | `src/components/Tabs.tsx` | Draggable tab bar |
 | `src/components/FileView.tsx` | Folder grid + code/image viewer |
 | `src/components/icons.tsx` | Inline SVG icons (no icon dependency) |
+| `src/features/search/` | **Isolated feature module**: `github-search.ts` (API), `SearchPanel.tsx` (UI), `index.tsx` (`SearchProvider`/`useSearch`/`SearchButton`) |
 
 ## Key Decisions
 
@@ -45,9 +47,17 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 - Desktop UX conventions: single-click selects, double-click opens, middle-click
   opens new tab, right-click / long-press → context menu, Ctrl/Shift multi-select.
 
+## Module Pattern (convention)
+
+New features live under `src/features/<name>/` as self-contained modules:
+own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
+`XButton` trigger. They communicate with core only via existing store callbacks
+(`openRepo`, etc.), so existing code is never modified by a new feature.
+
 ## Session History
 
 | Date | Changes |
 |------|---------|
 | Initial | Next.js template created |
 | 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch) |
+| 2026-07-09 | Added GitHub Search feature module (repos / related / releases+APK) |

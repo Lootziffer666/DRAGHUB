@@ -7,6 +7,7 @@ import { AddressBar } from "@/components/AddressBar";
 import { Explorer } from "@/components/Explorer";
 import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
+import { SearchButton, SearchProvider } from "@/features/search";
 import {
   GitBranch,
   GithubMark,
@@ -30,6 +31,9 @@ function Home() {
   return (
     <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-black p-6">
       <div className="w-full max-w-xl">
+        <div className="mb-4 flex justify-end">
+          <SearchButton />
+        </div>
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-900 ring-1 ring-neutral-800">
             <GithubMark width={34} height={34} />
@@ -156,7 +160,10 @@ function TitleBar() {
         <GithubMark width={15} height={15} />
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
-      <div className="ml-auto text-[11px] text-neutral-600">GitHub Browser</div>
+      <div className="ml-auto flex items-center gap-3">
+        <SearchButton />
+        <span className="text-[11px] text-neutral-600">GitHub Browser</span>
+      </div>
     </div>
   );
 }
@@ -188,9 +195,11 @@ export default function Page() {
   return (
     <StoreProvider>
       <UIProvider>
-        <div className="h-screen w-screen overflow-hidden">
-          <Workspace />
-        </div>
+        <SearchProvider>
+          <div className="h-screen w-screen overflow-hidden">
+            <Workspace />
+          </div>
+        </SearchProvider>
       </UIProvider>
     </StoreProvider>
   );

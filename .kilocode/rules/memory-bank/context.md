@@ -1,5 +1,12 @@
 # Active Context: GitHub Browser (desktop-style repo explorer)
 
+> **Roadmap:** See `/PLAN.md` at the repo root for the full execution plan —
+> extended GitHub Browser (Phase 1, milestones M1–M12), gamification seams
+> to keep open (Phase 2, spec only), and the separate GitHub-decoupling
+> tool "ANVIL Core" planned as `tools/anvil-core` in this same repo
+> (Phase 3, spec only). Update this file's "Recently Completed" section as
+> each milestone lands.
+
 ## Current State
 
 **Status**: ✅ GitHub Browser built and passing typecheck + lint + production build.

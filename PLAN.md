@@ -382,7 +382,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [x] M4 — LFS- & Großdatei-Lesebewusstsein
 - [x] M5 — Räumliches Layout / Grid-View
 - [x] M6 — Merge-Konfliktauflösung
-- [ ] M7 — Pull-Requests- & Issues-Modul
+- [x] M7 — Pull-Requests- & Issues-Modul
 - [ ] M8 — Multi-Repo-„Workspaces"-Refactor
 - [ ] M9 — Dock
 - [ ] M10 — Systemsteuerung (Security/Access/Branch-Rules)
@@ -442,3 +442,16 @@ UI mit Ours/Theirs/Both pro Konflikt-Hunk. Das Ergebnis landet als reguläres
 wie gefordert. Datei-vs-Ordner-Umbenennungskonflikte und Binärdatei-Konflikte
 werden nicht behandelt (nur Textdateien); Löschen-vs-Ändern-Konflikte bekommen
 eine vereinfachte Keep/Delete-Entscheidung statt einer Hunk-Ansicht.
+
+**Status M7 (umgesetzt 2026-07-15):** `src/features/pulls/` und `src/features/issues/`
+nach Modul-Konvention. `classifyPr()` (mit `bun test`-Suite) liefert
+`clean | conflict | failing | needs-review | spam-suspect`; „spam-suspect" ist
+bewusst simpel (Diffgröße vs. Beschreibungslänge, sobald das Detail nachgeladen
+ist; vorher ein schwächerer Titel-Heuristik-Fallback) — explizit ohne ML.
+Liste zeigt nur Badges (Diffgröße/Mergeability/Check-Status), keine
+Spawn-Animation. Aktionen (Merge/Close/Request-Review/Label) hängen vom
+Token-Scope ab; statt eines Scope-Test-Requests (das ist M10s Anforderung)
+wird der reale 403/422-Fehler der jeweiligen Aktion inline angezeigt. Details
+(mergeable-Status, Check-Runs) werden bewusst nur beim Aufklappen einer
+einzelnen PR nachgeladen, nicht für die ganze Liste — dieselbe
+Rate-Limit-Vorsicht wie bei M4s Vitalitäts-Badge.

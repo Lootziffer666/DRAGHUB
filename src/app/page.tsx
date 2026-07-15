@@ -11,6 +11,8 @@ import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
 import { ChangesButton, ChangesProvider } from "@/features/changes";
 import { MergeButton, MergeProvider } from "@/features/merge";
+import { PullsButton, PullsProvider } from "@/features/pulls";
+import { IssuesButton, IssuesProvider } from "@/features/issues";
 import {
   GitBranch,
   GithubMark,
@@ -164,6 +166,8 @@ function TitleBar() {
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <IssuesButton />
+        <PullsButton />
         <MergeButton />
         <ChangesButton />
         <SearchButton />
@@ -202,13 +206,17 @@ export default function Page() {
       <StagingProvider>
         <ChangesProvider>
           <MergeProvider>
-            <UIProvider>
-              <SearchProvider>
-                <div className="h-screen w-screen overflow-hidden">
-                  <Workspace />
-                </div>
-              </SearchProvider>
-            </UIProvider>
+            <PullsProvider>
+              <IssuesProvider>
+                <UIProvider>
+                  <SearchProvider>
+                    <div className="h-screen w-screen overflow-hidden">
+                      <Workspace />
+                    </div>
+                  </SearchProvider>
+                </UIProvider>
+              </IssuesProvider>
+            </PullsProvider>
           </MergeProvider>
         </ChangesProvider>
       </StagingProvider>

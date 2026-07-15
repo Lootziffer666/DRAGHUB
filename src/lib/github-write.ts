@@ -252,7 +252,7 @@ async function createTree(
   owner: string,
   repo: string,
   baseSha: string,
-  entries: Array<{ path: string; mode: string; type: string; sha: string }>
+  entries: Array<{ path: string; mode: string; type: string; sha: string | null }>
 ): Promise<string> {
   const res = await ghRequest(`/repos/${owner}/${repo}/git/trees`, {
     method: "POST",
@@ -499,6 +499,76 @@ function decodeBase64(b64: string): string {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+}
+
+export type TreeOpEntry =
+  | { path: string; op: "upsert"; data: Uint8Array }
+  | { path: string; op: "delete" }
+  | { path: string; op: "reuse"; sha: string; mode?: string };
+
+export type ChangesetCommitOptions = {
+  owner: string;
+  repo: string;
+  branch: string;
+  message: string;
+};
+
+/**
+ * Commit an arbitrary set of tree operations (upsert/delete/reuse-by-sha) as
+ * a single commit. This is the generalized "single, targeted tree mutation"
+ * primitive that Explorer CRUD (new/rename/delete/move) builds on — unlike
+ * commitFiles, entries can delete a path (sha: null) or re-point an existing
+ * blob sha to a new path without re-uploading its content.
+ */
+export async function commitChangeset(
+  entries: TreeOpEntry[],
+  opts: ChangesetCommitOptions
+): Promise<string> {
+  const { owner, repo, branch, message } = opts;
+  if (entries.length === 0) {
+    throw new Error("No changes to commit.");
+  }
+
+  const baseSha = await resolveBaseSha(owner, repo, branch);
+
+  const treeEntries: Array<{
+    path: string;
+    mode: "100644" | "100755";
+    type: "blob";
+    sha: string | null;
+  }> = [];
+
+  for (const entry of entries) {
+    if (entry.op === "delete") {
+      treeEntries.push({ path: entry.path, mode: "100644", type: "blob", sha: null });
+    } else if (entry.op === "reuse") {
+      treeEntries.push({
+        path: entry.path,
+        mode: entry.mode === "100755" ? "100755" : "100644",
+        type: "blob",
+        sha: entry.sha,
+      });
+    } else {
+      if (entry.data.byteLength > GITHUB_BLOB_LIMIT) {
+        throw new Error(
+          `File ${entry.path} is ${formatBytes(entry.data.byteLength)} which exceeds the ` +
+            `GitHub blob limit of 100 MB.`
+        );
+      }
+      const sha = await createBlob(owner, repo, entry.data);
+      treeEntries.push({
+        path: entry.path,
+        mode: isExecutable(entry.path) ? "100755" : "100644",
+        type: "blob",
+        sha,
+      });
+    }
+  }
+
+  const tree = await createTree(owner, repo, baseSha, treeEntries);
+  const commit = await createCommit(owner, repo, message, tree, baseSha);
+  await updateRef(owner, repo, branch, commit);
+  return commit;
 }
 
 export function formatBytes(bytes: number): string {

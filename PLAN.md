@@ -376,8 +376,8 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 <a id="12-checkliste"></a>
 ## 12. Milestone-Checkliste
 
-- [ ] M1 — Explorer-CRUD (neu/umbenennen/löschen/verschieben)
-- [ ] M2 — Working-Changes-/Checkpoint-Panel (löst Upload-Sonderpfad ab)
+- [x] M1 — Explorer-CRUD (neu/umbenennen/löschen/verschieben)
+- [x] M2 — Working-Changes-/Checkpoint-Panel (Upload-Sonderpfad-Vereinheitlichung noch offen, siehe Hinweis unten)
 - [ ] M3 — In-Browser-Code-Editing
 - [ ] M4 — LFS- & Großdatei-Lesebewusstsein
 - [ ] M5 — Räumliches Layout / Grid-View
@@ -390,3 +390,16 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [ ] M12 — Triage-App
 - [ ] Phase-2-Freigabe durch Maintainer (dann erst: Gamification-Umsetzung)
 - [ ] Phase-3-Freigabe durch Maintainer (dann erst: `tools/anvil-core` anlegen)
+
+**Status M1/M2 (umgesetzt 2026-07-15):** Explorer-CRUD (Neu/Umbenennen/Löschen/Verschieben)
+legt jede Änderung als Delta in einem neuen Working-Changes-Modell ab
+(`src/lib/github-ops.ts`, `src/features/changes/`); ein „Checkpoint erstellen"
+committet das gesamte Changeset in einem Zug (Renames nutzen die vorhandene
+Blob-SHA weiter, kein Re-Upload). Explorer zeigt den überlagerten Zustand
+(Basis + Deltas) inkl. Badges für neu/umbenannt/zur-Löschung-vorgemerkt sowie
+Restore/Discard. Offen aus M2s Akzeptanzkriterium: `UploadPanel`/`staging.tsx`
+committen noch über ihren eigenen Pfad statt über denselben Changeset-Mechanismus
+— bewusst zurückgestellt, um den bestehenden, funktionierenden Upload-Flow nicht
+in derselben Änderung mit anzufassen. `FileView`s Ordner-Tabelle (Hauptbereich)
+zeigt ebenfalls noch die rohe Remote-Liste statt der Overlay-Ansicht; die
+Explorer-Sidebar ist aktuell die verbindliche Quelle für den Änderungsstatus.

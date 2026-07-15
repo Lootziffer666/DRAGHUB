@@ -207,6 +207,38 @@ export async function fetchBranches(
   return data.map((b) => b.name);
 }
 
+export type TreeEntry = {
+  path: string;
+  mode: string;
+  type: "blob" | "tree" | "commit";
+  sha: string;
+  size?: number;
+};
+
+/**
+ * Full recursive listing of a ref's tree. Used for folder-level operations
+ * (rename/move/delete) where every blob under a prefix must be re-pathed or
+ * removed in a single commit. Throws if GitHub truncates the response
+ * (repos large enough to truncate need a paged approach this browser client
+ * does not implement yet) so callers never silently operate on a partial
+ * tree.
+ */
+export async function fetchTreeRecursive(
+  owner: string,
+  repo: string,
+  ref: string
+): Promise<TreeEntry[]> {
+  const data = await ghFetch<{ tree: TreeEntry[]; truncated: boolean }>(
+    `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`
+  );
+  if (data.truncated) {
+    throw new Error(
+      "Repository tree is too large to list in one request; folder rename/delete is not safe here."
+    );
+  }
+  return data.tree;
+}
+
 export function githubRawUrl(
   owner: string,
   repo: string,

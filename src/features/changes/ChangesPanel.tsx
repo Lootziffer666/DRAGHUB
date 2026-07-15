@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { useChanges } from "./changes";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
@@ -29,8 +29,9 @@ function kindLabel(kind: ChangeKind): string {
 
 export function ChangesPanel({ onClose }: { onClose: () => void }) {
   const { state } = useStore();
+  const repo = useActiveRepo();
   const changes = useChanges();
-  const meta = state.meta;
+  const meta = repo?.meta ?? null;
 
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);

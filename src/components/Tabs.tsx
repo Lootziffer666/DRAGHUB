@@ -1,17 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useStore, type Tab } from "@/lib/store";
+import { useActiveRepo, useStore, type Tab } from "@/lib/store";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
 import { FileIcon, Folder, Grip, X } from "./icons";
 
 export function Tabs() {
-  const { state, setActiveTab, closeTab, moveTab, openInNewTab } = useStore();
+  const { setActiveTab, closeTab, moveTab, openInNewTab } = useStore();
+  const repo = useActiveRepo();
   const dragIndex = useRef<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
 
-  if (state.tabs.length === 0) return null;
+  if (!repo || repo.tabs.length === 0) return null;
 
   return (
     <div
@@ -43,12 +44,12 @@ export function Tabs() {
         }
       }}
     >
-      {state.tabs.map((tab, i) => (
+      {repo.tabs.map((tab, i) => (
         <TabButton
           key={tab.id}
           tab={tab}
           index={i}
-          active={tab.id === state.activeTabId}
+          active={tab.id === repo.activeTabId}
           isOver={overIndex === i}
           onActivate={() => setActiveTab(tab.id)}
           onClose={(e) => {

@@ -5,21 +5,33 @@ import { useStore } from "@/lib/store";
 import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
+import { useChanges } from "@/features/changes";
+import {
+  overlayDirEntries,
+  readPathFor,
+  type OverlayEntry,
+} from "@/features/changes/overlay";
+import { promptNewName, promptRename, nameCollides } from "@/features/changes/actions";
+import { joinPath, parentOfPath, baseNameOfPath } from "@/lib/github-ops";
 import {
   ChevronDown,
   ChevronRight,
   Copy,
   Download,
+  Edit,
   ExternalLink,
   FileIcon,
+  FilePlus,
   FileImage,
   FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
   Refresh,
   Spinner,
+  Trash,
+  Undo,
 } from "./icons";
-import type { GithubEntry } from "@/lib/github";
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -31,57 +43,194 @@ function fileIcon(name: string) {
 }
 
 export function Explorer() {
-  const { state, toggleExpand, ensureDir, openPath, openInNewTab, setSelection } =
-    useStore();
+  const {
+    state,
+    toggleExpand,
+    ensureDir,
+    invalidateDir,
+    openPath,
+    openInNewTab,
+    setSelection,
+  } = useStore();
+  const { changes, stageAddFile, stageAddFolder, stageDelete, stageRename, discardChange } =
+    useChanges();
   const { openMenu } = useUI();
   const anchor = useRef<string | null>(null);
 
   if (!state.meta) return null;
 
   const meta = state.meta;
-  const rootEntries = state.treeCache[""] ?? [];
+  const rootRaw = state.treeCache[""] ?? [];
   const rootState = state.treeState[""] ?? "loading";
+  const rootEntries = overlayDirEntries("", rootRaw, changes);
 
   function copy(text: string) {
     navigator.clipboard?.writeText(text).catch(() => {});
   }
 
-  function nodeMenuItems(node: GithubEntry): MenuItem[] {
-    const fullPath = node.path;
-    const ghUrl = `${meta.htmlUrl}/${node.type === "dir" ? "tree" : "blob"}/${meta.branch}/${fullPath}`;
-    const items: MenuItem[] = [
-      {
-        id: "open",
-        label: "Open",
-        shortcut: "↵",
-        onClick: () => openPath(fullPath, node.type),
-      },
-      {
-        id: "open-new",
-        label: "Open in New Tab",
-        shortcut: "⌘/Ctrl+↵",
-        onClick: () => openInNewTab(fullPath, node.type),
-      },
-    ];
-    if (node.type === "dir") {
+  function overlayFor(dirPath: string): OverlayEntry[] {
+    return overlayDirEntries(dirPath, state.treeCache[dirPath] ?? [], changes);
+  }
+
+  async function createFile(dirPath: string) {
+    const name = promptNewName("file");
+    if (!name) return;
+    if (nameCollides(overlayFor(dirPath), name)) {
+      window.alert(`"${name}" already exists in this folder.`);
+      return;
+    }
+    await stageAddFile(joinPath(dirPath, name), new Uint8Array(0));
+  }
+
+  function createFolder(dirPath: string) {
+    const name = promptNewName("folder");
+    if (!name) return;
+    if (nameCollides(overlayFor(dirPath), name)) {
+      window.alert(`"${name}" already exists in this folder.`);
+      return;
+    }
+    stageAddFolder(joinPath(dirPath, name));
+  }
+
+  function renameEntry(node: OverlayEntry) {
+    const newName = promptRename(node.name);
+    if (!newName) return;
+    const dir = parentOfPath(node.path);
+    if (nameCollides(overlayFor(dir).filter((e) => e.path !== node.path), newName)) {
+      window.alert(`"${newName}" already exists in this folder.`);
+      return;
+    }
+    stageRename(node.path, joinPath(dir, newName), node.type);
+  }
+
+  function deleteEntry(node: OverlayEntry) {
+    const label = node.type === "dir" ? "folder" : "file";
+    if (
+      !window.confirm(
+        `Delete ${label} "${node.path}"? This is staged until you create a checkpoint.`
+      )
+    )
+      return;
+    stageDelete(node.path, node.type);
+  }
+
+  function restoreEntry(node: OverlayEntry) {
+    if (node.changeId) discardChange(node.changeId);
+  }
+
+  function moveInto(payload: GhNodeDrag, targetDir: string) {
+    if (payload.path === targetDir) return;
+    if (targetDir.startsWith(`${payload.path}/`)) {
+      window.alert("Can't move a folder into itself.");
+      return;
+    }
+    const name = baseNameOfPath(payload.path);
+    const newPath = joinPath(targetDir, name);
+    if (newPath === payload.path) return;
+    if (nameCollides(overlayFor(targetDir), name)) {
+      window.alert(`"${name}" already exists in the target folder.`);
+      return;
+    }
+    stageRename(payload.path, newPath, payload.kind);
+  }
+
+  function nodeMenuItems(
+    node: OverlayEntry,
+    descendantOfRename: boolean
+  ): MenuItem[] {
+    const readTarget = readPathFor(node, changes);
+    const ghUrl = `${meta.htmlUrl}/${node.type === "dir" ? "tree" : "blob"}/${meta.branch}/${node.path}`;
+    const isPendingNewFile = node.status === "added" && node.type === "file";
+    const items: MenuItem[] = [];
+
+    if (!isPendingNewFile) {
+      items.push(
+        { id: "open", label: "Open", shortcut: "↵", onClick: () => openPath(readTarget, node.type) },
+        {
+          id: "open-new",
+          label: "Open in New Tab",
+          shortcut: "⌘/Ctrl+↵",
+          onClick: () => openInNewTab(readTarget, node.type),
+        }
+      );
+    } else {
       items.push({
-        id: "refresh",
-        label: "Refresh",
-        icon: <Refresh width={15} height={15} />,
-        separatorBefore: true,
-        onClick: () => {
-          if (state.treeCache[fullPath]) deleteCached(fullPath);
-          toggleExpand(fullPath, true);
-        },
+        id: "note",
+        label: "New file — viewable after checkpoint",
+        disabled: true,
       });
     }
+
+    if (node.type === "dir") {
+      items.push(
+        {
+          id: "refresh",
+          label: "Refresh",
+          icon: <Refresh width={15} height={15} />,
+          separatorBefore: true,
+          onClick: () => {
+            invalidateDir(readTarget);
+            toggleExpand(readTarget, true);
+          },
+        },
+        {
+          id: "new-file",
+          label: "New File",
+          icon: <FilePlus width={15} height={15} />,
+          separatorBefore: true,
+          onClick: () => void createFile(node.path),
+        },
+        {
+          id: "new-folder",
+          label: "New Folder",
+          icon: <FolderPlus width={15} height={15} />,
+          onClick: () => createFolder(node.path),
+        }
+      );
+    }
+
+    if (node.status === "pending-delete") {
+      items.push({
+        id: "restore",
+        label: "Restore",
+        icon: <Undo width={15} height={15} />,
+        separatorBefore: true,
+        onClick: () => restoreEntry(node),
+      });
+    } else if (!(descendantOfRename && node.status === "unchanged")) {
+      items.push({
+        id: "rename",
+        label: "Rename",
+        icon: <Edit width={15} height={15} />,
+        separatorBefore: true,
+        onClick: () => renameEntry(node),
+      });
+      if (node.status === "added" || node.status === "renamed-in") {
+        items.push({
+          id: "discard",
+          label: "Discard",
+          icon: <Undo width={15} height={15} />,
+          danger: true,
+          onClick: () => restoreEntry(node),
+        });
+      } else {
+        items.push({
+          id: "delete",
+          label: "Delete",
+          icon: <Trash width={15} height={15} />,
+          danger: true,
+          onClick: () => deleteEntry(node),
+        });
+      }
+    }
+
     items.push(
       {
         id: "copy-path",
         label: "Copy path",
         icon: <Copy width={15} height={15} />,
         separatorBefore: true,
-        onClick: () => copy(fullPath),
+        onClick: () => copy(node.path),
       },
       {
         id: "gh",
@@ -90,14 +239,14 @@ export function Explorer() {
         onClick: () => window.open(ghUrl, "_blank", "noreferrer"),
       }
     );
-    if (node.type === "file") {
+    if (node.type === "file" && !isPendingNewFile) {
       items.push({
         id: "download",
         label: "Download",
         icon: <Download width={15} height={15} />,
         onClick: () =>
           window.open(
-            `https://raw.githubusercontent.com/${meta.owner}/${meta.repo}/${meta.branch}/${fullPath}`,
+            `https://raw.githubusercontent.com/${meta.owner}/${meta.repo}/${meta.branch}/${node.path}`,
             "_blank",
             "noreferrer"
           ),
@@ -106,9 +255,21 @@ export function Explorer() {
     return items;
   }
 
-  function deleteCached(path: string) {
-    // mutation is fine: reducer will overwrite on next load
-    delete state.treeCache[path];
+  function rootMenuItems(): MenuItem[] {
+    return [
+      {
+        id: "new-file",
+        label: "New File",
+        icon: <FilePlus width={15} height={15} />,
+        onClick: () => void createFile(""),
+      },
+      {
+        id: "new-folder",
+        label: "New Folder",
+        icon: <FolderPlus width={15} height={15} />,
+        onClick: () => createFolder(""),
+      },
+    ];
   }
 
   function multiMenuItems(): MenuItem[] {
@@ -135,8 +296,8 @@ export function Explorer() {
 
   function onContextMenu(
     e: React.MouseEvent,
-    node: GithubEntry,
-    siblings: GithubEntry[]
+    node: OverlayEntry,
+    descendantOfRename: boolean
   ) {
     e.preventDefault();
     e.stopPropagation();
@@ -147,13 +308,13 @@ export function Explorer() {
     if (state.selection.length > 1) {
       openMenu(e.clientX, e.clientY, multiMenuItems());
     } else {
-      openMenu(e.clientX, e.clientY, nodeMenuItems(node));
+      openMenu(e.clientX, e.clientY, nodeMenuItems(node, descendantOfRename));
     }
   }
 
   function selectNode(
-    node: GithubEntry,
-    siblings: GithubEntry[],
+    node: OverlayEntry,
+    siblings: OverlayEntry[],
     mod: "none" | "ctrl" | "shift"
   ) {
     if (mod === "ctrl") {
@@ -183,19 +344,55 @@ export function Explorer() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Explorer
         </span>
-        <button
-          onClick={() => {
-            if (state.treeCache[""]) deleteCached("");
-            void ensureDir("");
-          }}
-          title="Refresh root"
-          className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-        >
-          <Refresh width={14} height={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => void createFile("")}
+            title="New file at root"
+            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+          >
+            <FilePlus width={14} height={14} />
+          </button>
+          <button
+            onClick={() => createFolder("")}
+            title="New folder at root"
+            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+          >
+            <FolderPlus width={14} height={14} />
+          </button>
+          <button
+            onClick={() => {
+              invalidateDir("");
+              void ensureDir("");
+            }}
+            title="Refresh root"
+            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+          >
+            <Refresh width={14} height={14} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-auto py-1 text-[13px]">
+      <div
+        className="flex-1 overflow-auto py-1 text-[13px]"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openMenu(e.clientX, e.clientY, rootMenuItems());
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes(GH_NODE_MIME)) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes(GH_NODE_MIME)) return;
+          e.preventDefault();
+          const raw = e.dataTransfer.getData(GH_NODE_MIME);
+          if (!raw) return;
+          try {
+            moveInto(JSON.parse(raw) as GhNodeDrag, "");
+          } catch {
+            /* ignore malformed payload */
+          }
+        }}
+      >
         {rootState === "loading" && rootEntries.length === 0 && (
           <div className="flex items-center gap-2 px-3 py-2 text-neutral-500">
             <Spinner width={14} height={14} className="text-blue-400" />
@@ -211,15 +408,18 @@ export function Explorer() {
             node={node}
             depth={0}
             siblings={rootEntries}
+            descendantOfRename={false}
             onOpenPath={openPath}
             onOpenNew={openInNewTab}
             onToggle={toggleExpand}
             onContextMenu={onContextMenu}
             onSelect={selectNode}
-            getEntries={(p) => state.treeCache[p] ?? []}
+            onMoveInto={moveInto}
+            getRawEntries={(p) => state.treeCache[p] ?? []}
             getState={(p) => state.treeState[p] ?? "loading"}
             isExpanded={(p) => !!state.expanded[p]}
             isSelected={(p) => state.selection.includes(p)}
+            changes={changes}
             activePath={
               state.tabs.find((t) => t.id === state.activeTabId)?.path ?? ""
             }
@@ -230,54 +430,65 @@ export function Explorer() {
   );
 }
 
-  function TreeNode({
+function TreeNode({
   node,
   depth,
   siblings,
+  descendantOfRename,
   onOpenPath,
   onOpenNew,
   onToggle,
   onContextMenu,
   onSelect,
-  getEntries,
+  onMoveInto,
+  getRawEntries,
   getState,
   isExpanded,
   isSelected,
+  changes,
   activePath,
 }: {
-  node: GithubEntry;
+  node: OverlayEntry;
   depth: number;
-  siblings: GithubEntry[];
+  siblings: OverlayEntry[];
+  descendantOfRename: boolean;
   onOpenPath: (p: string, k: "file" | "dir") => void;
   onOpenNew: (p: string, k: "file" | "dir") => void;
   onToggle: (p: string, v?: boolean) => void;
   onContextMenu: (
     e: React.MouseEvent,
-    node: GithubEntry,
-    siblings: GithubEntry[]
+    node: OverlayEntry,
+    descendantOfRename: boolean
   ) => void;
   onSelect: (
-    node: GithubEntry,
-    siblings: GithubEntry[],
+    node: OverlayEntry,
+    siblings: OverlayEntry[],
     mod: "none" | "ctrl" | "shift"
   ) => void;
-  getEntries: (p: string) => GithubEntry[];
+  onMoveInto: (payload: GhNodeDrag, targetDir: string) => void;
+  getRawEntries: (p: string) => import("@/lib/github").GithubEntry[];
   getState: (p: string) => string;
   isExpanded: (p: string) => boolean;
   isSelected: (p: string) => boolean;
+  changes: ReturnType<typeof useChanges>["changes"];
   activePath: string;
 }) {
-  const expanded = node.type === "dir" && isExpanded(node.path);
+  const readPath = readPathFor(node, changes);
+  const expanded = node.type === "dir" && isExpanded(readPath);
   const selected = isSelected(node.path);
-  const active = node.path === activePath;
-  const children = getEntries(node.path);
-  const childState = getState(node.path);
+  const active = node.path === activePath || readPath === activePath;
+  const rawChildren = getRawEntries(readPath);
+  const children = overlayDirEntries(node.path, rawChildren, changes);
+  const childState = getState(readPath);
+  const draggable = !(descendantOfRename && node.status === "unchanged");
+  const canDrop = node.type === "dir";
 
   const longPress = useRef<number | null>(null);
   const longFired = useRef(false);
   const startPos = useRef<{ x: number; y: number } | null>(null);
+  const dragOver = useRef(false);
 
-  function startLongPress(e: React.PointerEvent, node: GithubEntry) {
+  function startLongPress(e: React.PointerEvent) {
     longFired.current = false;
     startPos.current = { x: e.clientX, y: e.clientY };
     longPress.current = window.setTimeout(() => {
@@ -303,16 +514,54 @@ export function Explorer() {
     return "none";
   }
 
+  const statusBadge =
+    node.status === "added" ? (
+      <span className="ml-1 shrink-0 rounded bg-emerald-500/20 px-1 text-[10px] font-medium text-emerald-400">
+        new
+      </span>
+    ) : node.status === "renamed-in" ? (
+      <span className="ml-1 shrink-0 rounded bg-blue-500/20 px-1 text-[10px] font-medium text-blue-400">
+        renamed
+      </span>
+    ) : node.status === "pending-delete" ? (
+      <span className="ml-1 shrink-0 rounded bg-red-500/20 px-1 text-[10px] font-medium text-red-400">
+        deleting
+      </span>
+    ) : null;
+
   return (
     <div>
       <div
-        draggable
+        draggable={draggable}
         onDragStart={(e) => {
+          if (!draggable) {
+            e.preventDefault();
+            return;
+          }
           const payload: GhNodeDrag = { path: node.path, kind: node.type };
-          e.dataTransfer.effectAllowed = "copyLink";
+          e.dataTransfer.effectAllowed = "move";
           e.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload));
           e.dataTransfer.setData("text/plain", node.path);
           if (!selected) onSelect(node, siblings, "none");
+        }}
+        onDragOver={(e) => {
+          if (canDrop && e.dataTransfer.types.includes(GH_NODE_MIME)) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            dragOver.current = true;
+          }
+        }}
+        onDrop={(e) => {
+          if (!canDrop || !e.dataTransfer.types.includes(GH_NODE_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const raw = e.dataTransfer.getData(GH_NODE_MIME);
+          if (!raw) return;
+          try {
+            onMoveInto(JSON.parse(raw) as GhNodeDrag, node.path);
+          } catch {
+            /* ignore malformed payload */
+          }
         }}
         onClick={(e) => {
           if (longFired.current) {
@@ -321,16 +570,20 @@ export function Explorer() {
           }
           onSelect(node, siblings, modifiers(e));
         }}
-        onDoubleClick={() => onOpenPath(node.path, node.type)}
+        onDoubleClick={() => {
+          if (node.status === "added" && node.type === "file") return;
+          onOpenPath(readPath, node.type);
+        }}
         onAuxClick={(e) => {
           if (e.button === 1) {
             e.preventDefault();
-            onOpenNew(node.path, node.type);
+            if (node.status === "added" && node.type === "file") return;
+            onOpenNew(readPath, node.type);
           }
         }}
-        onContextMenu={(e) => onContextMenu(e, node, siblings)}
+        onContextMenu={(e) => onContextMenu(e, node, descendantOfRename)}
         onPointerDown={(e) => {
-          if (e.pointerType === "touch") startLongPress(e, node);
+          if (e.pointerType === "touch") startLongPress(e);
         }}
         onPointerMove={(e) => {
           if (startPos.current) {
@@ -345,6 +598,7 @@ export function Explorer() {
           "group flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-neutral-300 hover:bg-neutral-800/60",
           selected ? "bg-blue-600/20" : "",
           active ? "bg-neutral-800" : "",
+          node.status === "pending-delete" ? "opacity-50 line-through" : "",
         ].join(" ")}
         style={{ paddingLeft: 8 + depth * 14 }}
       >
@@ -352,7 +606,7 @@ export function Explorer() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onToggle(node.path);
+              onToggle(readPath);
             }}
             onDoubleClick={(e) => e.stopPropagation()}
             className="flex h-4 w-4 shrink-0 items-center justify-center text-neutral-500 hover:text-neutral-200"
@@ -386,6 +640,7 @@ export function Explorer() {
         >
           {node.name}
         </span>
+        {statusBadge}
 
         {node.type === "dir" && expanded && childState === "loading" && (
           <Spinner width={12} height={12} className="ml-auto text-blue-400" />
@@ -417,15 +672,18 @@ export function Explorer() {
               node={child}
               depth={depth + 1}
               siblings={children}
+              descendantOfRename={descendantOfRename || node.status === "renamed-in"}
               onOpenPath={onOpenPath}
               onOpenNew={onOpenNew}
               onToggle={onToggle}
               onContextMenu={onContextMenu}
               onSelect={onSelect}
-              getEntries={getEntries}
+              onMoveInto={onMoveInto}
+              getRawEntries={getRawEntries}
               getState={getState}
               isExpanded={isExpanded}
               isSelected={isSelected}
+              changes={changes}
               activePath={activePath}
             />
           ))}

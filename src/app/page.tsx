@@ -9,6 +9,7 @@ import { Explorer } from "@/components/Explorer";
 import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
+import { ChangesButton, ChangesProvider } from "@/features/changes";
 import {
   GitBranch,
   GithubMark,
@@ -162,6 +163,7 @@ function TitleBar() {
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <ChangesButton />
         <SearchButton />
         <span className="text-[11px] text-neutral-600">GitHub Browser</span>
       </div>
@@ -196,13 +198,15 @@ export default function Page() {
   return (
     <StoreProvider>
       <StagingProvider>
-        <UIProvider>
-          <SearchProvider>
-            <div className="h-screen w-screen overflow-hidden">
-              <Workspace />
-            </div>
-          </SearchProvider>
-        </UIProvider>
+        <ChangesProvider>
+          <UIProvider>
+            <SearchProvider>
+              <div className="h-screen w-screen overflow-hidden">
+                <Workspace />
+              </div>
+            </SearchProvider>
+          </UIProvider>
+        </ChangesProvider>
       </StagingProvider>
     </StoreProvider>
   );

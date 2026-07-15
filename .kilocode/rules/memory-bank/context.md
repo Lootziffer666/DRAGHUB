@@ -34,6 +34,16 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
   - `src/lib/github-write.ts`: commit splitting + LFS batch upload + `.gitattributes`
   - `src/lib/staging.tsx` + `src/lib/staging-db.ts`: IndexedDB-backed cache + provider
   - `src/components/UploadPanel.tsx` + `AddressBar` Upload button: UI
+- [x] **PLAN.md M1 — Explorer CRUD** + **M2 — Working-Changes/Checkpoint panel** (built together per plan, since M1's ops are meant to land in M2's changeset rather than commit immediately):
+  - `src/lib/github-ops.ts`: `WorkingChange` model (add/delete/rename, file/dir), `commitWorkingChanges()` resolves a changeset into git tree ops — renames/moves reuse the existing blob sha (no re-upload), folder rename/delete recursively re-paths every blob under the prefix via a full tree listing
+  - `src/lib/github-write.ts`: added `commitChangeset()` + `TreeOpEntry` (upsert/delete/reuse-by-sha) as the generalized single-commit primitive; `createTree` now accepts `sha: null` for deletions
+  - `src/lib/github.ts`: added `fetchTreeRecursive()` (recursive git tree read, throws on GitHub's `truncated` flag rather than operating on a partial listing)
+  - `src/lib/events.ts`: minimal typed pub/sub (`checkpoint.created`, `change.staged`, …) — the Phase-2/3 seam from PLAN.md §5
+  - `src/features/changes/` (module): `changes.tsx` (`ChangesProvider`/`useChanges`, persists pending changes to localStorage + IndexedDB like the existing staging cache; dedups rename-of-a-pending-add and rename-of-a-pending-rename into a single change), `overlay.ts` (merges a directory's base entries with pending deltas for display — added/renamed-in/pending-delete statuses), `actions.ts` (name-prompt/collision helpers), `ChangesPanel.tsx` + `index.tsx` (`ChangesButton`, badge count, "Create checkpoint")
+  - `src/components/Explorer.tsx`: rewritten on top of the overlay — New File/New Folder (context menu + root toolbar), Rename, Delete (with confirm), Restore/Discard, drag a node onto a folder row to move it. A brand-new folder is seeded into the store's tree cache directly (no network 404) via `seedDir`. A renamed-in-pending folder is still fully browsable pre-checkpoint by transparently reading through its untouched original path (`readPathFor`); further Rename/Delete of *existing* entries reached that way is disabled (would double-process against the pending move) while creating new files/folders inside it stays safe and enabled
+  - `src/lib/store.tsx`: added `seedDir`/`invalidateDir` + `DIR_INVALIDATE` action
+  - **Bug fixed along the way**: `ContextMenu.tsx` silently dropped any menu item marked `separatorBefore` — it rendered *only* the divider and never the item's own button, which had already been swallowing "Refresh"/"Copy path" before this session and would have swallowed "Rename"/"New File" too. Fixed to render the divider and the item.
+  - **Known gaps for a later pass**: `FileView`'s folder table (main pane) still shows the raw remote listing, not the overlay (Explorer sidebar is the source of truth); `UploadPanel`/`staging.tsx` still commits through its own path rather than the new changeset (M2's stated acceptance criterion — deferred, not done); no in-browser editor yet (M3) so new files are always created empty.
 
 ## Current Structure
 
@@ -56,6 +66,9 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 | `src/lib/staging.tsx` + `staging-db.ts` | IndexedDB staging cache persisted until commit succeeds |
 | `src/components/UploadPanel.tsx` | Upload modal UI (token, dropzone, staged list, options) |
 | `src/features/search/` | **Isolated feature module**: `github-search.ts` (API), `SearchPanel.tsx` (UI), `index.tsx` (`SearchProvider`/`useSearch`/`SearchButton`) |
+| `src/lib/github-ops.ts` | `WorkingChange` model + `commitWorkingChanges()` (changeset → single commit) |
+| `src/lib/events.ts` | Minimal domain event bus (Phase-2/3 seam) |
+| `src/features/changes/` | **Feature module** (M1/M2): `changes.tsx`, `overlay.ts`, `actions.ts`, `ChangesPanel.tsx`, `index.tsx` (`ChangesProvider`/`useChanges`/`ChangesButton`) |
 
 ## Key Decisions
 
@@ -79,3 +92,4 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch) |
 | 2026-07-09 | Added GitHub Search feature module (repos / related / releases+APK) |
 | 2026-07-09 | Added Upload/Commit feature (archive unpack, staging cache, commit splitting, LFS) |
+| 2026-07-15 | PLAN.md M1+M2: Explorer CRUD (new/rename/delete/move) staged as a changeset, Working-Changes/Checkpoint panel, single-commit changeset primitive with blob-sha reuse for renames; fixed a `ContextMenu` bug that silently dropped items marked `separatorBefore` |

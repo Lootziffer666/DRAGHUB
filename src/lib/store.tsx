@@ -59,6 +59,7 @@ type Action =
   | { type: "DIR_LOADING"; path: string }
   | { type: "DIR_LOADED"; path: string; entries: GithubEntry[] }
   | { type: "DIR_ERROR"; path: string }
+  | { type: "DIR_INVALIDATE"; path: string }
   | { type: "DIR_ATTACH"; id: string; entries: GithubEntry[] }
   | { type: "FILE_LOADING"; id: string }
   | {
@@ -224,6 +225,13 @@ function reducer(state: State, action: Action): State {
         ...state,
         treeState: { ...state.treeState, [action.path]: "error" },
       };
+    case "DIR_INVALIDATE": {
+      const treeCache = { ...state.treeCache };
+      const treeState = { ...state.treeState };
+      delete treeCache[action.path];
+      delete treeState[action.path];
+      return { ...state, treeCache, treeState };
+    }
     case "DIR_ATTACH":
       return {
         ...state,
@@ -309,6 +317,11 @@ type StoreContextValue = {
   loadFolderTab: (id: string, path: string) => Promise<void>;
   toggleExpand: (path: string, value?: boolean) => void;
   setSelection: (paths: string[]) => void;
+  /** Seed a directory's entries locally without a network fetch (used for
+   * pending-new folders that don't exist on GitHub yet). */
+  seedDir: (path: string, entries: GithubEntry[]) => void;
+  /** Drop cached entries for a path so the next ensureDir re-fetches it. */
+  invalidateDir: (path: string) => void;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -534,6 +547,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_SELECTION", paths });
   }, []);
 
+  const seedDir = useCallback((path: string, entries: GithubEntry[]) => {
+    dispatch({ type: "DIR_LOADED", path, entries });
+  }, []);
+
+  const invalidateDir = useCallback((path: string) => {
+    dispatch({ type: "DIR_INVALIDATE", path });
+  }, []);
+
   const value = useMemo<StoreContextValue>(
     () => ({
       state,
@@ -550,6 +571,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadFolderTab,
       toggleExpand,
       setSelection,
+      seedDir,
+      invalidateDir,
     }),
     [
       state,
@@ -566,6 +589,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadFolderTab,
       toggleExpand,
       setSelection,
+      seedDir,
+      invalidateDir,
     ]
   );
 

@@ -1,6 +1,7 @@
 # DRAGHUB — Rubber-Band Workspace, Grouped Windows and Media Viewer
 
 **Status:** Build-ready UI and interaction contract  
+**Binding precedence:** This document is the latest and controlling UI specification wherever earlier desktop-shell documents imply that repository-specific GitHub feature applications replace the file workspace or appear as fourteen desktop icons per repository.  
 **Supplements:** `DRAGHUB_BUILD_SPEC.md`, `MULTI_REPO_WINDOW_DOCK_SPEC.md`, `GITHUB_DESKTOP_SHELL_SPEC.md`  
 **Primary correction:** the repository window is always a file workspace; GitHub feature applications and contextual tools attach to that window as a flexible Rubber Band instead of replacing the workspace
 

@@ -385,7 +385,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [x] M7 — Pull-Requests- & Issues-Modul
 - [ ] M8 — Multi-Repo-„Workspaces"-Refactor
 - [ ] M9 — Dock
-- [ ] M10 — Systemsteuerung (Security/Access/Branch-Rules)
+- [x] M10 — Systemsteuerung (Security/Access/Branch-Rules)
 - [ ] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
 - [x] M12 — Triage-App
 - [ ] Phase-2-Freigabe durch Maintainer (dann erst: Gamification-Umsetzung)
@@ -474,3 +474,22 @@ Bulk-Aktionen (Schließen ± Branch-Löschung, Label, Review anfragen). Jede
 Bulk-Aktion zeigt vor Ausführung eine Zusammenfassung („N PRs werden
 geschlossen, N Branches gelöscht") mit Confirm/Cancel — exakt das
 Akzeptanzkriterium aus dem Plan.
+
+**Status M10 (umgesetzt 2026-07-15):** `src/features/control-panel/` mit drei
+Applets (Security/Access/Branch-Rules), jedes ein eigenes Feature-Modul.
+Scope-Erkennung ausschließlich per echtem Test-Request (403 → „Disabled –
+Token fehlt Scope X", 404 → „nicht verfügbar/nicht aktiviert"), nie durch
+Parsen des Tokens — jedes Applet bleibt sichtbar und zeigt den konkreten
+Grund, kein stiller Ausfall. Access-Applet generiert `.github/CODEOWNERS` aus
+ausgewählten Collaboratoren und staged die Datei über den bestehenden M1/M2-
+Changeset-Mechanismus (kein Sonder-API-Write). Branch-Rules ist bewusst
+read-only (Zusammenfassung der aktuellen Schutzregeln + Link, kein Editor) —
+ein Teil-Editor für so viele voneinander abhängige Felder wäre riskanter als
+nützlich für ein v1. **Bug beim Bauen gefunden und behoben:** Die
+„Collaborators"-Sektion hing zunächst an einer generischen Lazy-Load-
+Komponente, die ihre Promise per `useEffect` mit leeren Dependencies nur
+einmal auflöste — das fing den Zustand vor Abschluss des echten Fetches ein
+und zeigte dauerhaft „None found" trotz korrekt geladener Daten (sichtbar an
+der KORREKT befüllten CODEOWNERS-Checkbox-Liste direkt darunter). Behoben,
+indem die Collaborators-Anzeige direkt aus dem schon vorhandenen State der
+Elternkomponente rendert statt über die wiederverwendbare Lazy-Load-Hülle.

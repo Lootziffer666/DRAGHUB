@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveRepo, useStore } from "@/lib/store";
 import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
@@ -18,6 +18,9 @@ import {
   Spinner,
 } from "./icons";
 import { formatBytes, type GithubEntry } from "@/lib/github";
+import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
+import { parseConflictHunks } from "@/lib/merge";
+import { useChanges } from "@/features/changes";
 import { tokenizeLines } from "@/lib/highlight";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
@@ -51,6 +54,7 @@ export function FileView() {
     setActiveTab,
     loadFolderTab,
     ensureDir,
+    setViewMode,
   } = useStore();
   const repo = useActiveRepo();
   const { openMenu } = useUI();
@@ -221,6 +225,8 @@ export function FileView() {
           modifiers={modifiers}
           selection={activeRepo.selection}
           meta={meta}
+          viewMode={activeRepo.viewMode}
+          onViewMode={setViewMode}
         />
       ) : (
         <FileContentView
@@ -256,6 +262,8 @@ function FolderView({
   modifiers,
   selection,
   meta,
+  viewMode,
+  onViewMode,
 }: {
   tab: { path: string; entries?: GithubEntry[]; entriesState: string };
   onOpenPath: (p: string, k: "file" | "dir") => void;
@@ -268,7 +276,9 @@ function FolderView({
   onContextMenu: (e: React.MouseEvent, n: GithubEntry) => void;
   modifiers: (e: React.MouseEvent) => "none" | "ctrl" | "shift";
   selection: string[];
-  meta: { owner: string; repo: string; branch: string };
+  meta: { owner: string; repo: string; branch: string; fullName?: string };
+  viewMode: "list" | "grid" | "city";
+  onViewMode: (mode: "list" | "grid" | "city") => void;
 }) {
   const entries = tab.entries ?? [];
   const lpTimer = useRef<number | null>(null);
@@ -307,8 +317,25 @@ function FolderView({
     return <div className="p-4 text-red-400">Failed to load folder.</div>;
   }
 
+  if (viewMode === "grid") {
+    return (
+      <div className="flex-1 overflow-auto p-3">
+        <div className="mb-3 flex justify-end gap-1 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-blue-600 px-2 py-1 text-white">Grid</button></div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
+          {entries.map((e) => { const selected = selection.includes(e.path); return (
+            <button key={e.path} draggable onDragStart={(ev) => { const payload: GhNodeDrag = { path: e.path, kind: e.type }; ev.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload)); }} onClick={(ev) => onSelect(e, entries, modifiers(ev))} onDoubleClick={() => onOpenPath(e.path, e.type)} onContextMenu={(ev) => onContextMenu(ev, e)} className={["flex h-28 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center hover:bg-neutral-800", selected ? "border-blue-500 bg-blue-600/20" : "border-neutral-800 bg-neutral-900"].join(" ")}>
+              {e.type === "dir" ? <FolderOpen width={28} height={28} className="text-amber-400" /> : fileIcon(e.name)}
+              <span className="line-clamp-2 text-xs text-neutral-200">{e.name}</span>
+              <span className="text-[10px] text-neutral-500">{e.type === "dir" ? "Folder" : formatBytes(e.size)}</span>
+            </button> ); })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-auto">
+      <div className="sticky top-0 z-20 flex justify-end gap-1 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-blue-600 px-2 py-1 text-white">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">Grid</button></div>
       <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-950 text-left text-[11px] uppercase tracking-wider text-neutral-500">
@@ -423,6 +450,14 @@ function FileContentView({
   const parent = tab.path.includes("/")
     ? tab.path.slice(0, tab.path.lastIndexOf("/"))
     : "";
+  const { stageAddFile } = useChanges();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(tab.content ?? "");
+  const [lfsProgress, setLfsProgress] = useState<string | null>(null);
+  const lfsPointer = parseLfsPointer(tab.content);
+  const conflictHunks = useMemo(() => parseConflictHunks(tab.content ?? ""), [tab.content]);
+
+  useEffect(() => setDraft(tab.content ?? ""), [tab.content, tab.path]);
 
   const lines = useMemo(
     () => (tab.content ? tokenizeLines(tab.content) : []),
@@ -469,6 +504,14 @@ function FileContentView({
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          {!isImage && !lfsPointer && (
+            <button
+              onClick={() => setEditing((v) => !v)}
+              className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            >
+              {editing ? "Preview" : "Edit"}
+            </button>
+          )}
           {parent && (
             <button
               onClick={() => onOpenPath(parent, "dir")}
@@ -506,8 +549,35 @@ function FileContentView({
         </div>
       </div>
 
+      {lfsPointer && (
+        <div className="border-b border-blue-900/50 bg-blue-950/30 px-3 py-2 text-sm text-blue-200">
+          Git LFS pointer detected · {formatBytes(lfsPointer.size)} · {lfsProgress ?? "not downloaded"}
+          <button
+            className="ml-3 rounded bg-blue-600 px-2 py-1 text-xs text-white"
+            onClick={async () => {
+              const blob = await downloadLfsObject(meta.owner, meta.repo, lfsPointer, (loaded, total) => setLfsProgress(`${formatBytes(loaded)} / ${formatBytes(total)}`));
+              const url = URL.createObjectURL(blob);
+              window.open(url, "_blank", "noreferrer");
+            }}
+          >Download object</button>
+        </div>
+      )}
+      {conflictHunks.length > 0 && (
+        <div className="border-b border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+          {conflictHunks.length} merge conflict hunk{conflictHunks.length === 1 ? "" : "s"} detected. Edit the file, resolve markers, then save as a changeset delta.
+        </div>
+      )}
+      {editing && (
+        <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-neutral-300">
+          Saving creates a pending Working Changes delta, not an immediate commit.
+          <button onClick={() => void stageAddFile(tab.path, new TextEncoder().encode(draft), "manual")} className="ml-auto rounded bg-blue-600 px-2 py-1 text-white">Save delta</button>
+          <button onClick={() => setDraft(tab.content ?? "")} className="rounded bg-neutral-800 px-2 py-1">Reset</button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto">
-        {isImage ? (
+        {editing ? (
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} spellCheck={false} className="min-h-full w-full resize-none bg-neutral-950 p-4 font-mono text-[12.5px] leading-5 text-neutral-100 outline-none" />
+        ) : isImage ? (
           <div className="flex justify-center p-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

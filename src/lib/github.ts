@@ -185,8 +185,12 @@ export async function fetchFileContent(
     `/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`
   );
 
+  if (data.size > 5 * 1024 * 1024) {
+    throw new Error("Large file preview is disabled. Use Raw/LFS download to fetch it on demand.");
+  }
+
   if (data.encoding === "base64") {
-    let cleaned = data.content.replace(/\s/g, "");
+    const cleaned = data.content.replace(/\s/g, "");
     const binary = atob(cleaned);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);

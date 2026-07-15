@@ -10,6 +10,12 @@ import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
 import { ChangesButton, ChangesProvider } from "@/features/changes";
+import { PullsButton, PullsProvider } from "@/features/pulls";
+import { IssuesButton, IssuesProvider } from "@/features/issues";
+import { Dock } from "@/features/dock";
+import { ControlPanelButton, ControlPanelProvider } from "@/features/control-panel";
+import { StartMenuButton, StartMenuProvider } from "@/features/start-menu";
+import { TriageButton, TriageProvider } from "@/features/triage";
 import {
   GitBranch,
   GithubMark,
@@ -181,7 +187,12 @@ function TitleBar() {
             </button>
           ))}
         </div>
+        <StartMenuButton />
         <ChangesButton />
+        <PullsButton />
+        <IssuesButton />
+        <TriageButton />
+        <ControlPanelButton />
         <SearchButton />
         <span className="text-[11px] text-neutral-600">GitHub Browser</span>
       </div>
@@ -197,6 +208,7 @@ function Workspace() {
     <div className="flex h-full flex-col">
       <TitleBar />
       <AddressBar onGoHome={closeRepo} />
+      <Dock />
       <div className="flex min-h-0 flex-1">
         <aside className="w-72 shrink-0 border-r border-neutral-800">
           <Explorer />
@@ -218,13 +230,23 @@ export default function Page() {
     <StoreProvider>
       <StagingProvider>
         <ChangesProvider>
-          <UIProvider>
-            <SearchProvider>
-              <div className="h-screen w-screen overflow-hidden">
-                <Workspace />
-              </div>
-            </SearchProvider>
-          </UIProvider>
+          <PullsProvider>
+            <IssuesProvider>
+              <ControlPanelProvider>
+                <StartMenuProvider>
+                  <TriageProvider>
+                    <UIProvider>
+                      <SearchProvider>
+                        <div className="h-screen w-screen overflow-hidden">
+                          <Workspace />
+                        </div>
+                      </SearchProvider>
+                    </UIProvider>
+                  </TriageProvider>
+                </StartMenuProvider>
+              </ControlPanelProvider>
+            </IssuesProvider>
+          </PullsProvider>
         </ChangesProvider>
       </StagingProvider>
     </StoreProvider>

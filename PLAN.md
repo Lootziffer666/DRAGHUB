@@ -378,16 +378,16 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 
 - [x] M1 — Explorer-CRUD (neu/umbenennen/löschen/verschieben)
 - [x] M2 — Working-Changes-/Checkpoint-Panel (Upload-Sonderpfad-Vereinheitlichung noch offen, siehe Hinweis unten)
-- [ ] M3 — In-Browser-Code-Editing
-- [ ] M4 — LFS- & Großdatei-Lesebewusstsein
-- [ ] M5 — Räumliches Layout / Grid-View
-- [ ] M6 — Merge-Konfliktauflösung
-- [ ] M7 — Pull-Requests- & Issues-Modul
+- [x] M3 — In-Browser-Code-Editing
+- [x] M4 — LFS- & Großdatei-Lesebewusstsein
+- [x] M5 — Räumliches Layout / Grid-View
+- [x] M6 — Merge-Konfliktauflösung
+- [x] M7 — Pull-Requests- & Issues-Modul
 - [x] M8 — Multi-Repo-„Workspaces"-Refactor
-- [ ] M9 — Dock
-- [ ] M10 — Systemsteuerung (Security/Access/Branch-Rules)
-- [ ] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
-- [ ] M12 — Triage-App
+- [x] M9 — Dock
+- [x] M10 — Systemsteuerung (Security/Access/Branch-Rules)
+- [x] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
+- [x] M12 — Triage-App
 - [ ] Phase-2-Freigabe durch Maintainer (dann erst: Gamification-Umsetzung)
 - [ ] Phase-3-Freigabe durch Maintainer (dann erst: `tools/anvil-core` anlegen)
 

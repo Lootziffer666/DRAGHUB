@@ -699,6 +699,20 @@ Close all windows in group
 
 must respect pending changes and unsaved edits individually. It cannot silently discard state.
 
+### 13.4 Binding grouping precedence
+
+The Taskbar does not create one top-level icon for every open document.
+
+Default display precedence:
+
+```text
+1. repository group
+2. application subgroup inside repository
+3. document/window entries inside application subgroup
+```
+
+Cross-repository application grouping such as `Image Viewer (3)` may be offered as an alternate switcher view, but must always retain repository labels. This means the default remains understandable even when many repositories and viewers are open.
+
 ---
 
 ## 14. Rubber Band and Taskbar division

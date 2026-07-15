@@ -158,6 +158,7 @@ function reducer(state: State, action: Action): State {
     }
     case "REPO_ERROR":
       return { ...state, repoLoading: false, repoError: action.error };
+
     case "CLOSE_REPO":
       return { ...state, activeRepoKey: null, repoError: null, repoLoading: false };
     case "SWITCH_REPO":
@@ -366,9 +367,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 }
 
 export function useStore(): StoreContextValue {
-  const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error("useStore must be used within StoreProvider");
-  return ctx;
+  const context = useContext(StoreContext);
+  if (!context) throw new Error("useStore must be used within StoreProvider");
+  return context;
+}
+
+export function useActiveRepo(): RepoState | null {
+  return useStore().activeRepo;
 }
 
 export function useActiveRepo(): RepoState | null {

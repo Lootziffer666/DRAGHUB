@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { StoreProvider, useStore } from "@/lib/store";
+import { StoreProvider, useActiveRepo, useStore } from "@/lib/store";
 import { StagingProvider } from "@/lib/staging";
 import { UIProvider } from "@/components/ui-context";
 import { AddressBar } from "@/components/AddressBar";
@@ -10,6 +10,12 @@ import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
 import { ChangesButton, ChangesProvider } from "@/features/changes";
+import { PullsButton, PullsProvider } from "@/features/pulls";
+import { IssuesButton, IssuesProvider } from "@/features/issues";
+import { Dock } from "@/features/dock";
+import { ControlPanelButton, ControlPanelProvider } from "@/features/control-panel";
+import { StartMenuButton, StartMenuProvider } from "@/features/start-menu";
+import { TriageButton, TriageProvider } from "@/features/triage";
 import {
   GitBranch,
   GithubMark,
@@ -124,33 +130,34 @@ function Home() {
 }
 
 function StatusBar() {
-  const { state } = useStore();
-  const active = state.tabs.find((t) => t.id === state.activeTabId);
+  const repo = useActiveRepo();
+  const active = repo?.tabs.find((t) => t.id === repo.activeTabId);
   return (
     <div className="flex items-center gap-4 border-t border-neutral-800 bg-neutral-950 px-3 py-1 text-[11px] text-neutral-500">
       <span className="flex items-center gap-1">
         <GitBranch width={12} height={12} />
-        {state.meta?.branch}
+        {repo?.meta.branch}
       </span>
       {active && (
         <span className="flex items-center gap-1 truncate">
           <FileIcon width={12} height={12} />
           <span className="truncate">
-            {state.meta?.fullName} / {active.path || "/"}
+            {repo?.meta.fullName} / {active.path || "/"}
           </span>
         </span>
       )}
       <span className="ml-auto">
-        {state.selection.length > 0
-          ? `${state.selection.length} selected`
-          : `${state.tabs.length} tab${state.tabs.length === 1 ? "" : "s"}`}
+        {repo && repo.selection.length > 0
+          ? `${repo.selection.length} selected`
+          : `${repo?.tabs.length ?? 0} tab${repo?.tabs.length === 1 ? "" : "s"}`}
       </span>
     </div>
   );
 }
 
 function TitleBar() {
-  const { state } = useStore();
+  const { state, switchRepo } = useStore();
+  const repo = useActiveRepo();
   return (
     <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-3 py-1.5">
       <div className="flex items-center gap-2">
@@ -160,10 +167,32 @@ function TitleBar() {
       </div>
       <div className="flex items-center gap-2 text-sm text-neutral-300">
         <GithubMark width={15} height={15} />
-        <span className="font-medium">{state.meta?.fullName}</span>
+        <span className="font-medium">{repo?.meta.fullName}</span>
       </div>
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex min-w-0 items-center gap-3">
+        <div className="hidden max-w-[40vw] items-center gap-1 overflow-x-auto md:flex">
+          {Object.keys(state.repos).map((repoKey) => (
+            <button
+              key={repoKey}
+              onClick={() => switchRepo(repoKey)}
+              className={[
+                "shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                repoKey === state.activeRepoKey
+                  ? "border-blue-500/60 bg-blue-500/15 text-blue-200"
+                  : "border-neutral-800 bg-neutral-900 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300",
+              ].join(" ")}
+              title={`Switch to ${repoKey}`}
+            >
+              {repoKey}
+            </button>
+          ))}
+        </div>
+        <StartMenuButton />
         <ChangesButton />
+        <PullsButton />
+        <IssuesButton />
+        <TriageButton />
+        <ControlPanelButton />
         <SearchButton />
         <span className="text-[11px] text-neutral-600">GitHub Browser</span>
       </div>
@@ -172,12 +201,14 @@ function TitleBar() {
 }
 
 function Workspace() {
-  const { state, closeRepo } = useStore();
-  if (!state.meta) return <Home />;
+  const { closeRepo } = useStore();
+  const repo = useActiveRepo();
+  if (!repo) return <Home />;
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
       <AddressBar onGoHome={closeRepo} />
+      <Dock />
       <div className="flex min-h-0 flex-1">
         <aside className="w-72 shrink-0 border-r border-neutral-800">
           <Explorer />
@@ -199,13 +230,23 @@ export default function Page() {
     <StoreProvider>
       <StagingProvider>
         <ChangesProvider>
-          <UIProvider>
-            <SearchProvider>
-              <div className="h-screen w-screen overflow-hidden">
-                <Workspace />
-              </div>
-            </SearchProvider>
-          </UIProvider>
+          <PullsProvider>
+            <IssuesProvider>
+              <ControlPanelProvider>
+                <StartMenuProvider>
+                  <TriageProvider>
+                    <UIProvider>
+                      <SearchProvider>
+                        <div className="h-screen w-screen overflow-hidden">
+                          <Workspace />
+                        </div>
+                      </SearchProvider>
+                    </UIProvider>
+                  </TriageProvider>
+                </StartMenuProvider>
+              </ControlPanelProvider>
+            </IssuesProvider>
+          </PullsProvider>
         </ChangesProvider>
       </StagingProvider>
     </StoreProvider>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { formatBytes } from "@/lib/github";
 import {
   ExternalLink,
@@ -25,6 +25,7 @@ type Mode = "repos" | "related" | "releases";
 
 export function SearchPanel({ onClose }: { onClose: () => void }) {
   const { state, openRepo } = useStore();
+  const repo = useActiveRepo();
   const [mode, setMode] = useState<Mode>("repos");
   const [query, setQuery] = useState("");
   const [repos, setRepos] = useState<SearchRepo[]>([]);
@@ -38,7 +39,7 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
     inputRef.current?.focus();
   }, []);
 
-  const meta = state.meta;
+  const meta = repo?.meta ?? null;
 
   // Debounced text search for repos / releases modes
   useEffect(() => {

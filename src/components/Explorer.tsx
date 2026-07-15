@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
@@ -52,16 +52,18 @@ export function Explorer() {
     openInNewTab,
     setSelection,
   } = useStore();
+  const repo = useActiveRepo();
   const { changes, stageAddFile, stageAddFolder, stageDelete, stageRename, discardChange } =
     useChanges();
   const { openMenu } = useUI();
   const anchor = useRef<string | null>(null);
 
-  if (!state.meta) return null;
+  if (!repo) return null;
+  const activeRepo = repo;
 
-  const meta = state.meta;
-  const rootRaw = state.treeCache[""] ?? [];
-  const rootState = state.treeState[""] ?? "loading";
+  const meta = activeRepo.meta;
+  const rootRaw = activeRepo.treeCache[""] ?? [];
+  const rootState = activeRepo.treeState[""] ?? "loading";
   const rootEntries = overlayDirEntries("", rootRaw, changes);
 
   function copy(text: string) {
@@ -69,7 +71,7 @@ export function Explorer() {
   }
 
   function overlayFor(dirPath: string): OverlayEntry[] {
-    return overlayDirEntries(dirPath, state.treeCache[dirPath] ?? [], changes);
+    return overlayDirEntries(dirPath, activeRepo.treeCache[dirPath] ?? [], changes);
   }
 
   async function createFile(dirPath: string) {
@@ -276,9 +278,9 @@ export function Explorer() {
     return [
       {
         id: "copy-paths",
-        label: `Copy ${state.selection.length} paths`,
+        label: `Copy ${activeRepo.selection.length} paths`,
         icon: <Copy width={15} height={15} />,
-        onClick: () => copy(state.selection.join("\n")),
+        onClick: () => copy(activeRepo.selection.join("\n")),
       },
       {
         id: "gh-first",
@@ -286,7 +288,7 @@ export function Explorer() {
         icon: <ExternalLink width={15} height={15} />,
         onClick: () =>
           window.open(
-            `${meta.htmlUrl}/blob/${meta.branch}/${state.selection[0]}`,
+            `${meta.htmlUrl}/blob/${meta.branch}/${activeRepo.selection[0]}`,
             "_blank",
             "noreferrer"
           ),
@@ -301,11 +303,11 @@ export function Explorer() {
   ) {
     e.preventDefault();
     e.stopPropagation();
-    if (!state.selection.includes(node.path)) {
+    if (!activeRepo.selection.includes(node.path)) {
       setSelection([node.path]);
       anchor.current = node.path;
     }
-    if (state.selection.length > 1) {
+    if (activeRepo.selection.length > 1) {
       openMenu(e.clientX, e.clientY, multiMenuItems());
     } else {
       openMenu(e.clientX, e.clientY, nodeMenuItems(node, descendantOfRename));
@@ -318,9 +320,9 @@ export function Explorer() {
     mod: "none" | "ctrl" | "shift"
   ) {
     if (mod === "ctrl") {
-      const next = state.selection.includes(node.path)
-        ? state.selection.filter((p) => p !== node.path)
-        : [...state.selection, node.path];
+      const next = activeRepo.selection.includes(node.path)
+        ? activeRepo.selection.filter((p) => p !== node.path)
+        : [...activeRepo.selection, node.path];
       setSelection(next);
       anchor.current = node.path;
       return;
@@ -415,13 +417,13 @@ export function Explorer() {
             onContextMenu={onContextMenu}
             onSelect={selectNode}
             onMoveInto={moveInto}
-            getRawEntries={(p) => state.treeCache[p] ?? []}
-            getState={(p) => state.treeState[p] ?? "loading"}
-            isExpanded={(p) => !!state.expanded[p]}
-            isSelected={(p) => state.selection.includes(p)}
+            getRawEntries={(p) => activeRepo.treeCache[p] ?? []}
+            getState={(p) => activeRepo.treeState[p] ?? "loading"}
+            isExpanded={(p) => !!activeRepo.expanded[p]}
+            isSelected={(p) => activeRepo.selection.includes(p)}
             changes={changes}
             activePath={
-              state.tabs.find((t) => t.id === state.activeTabId)?.path ?? ""
+              activeRepo.tabs.find((t) => t.id === activeRepo.activeTabId)?.path ?? ""
             }
           />
         ))}

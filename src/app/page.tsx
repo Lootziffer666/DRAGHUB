@@ -16,6 +16,7 @@ import { IssuesButton, IssuesProvider } from "@/features/issues";
 import { TriageButton } from "@/features/triage";
 import { ControlPanelButton } from "@/features/control-panel";
 import { StartMenuButton } from "@/features/start-menu";
+import { Dock, DockProvider } from "@/features/dock";
 import {
   GitBranch,
   GithubMark,
@@ -206,6 +207,17 @@ function Workspace() {
   );
 }
 
+function App() {
+  return (
+    <div className="flex h-full flex-col">
+      <Dock />
+      <div className="min-h-0 flex-1">
+        <Workspace />
+      </div>
+    </div>
+  );
+}
+
 export default function Page() {
   return (
     <StoreProvider>
@@ -214,13 +226,15 @@ export default function Page() {
           <MergeProvider>
             <PullsProvider>
               <IssuesProvider>
-                <UIProvider>
-                  <SearchProvider>
-                    <div className="h-screen w-screen overflow-hidden">
-                      <Workspace />
-                    </div>
-                  </SearchProvider>
-                </UIProvider>
+                <DockProvider>
+                  <UIProvider>
+                    <SearchProvider>
+                      <div className="h-screen w-screen overflow-hidden">
+                        <App />
+                      </div>
+                    </SearchProvider>
+                  </UIProvider>
+                </DockProvider>
               </IssuesProvider>
             </PullsProvider>
           </MergeProvider>

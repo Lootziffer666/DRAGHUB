@@ -25,6 +25,30 @@ const API = "https://api.github.com";
 
 const TOKEN_KEY = "gh-browser-token";
 
+export type RateLimitStatus = { remaining: number; limit: number; resetAt: number };
+
+let lastRateLimit: RateLimitStatus | null = null;
+
+function recordRateLimit(res: Response): void {
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const limit = res.headers.get("x-ratelimit-limit");
+  const reset = res.headers.get("x-ratelimit-reset");
+  if (remaining !== null && limit !== null && reset !== null) {
+    lastRateLimit = {
+      remaining: Number(remaining),
+      limit: Number(limit),
+      resetAt: Number(reset) * 1000,
+    };
+  }
+}
+
+/** Most recently observed rate-limit snapshot from any GitHub API response
+ * (updated by both ghFetch and ghRequest) — used by the Dock (M9) to make
+ * the remaining budget visible instead of polling blindly into the limit. */
+export function getRateLimitStatus(): RateLimitStatus | null {
+  return lastRateLimit;
+}
+
 export function getGithubToken(): string | null {
   if (typeof localStorage === "undefined") return null;
   const t = localStorage.getItem(TOKEN_KEY);
@@ -55,6 +79,7 @@ async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   });
+  recordRateLimit(res);
 
   if (res.status === 403 || res.status === 429) {
     const remaining = res.headers.get("x-ratelimit-remaining");
@@ -98,6 +123,7 @@ export async function ghRequest(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, { ...init, headers });
+  recordRateLimit(res);
   return {
     ok: res.ok,
     status: res.status,

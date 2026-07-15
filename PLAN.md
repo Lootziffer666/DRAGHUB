@@ -384,7 +384,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [x] M6 — Merge-Konfliktauflösung
 - [x] M7 — Pull-Requests- & Issues-Modul
 - [ ] M8 — Multi-Repo-„Workspaces"-Refactor
-- [ ] M9 — Dock
+- [x] M9 — Dock
 - [x] M10 — Systemsteuerung (Security/Access/Branch-Rules)
 - [x] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
 - [x] M12 — Triage-App
@@ -456,16 +456,29 @@ wird der reale 403/422-Fehler der jeweiligen Aktion inline angezeigt. Details
 einzelnen PR nachgeladen, nicht für die ganze Liste — dieselbe
 Rate-Limit-Vorsicht wie bei M4s Vitalitäts-Badge.
 
-**Hinweis zur Reihenfolge (2026-07-15):** M8 (Multi-Repo-Refactor) wurde
-bewusst übersprungen, bevor M9–M12 angegangen wurden. Der Plan selbst markiert
-M8 als „größten Kernstate-Eingriff des gesamten Plans" — und da M1–M7 bereits
-sehr viel Code geschrieben haben, der auf dem heutigen Singular-`state.meta`-
-Zustand aufbaut (Explorer, FileView, alle Feature-Module), hätte ein
-überstürzter Umbau an dieser Stelle ein hohes Regressionsrisiko ohne die
-Möglichkeit gehabt, ihn in der verbleibenden Zeit ebenso gründlich zu
-verifizieren wie die bisherigen Milestones. M12 (Triage) baut direkt auf M7
-auf und ist unabhängig von M8, daher zuerst umgesetzt. M9 (Dock) und M11
-(Startmenü) bleiben wie im Plan vermerkt von M8 abhängig und damit offen.
+**Hinweis zur Reihenfolge (2026-07-15, korrigiert):** M8 (Multi-Repo-Refactor)
+wurde bewusst übersprungen, bevor M9/M11/M12 angegangen wurden. Der Plan
+selbst markiert M8 als „größten Kernstate-Eingriff des gesamten Plans" — und
+da M1–M7 bereits sehr viel Code geschrieben haben, der auf dem heutigen
+Singular-`state.meta`-Zustand aufbaut, hätte ein überstürzter Umbau an dieser
+Stelle ein hohes Regressionsrisiko ohne die Möglichkeit gehabt, ihn ebenso
+gründlich zu verifizieren wie die bisherigen Milestones.
+
+Der Plan behauptet, M8 sei „Voraussetzung für M9–M11" — das habe ich zunächst
+unkritisch übernommen und in einer ersten Fassung dieses Abschnitts M9 und M11
+fälschlich als „von M8 blockiert" bezeichnet. Der Maintainer hat das zu Recht
+hinterfragt: M9 (Dock) braucht **kein** gleichzeitig offenes Multi-Repo-Tab-/
+Tree-State. Der Schnellwechsel ruft einfach das bereits existierende
+`openRepo(fullName)` auf (ersetzt das aktive Repo, exakt wie der bestehende
+„Recent"-Verlauf es heute schon tut); die aggregierten PR-/Issue-Badges sind
+unabhängige Hintergrund-Fetches pro gepinntem Repo (Search-API,
+`total_count`), die nichts mit dem Tab-/Baum-Zustand des aktuell offenen Repos
+zu tun haben. Nur M11 hätte man wörtlich als „vom Startmenü-Kontext abhängig"
+lesen können, aber auch dort betreffen Codespaces/Releases/Wiki ausschließlich
+das aktuell offene Repo — auch hier war die Plan-Prämisse für die
+tatsächlichen M11-Inhalte nicht zutreffend. Beide wurden entsprechend noch in
+dieser Sitzung nachgeholt (siehe Status-Abschnitte unten). M12 (Triage) baut
+ohnehin direkt auf M7 auf und war davon nie betroffen.
 
 **Status M12 (umgesetzt 2026-07-15):** `src/features/triage/` baut auf M7s
 `usePulls()`/`classifyPr()` auf. Tastatur-Navigation (↑/↓ bzw. j/k, Leertaste
@@ -536,3 +549,36 @@ gebaut: Deep-Link zum Wiki auf github.com plus die Machbarkeits-Notiz direkt
 in der UI. Kein Editor-Code wurde geschrieben — das Spike-Ergebnis hat den
 Scope bewusst begrenzt, bevor UI-Arbeit daran hätte beginnen können, genau
 wie das Akzeptanzkriterium es verlangt.
+
+**Status M9 (umgesetzt 2026-07-15, nachträglich nach Korrektur der
+Abhängigkeitsannahme):** `src/features/dock/` — persistente Leiste, sichtbar
+unabhängig davon, ob gerade ein Repo offen ist. Gepinnte Repos werden als
+einfache String-Liste in `localStorage` verwaltet (`pins.ts`); Klick auf einen
+Chip ruft das bestehende `openRepo(fullName)` auf — der Schnellwechsel ersetzt
+das aktive Repo genau wie der vorhandene „Recent"-Mechanismus, es wird kein
+Multi-Repo-Zustand benötigt. Aggregierte PR-/Issue-Badges pro gepinntem Repo
+kommen über je einen `GET /search/issues?q=repo:…+is:pr+is:open`-Aufruf
+(liefert `total_count` direkt, günstiger als Paginierung) — bewusst **ohne**
+Mergeable-/Check-Detail pro PR, da das für jedes gepinnte Repo im Poll-Takt
+genau die in §11 gewarnte Rate-Limit-Lawine wäre. Polling alle 5 Minuten,
+pausiert bei `document.hidden`, zusätzlich sofortiger Poll bei jeder
+Pin-Änderung (siehe Bug-Fund unten) und bei Rückkehr in den Tab. Rate-Limit-
+Budget wird sichtbar gemacht („4980/5000 requests · resets in 1h") über einen
+neuen, minimal-invasiven Tracker in `github.ts`, der die
+`x-ratelimit-*`-Header jeder Antwort mitschneidet (bislang wurden sie nur für
+die 403-Fehlerbehandlung gelesen, nie gespeichert) — Backoff pausiert das
+Polling unter 50 verbleibenden Requests.
+
+**Zwei Bugs beim Bauen/Verifizieren gefunden und behoben:** (1) Neu gepinnte
+Repos bekamen ihr Badge zunächst erst beim nächsten 5-Minuten-Tick, weil der
+Poll-Effekt nur einmal beim Mount lief (leeres Dependency-Array) und nicht auf
+Änderungen der Pin-Liste reagierte — behoben, indem ein zweiter Effekt jetzt
+gezielt bei jeder Änderung von `pins` pollt. (2) Beim ersten Browser-Test
+schien die Rate-Limit-Anzeige komplett zu fehlen; das lag am Playwright-Mock,
+nicht am Code — Browser blenden bei Cross-Origin-Antworten alle Header außer
+einer kleinen Standardliste vor JavaScript aus, sofern der Server nicht
+`Access-Control-Expose-Headers` für die zusätzlichen Header setzt. Die echte
+GitHub-API tut das nachweislich (sonst hätte die schon vorher im Repo
+vorhandene 403-Ratenlimit-Erkennung in `ghFetch` nie funktionieren können) —
+das Mock ohne diesen Header war schlicht unrealistisch. Mit dem korrekten
+Header im Mock verifiziert sich die Anzeige einwandfrei.

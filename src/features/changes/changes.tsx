@@ -31,6 +31,7 @@ type ChangesContextValue = {
   setMessage: (m: string) => void;
   stageAddFile: (path: string, data: Uint8Array, origin?: ChangeOrigin) => Promise<void>;
   stageAddFolder: (path: string, origin?: ChangeOrigin) => void;
+  stageEdit: (path: string, data: Uint8Array, origin?: ChangeOrigin) => Promise<void>;
   stageDelete: (path: string, entryKind: EntryKind, origin?: ChangeOrigin) => void;
   stageRename: (
     fromPath: string,
@@ -42,6 +43,7 @@ type ChangesContextValue = {
   discardAll: () => void;
   createCheckpoint: () => Promise<void>;
   changeForPath: (path: string) => WorkingChange | undefined;
+  loadPendingContent: (path: string) => Promise<Uint8Array | null>;
 };
 
 const ChangesContext = createContext<ChangesContextValue | null>(null);
@@ -122,16 +124,64 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
     [seedDir]
   );
 
+  const stageEdit = useCallback(
+    async (path: string, data: Uint8Array, origin: ChangeOrigin = "edit") => {
+      const existing = changesRef.current.find(
+        (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
+      );
+      const id = newChangeId();
+      await dbPut(id, data);
+      if (existing) {
+        const oldBlobId = existing.blobId;
+        setChanges((prev) =>
+          prev.map((c) =>
+            c.id === existing.id ? { ...c, blobId: id, size: data.byteLength } : c
+          )
+        );
+        if (oldBlobId) await dbDelete(oldBlobId);
+      } else {
+        const change: WorkingChange = {
+          id,
+          kind: "modify",
+          entryKind: "file",
+          path,
+          origin,
+          size: data.byteLength,
+          blobId: id,
+          createdAt: Date.now(),
+        };
+        setChanges((prev) => [...prev, change]);
+      }
+      events.emit("change.staged", { kind: "modify", path });
+    },
+    []
+  );
+
   const stageDelete = useCallback(
     (path: string, entryKind: EntryKind, origin: ChangeOrigin = "manual") => {
       setChanges((prev) => {
-        const addIdx = prev.findIndex((c) => c.kind === "add" && c.path === path);
+        const addIdx = prev.findIndex(
+          (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
+        );
         if (addIdx !== -1) {
+          const removed = prev[addIdx];
           void (async () => {
-            const blobId = prev[addIdx].blobId;
-            if (blobId) await dbDelete(blobId);
+            if (removed.blobId) await dbDelete(removed.blobId);
           })();
-          return prev.filter((_, i) => i !== addIdx);
+          if (removed.kind === "add") {
+            return prev.filter((_, i) => i !== addIdx);
+          }
+          // A pending edit of an existing remote file: cancel the edit and
+          // stage a real delete instead (its blob is released above).
+          const del: WorkingChange = {
+            id: newChangeId(),
+            kind: "delete",
+            entryKind,
+            path,
+            origin,
+            createdAt: Date.now(),
+          };
+          return [...prev.filter((_, i) => i !== addIdx), del];
         }
         const renameIdx = prev.findIndex((c) => c.kind === "rename" && c.path === path);
         if (renameIdx !== -1) {
@@ -171,6 +221,32 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
           const updated = [...prev];
           updated[addIdx] = { ...updated[addIdx], path: toPath };
           return updated;
+        }
+        const modifyIdx = prev.findIndex((c) => c.kind === "modify" && c.path === fromPath);
+        if (modifyIdx !== -1) {
+          // The edited content can't be moved via a blob-sha reuse (that would
+          // discard the edit) — carry it to the new path as a plain upsert and
+          // remove the untouched original.
+          const mc = prev[modifyIdx];
+          const addAtNew: WorkingChange = {
+            id: newChangeId(),
+            kind: "add",
+            entryKind,
+            path: toPath,
+            origin,
+            size: mc.size,
+            blobId: mc.blobId,
+            createdAt: Date.now(),
+          };
+          const delAtOld: WorkingChange = {
+            id: newChangeId(),
+            kind: "delete",
+            entryKind,
+            path: fromPath,
+            origin,
+            createdAt: Date.now(),
+          };
+          return [...prev.filter((_, i) => i !== modifyIdx), addAtNew, delAtOld];
         }
         const renameIdx = prev.findIndex((c) => c.kind === "rename" && c.path === fromPath);
         if (renameIdx !== -1) {
@@ -258,6 +334,17 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
     [changes]
   );
 
+  const loadPendingContent = useCallback(
+    async (path: string) => {
+      const change = changesRef.current.find(
+        (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
+      );
+      if (!change?.blobId) return null;
+      return dbGet(change.blobId);
+    },
+    []
+  );
+
   const value = useMemo<ChangesContextValue>(
     () => ({
       changes,
@@ -267,12 +354,14 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setMessage,
       stageAddFile,
       stageAddFolder,
+      stageEdit,
       stageDelete,
       stageRename,
       discardChange,
       discardAll,
       createCheckpoint,
       changeForPath,
+      loadPendingContent,
     }),
     [
       changes,
@@ -281,12 +370,14 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       message,
       stageAddFile,
       stageAddFolder,
+      stageEdit,
       stageDelete,
       stageRename,
       discardChange,
       discardAll,
       createCheckpoint,
       changeForPath,
+      loadPendingContent,
     ]
   );
 

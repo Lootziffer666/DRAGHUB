@@ -378,10 +378,10 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 
 - [x] M1 — Explorer-CRUD (neu/umbenennen/löschen/verschieben)
 - [x] M2 — Working-Changes-/Checkpoint-Panel (Upload-Sonderpfad-Vereinheitlichung noch offen, siehe Hinweis unten)
-- [ ] M3 — In-Browser-Code-Editing
-- [ ] M4 — LFS- & Großdatei-Lesebewusstsein
-- [ ] M5 — Räumliches Layout / Grid-View
-- [ ] M6 — Merge-Konfliktauflösung
+- [x] M3 — In-Browser-Code-Editing
+- [x] M4 — LFS- & Großdatei-Lesebewusstsein
+- [x] M5 — Räumliches Layout / Grid-View
+- [x] M6 — Merge-Konfliktauflösung
 - [ ] M7 — Pull-Requests- & Issues-Modul
 - [ ] M8 — Multi-Repo-„Workspaces"-Refactor
 - [ ] M9 — Dock
@@ -403,3 +403,42 @@ committen noch über ihren eigenen Pfad statt über denselben Changeset-Mechanis
 in derselben Änderung mit anzufassen. `FileView`s Ordner-Tabelle (Hauptbereich)
 zeigt ebenfalls noch die rohe Remote-Liste statt der Overlay-Ansicht; die
 Explorer-Sidebar ist aktuell die verbindliche Quelle für den Änderungsstatus.
+
+**Status M3 (umgesetzt 2026-07-15):** CodeMirror 6 als Editor (Entscheidung aus
+§10.3 getroffen, da im Vergleich zu Monaco keine Next.js/Webworker-Reibung).
+„Speichern" erzeugt ein `modify`-Delta im Working-Changes-Modell, nie einen
+Sofort-Commit. Ein Klick auf eine druckfrische, noch unkommittete Datei öffnet
+jetzt direkt den Editor (löst die frühere M1-Beschränkung „neue Dateien nicht
+öffenbar", da kein Netz-Fetch mehr nötig ist). „Neue Variante abzweigen" für
+historische Refs wurde nicht gebaut — die App hat aktuell kein Konzept für das
+Browsen abweichender historischer Commits (nur Branch-HEAD), daher greift dieser
+Sonderfall aus dem Ursprungsdokument hier nicht.
+
+**Status M4 (umgesetzt 2026-07-15):** `src/lib/lfs.ts` erkennt LFS-Pointer-Dateien
+am Inhalts-Präfix; ein Cloud-Badge im Explorer basiert auf `.gitattributes`
+(`filter=lfs`-Pattern, einmal pro Repo/Branch geladen — kein Content-Fetch pro
+Datei nötig). FileView zeigt bei Pointer-Treffer ein dediziertes Panel mit
+gezieltem Download (LFS-Batch-API, Fortschrittsanzeige) statt automatischem
+Laden. `src/lib/vitality.ts` liefert „zuletzt geändert vor X Tagen"/„stale" —
+bewusst nur für die aktuell geöffnete Datei abgerufen (nicht pro Zeile im
+Explorer-Baum), um das in §11 gewarnte Rate-Limit-Risiko bei einem Ordner mit
+vielen Dateien zu vermeiden.
+
+**Status M5 (umgesetzt 2026-07-15):** `viewMode: "list" | "grid" | "city"` im
+Store (dritter Wert für Phase 2 reserviert, nicht wählbar). `src/lib/layout.ts`
+verwaltet Snap-to-Grid-Positionen in IndexedDB, geschlüsselt nach
+(Repo, Branch, Ordnerpfad); neue Einträge werden automatisch in freie Zellen
+gesetzt. „Layout mit Team teilen" (Ref-basiert) wurde nicht gebaut — bewusst
+zurückgestellt, siehe Notiz bei M8/M11 unten.
+
+**Status M6 (umgesetzt 2026-07-15):** `src/lib/merge.ts` (mit `bun test`-Suite)
+implementiert einen zeilenbasierten 3-Wege-Merge ohne Abhängigkeit: nicht
+überlappende Änderungen werden automatisch übernommen, überlappende different
+geänderte Bereiche werden zu Konflikt-Hunks. `src/features/merge/` orchestriert
+den Ablauf: Branch-Auswahl → Compare-API zweimal (Merge-Base finden, dann beide
+Seiten seit der Merge-Base) → pro betroffener Datei 3-Wege-Merge → Side-by-Side-
+UI mit Ours/Theirs/Both pro Konflikt-Hunk. Das Ergebnis landet als reguläres
+`modify`/`add`/`delete`-Delta im bestehenden Changeset (M2) — kein Sonderpfad,
+wie gefordert. Datei-vs-Ordner-Umbenennungskonflikte und Binärdatei-Konflikte
+werden nicht behandelt (nur Textdateien); Löschen-vs-Ändern-Konflikte bekommen
+eine vereinfachte Keep/Delete-Entscheidung statt einer Hunk-Ansicht.

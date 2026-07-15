@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
@@ -13,9 +13,11 @@ import {
 } from "@/features/changes/overlay";
 import { promptNewName, promptRename, nameCollides } from "@/features/changes/actions";
 import { joinPath, parentOfPath, baseNameOfPath } from "@/lib/github-ops";
+import { fetchLfsPatterns, matchesLfsPattern } from "@/lib/lfs";
 import {
   ChevronDown,
   ChevronRight,
+  Cloud,
   Copy,
   Download,
   Edit,
@@ -56,6 +58,23 @@ export function Explorer() {
     useChanges();
   const { openMenu } = useUI();
   const anchor = useRef<string | null>(null);
+  const [lfsPatterns, setLfsPatterns] = useState<RegExp[]>([]);
+
+  useEffect(() => {
+    if (!state.meta) return;
+    let cancelled = false;
+    fetchLfsPatterns(state.meta.owner, state.meta.repo, state.meta.branch)
+      .then((patterns) => {
+        if (!cancelled) setLfsPatterns(patterns);
+      })
+      .catch(() => {
+        if (!cancelled) setLfsPatterns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.meta?.fullName, state.meta?.branch]);
 
   if (!state.meta) return null;
 
@@ -141,25 +160,15 @@ export function Explorer() {
     const readTarget = readPathFor(node, changes);
     const ghUrl = `${meta.htmlUrl}/${node.type === "dir" ? "tree" : "blob"}/${meta.branch}/${node.path}`;
     const isPendingNewFile = node.status === "added" && node.type === "file";
-    const items: MenuItem[] = [];
-
-    if (!isPendingNewFile) {
-      items.push(
-        { id: "open", label: "Open", shortcut: "↵", onClick: () => openPath(readTarget, node.type) },
-        {
-          id: "open-new",
-          label: "Open in New Tab",
-          shortcut: "⌘/Ctrl+↵",
-          onClick: () => openInNewTab(readTarget, node.type),
-        }
-      );
-    } else {
-      items.push({
-        id: "note",
-        label: "New file — viewable after checkpoint",
-        disabled: true,
-      });
-    }
+    const items: MenuItem[] = [
+      { id: "open", label: "Open", shortcut: "↵", onClick: () => openPath(readTarget, node.type) },
+      {
+        id: "open-new",
+        label: "Open in New Tab",
+        shortcut: "⌘/Ctrl+↵",
+        onClick: () => openInNewTab(readTarget, node.type),
+      },
+    ];
 
     if (node.type === "dir") {
       items.push(
@@ -214,6 +223,14 @@ export function Explorer() {
           onClick: () => restoreEntry(node),
         });
       } else {
+        if (node.status === "modified") {
+          items.push({
+            id: "revert",
+            label: "Revert edit",
+            icon: <Undo width={15} height={15} />,
+            onClick: () => restoreEntry(node),
+          });
+        }
         items.push({
           id: "delete",
           label: "Delete",
@@ -420,6 +437,7 @@ export function Explorer() {
             isExpanded={(p) => !!state.expanded[p]}
             isSelected={(p) => state.selection.includes(p)}
             changes={changes}
+            lfsPatterns={lfsPatterns}
             activePath={
               state.tabs.find((t) => t.id === state.activeTabId)?.path ?? ""
             }
@@ -446,6 +464,7 @@ function TreeNode({
   isExpanded,
   isSelected,
   changes,
+  lfsPatterns,
   activePath,
 }: {
   node: OverlayEntry;
@@ -471,6 +490,7 @@ function TreeNode({
   isExpanded: (p: string) => boolean;
   isSelected: (p: string) => boolean;
   changes: ReturnType<typeof useChanges>["changes"];
+  lfsPatterns: RegExp[];
   activePath: string;
 }) {
   const readPath = readPathFor(node, changes);
@@ -518,6 +538,10 @@ function TreeNode({
     node.status === "added" ? (
       <span className="ml-1 shrink-0 rounded bg-emerald-500/20 px-1 text-[10px] font-medium text-emerald-400">
         new
+      </span>
+    ) : node.status === "modified" ? (
+      <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1 text-[10px] font-medium text-amber-400">
+        modified
       </span>
     ) : node.status === "renamed-in" ? (
       <span className="ml-1 shrink-0 rounded bg-blue-500/20 px-1 text-[10px] font-medium text-blue-400">
@@ -570,14 +594,10 @@ function TreeNode({
           }
           onSelect(node, siblings, modifiers(e));
         }}
-        onDoubleClick={() => {
-          if (node.status === "added" && node.type === "file") return;
-          onOpenPath(readPath, node.type);
-        }}
+        onDoubleClick={() => onOpenPath(readPath, node.type)}
         onAuxClick={(e) => {
           if (e.button === 1) {
             e.preventDefault();
-            if (node.status === "added" && node.type === "file") return;
             onOpenNew(readPath, node.type);
           }
         }}
@@ -640,6 +660,11 @@ function TreeNode({
         >
           {node.name}
         </span>
+        {node.type === "file" && matchesLfsPattern(node.path, lfsPatterns) && (
+          <span title="Tracked by Git LFS" className="shrink-0 text-sky-400">
+            <Cloud width={12} height={12} />
+          </span>
+        )}
         {statusBadge}
 
         {node.type === "dir" && expanded && childState === "loading" && (
@@ -684,6 +709,7 @@ function TreeNode({
               isExpanded={isExpanded}
               isSelected={isSelected}
               changes={changes}
+              lfsPatterns={lfsPatterns}
               activePath={activePath}
             />
           ))}

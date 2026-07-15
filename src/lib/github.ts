@@ -239,6 +239,39 @@ export async function fetchTreeRecursive(
   return data.tree;
 }
 
+export type LastCommitInfo = {
+  sha: string;
+  date: string;
+  message: string;
+  authorLogin: string | null;
+};
+
+/** Most recent commit touching a single path — used for M4's vitality badge. */
+export async function fetchLastCommit(
+  owner: string,
+  repo: string,
+  path: string,
+  ref: string
+): Promise<LastCommitInfo | null> {
+  const data = await ghFetch<
+    Array<{
+      sha: string;
+      commit: { message: string; author: { date: string } | null };
+      author: { login: string } | null;
+    }>
+  >(
+    `/repos/${owner}/${repo}/commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(ref)}&per_page=1`
+  );
+  const first = data[0];
+  if (!first) return null;
+  return {
+    sha: first.sha,
+    date: first.commit.author?.date ?? "",
+    message: first.commit.message,
+    authorLogin: first.author?.login ?? null,
+  };
+}
+
 export function githubRawUrl(
   owner: string,
   repo: string,

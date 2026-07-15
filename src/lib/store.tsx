@@ -34,6 +34,9 @@ export type Tab = {
   size?: number;
 };
 
+/** "city" is reserved for a future Phase-2 3D renderer — not selectable yet. */
+export type ViewMode = "list" | "grid" | "city";
+
 type State = {
   meta: RepoMeta | null;
   repoError: string | null;
@@ -45,6 +48,7 @@ type State = {
   expanded: Record<string, boolean>;
   selection: string[];
   recent: string[];
+  viewMode: ViewMode;
 };
 
 type Action =
@@ -72,7 +76,8 @@ type Action =
   | { type: "FILE_ERROR"; id: string; error: string }
   | { type: "SET_EXPANDED"; path: string; value: boolean }
   | { type: "SET_SELECTION"; paths: string[] }
-  | { type: "SET_BRANCH"; branch: string };
+  | { type: "SET_BRANCH"; branch: string }
+  | { type: "SET_VIEW_MODE"; mode: ViewMode };
 
 function emptyTab(over: Partial<Tab>): Tab {
   return {
@@ -134,6 +139,12 @@ function languageFor(path: string): string {
   return map[ext] ?? (path.toLowerCase() === "dockerfile" ? "Dockerfile" : "Text");
 }
 
+function initialViewMode(): ViewMode {
+  if (typeof localStorage === "undefined") return "list";
+  const stored = localStorage.getItem("gh-browser-view-mode");
+  return stored === "grid" ? "grid" : "list";
+}
+
 const initialState: State = {
   meta: null,
   repoError: null,
@@ -145,6 +156,7 @@ const initialState: State = {
   expanded: { "": true },
   selection: [],
   recent: [],
+  viewMode: initialViewMode(),
 };
 
 function reducer(state: State, action: Action): State {
@@ -285,6 +297,8 @@ function reducer(state: State, action: Action): State {
       };
     case "SET_SELECTION":
       return { ...state, selection: action.paths };
+    case "SET_VIEW_MODE":
+      return { ...state, viewMode: action.mode };
     case "SET_BRANCH":
       if (!state.meta) return state;
       return {
@@ -317,6 +331,7 @@ type StoreContextValue = {
   loadFolderTab: (id: string, path: string) => Promise<void>;
   toggleExpand: (path: string, value?: boolean) => void;
   setSelection: (paths: string[]) => void;
+  setViewMode: (mode: ViewMode) => void;
   /** Seed a directory's entries locally without a network fetch (used for
    * pending-new folders that don't exist on GitHub yet). */
   seedDir: (path: string, entries: GithubEntry[]) => void;
@@ -547,6 +562,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_SELECTION", paths });
   }, []);
 
+  const setViewMode = useCallback((mode: ViewMode) => {
+    dispatch({ type: "SET_VIEW_MODE", mode });
+    try {
+      localStorage.setItem("gh-browser-view-mode", mode);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const seedDir = useCallback((path: string, entries: GithubEntry[]) => {
     dispatch({ type: "DIR_LOADED", path, entries });
   }, []);
@@ -571,6 +595,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadFolderTab,
       toggleExpand,
       setSelection,
+      setViewMode,
       seedDir,
       invalidateDir,
     }),
@@ -589,6 +614,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadFolderTab,
       toggleExpand,
       setSelection,
+      setViewMode,
       seedDir,
       invalidateDir,
     ]

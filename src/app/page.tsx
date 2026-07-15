@@ -10,6 +10,7 @@ import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
 import { ChangesButton, ChangesProvider } from "@/features/changes";
+import { MergeButton, MergeProvider } from "@/features/merge";
 import {
   GitBranch,
   GithubMark,
@@ -163,6 +164,7 @@ function TitleBar() {
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <MergeButton />
         <ChangesButton />
         <SearchButton />
         <span className="text-[11px] text-neutral-600">GitHub Browser</span>
@@ -199,13 +201,15 @@ export default function Page() {
     <StoreProvider>
       <StagingProvider>
         <ChangesProvider>
-          <UIProvider>
-            <SearchProvider>
-              <div className="h-screen w-screen overflow-hidden">
-                <Workspace />
-              </div>
-            </SearchProvider>
-          </UIProvider>
+          <MergeProvider>
+            <UIProvider>
+              <SearchProvider>
+                <div className="h-screen w-screen overflow-hidden">
+                  <Workspace />
+                </div>
+              </SearchProvider>
+            </UIProvider>
+          </MergeProvider>
         </ChangesProvider>
       </StagingProvider>
     </StoreProvider>

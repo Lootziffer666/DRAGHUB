@@ -386,7 +386,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [ ] M8 — Multi-Repo-„Workspaces"-Refactor
 - [ ] M9 — Dock
 - [x] M10 — Systemsteuerung (Security/Access/Branch-Rules)
-- [ ] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
+- [x] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
 - [x] M12 — Triage-App
 - [ ] Phase-2-Freigabe durch Maintainer (dann erst: Gamification-Umsetzung)
 - [ ] Phase-3-Freigabe durch Maintainer (dann erst: `tools/anvil-core` anlegen)
@@ -493,3 +493,46 @@ und zeigte dauerhaft „None found" trotz korrekt geladener Daten (sichtbar an
 der KORREKT befüllten CODEOWNERS-Checkbox-Liste direkt darunter). Behoben,
 indem die Collaborators-Anzeige direkt aus dem schon vorhandenen State der
 Elternkomponente rendert statt über die wiederverwendbare Lazy-Load-Hülle.
+
+**Status M11 (umgesetzt 2026-07-15):** `src/features/start-menu/` mit drei
+Reitern.
+
+*Codespaces-Launcher:* `POST /repos/{owner}/{repo}/codespaces` erzeugt einen
+Codespace, das Ergebnis wird als neuer Tab (`web_url`) geöffnet — **kein**
+eingebetteter VM-Client, exakt die in §11 gezogene Plattformgrenze. Zusätzlich
+ein reiner Deep-Link (`github.com/codespaces/new?repo=…&ref=…`) als
+Fallback ohne API-Aufruf. Vorhandene Codespaces werden über
+`GET /user/codespaces` gelistet und client-seitig nach `repository.full_name`
+gefiltert (es gibt keinen repo-gescopten Codespaces-Endpunkt).
+
+*Releases & Paket-Zentrale:* Standard-REST (`/releases`), unkritisch wie im
+Plan erwartet. Packages sind Owner- statt Repo-gescopt (GitHub bietet keinen
+„Packages für dieses Repo"-Endpunkt) — die Implementierung fragt die
+gängigen `package_type`-Werte einzeln ab und filtert client-seitig auf den
+Repo-Namen; das ist ein Kompromiss (mehrere Requests statt einem), aber der
+einzige Weg ohne einen Owner-weiten Paket-Browser zu bauen, der über den
+Rahmen von M11 hinausginge.
+
+*Wiki-Spike (schriftliche Machbarkeits-Notiz, wie vom Plan gefordert, bevor
+UI-Arbeit begann):* Ein GitHub-Wiki ist ein **separates Git-Repository**
+(`owner/repo.wiki.git`) ohne jede Anbindung an die Contents-API — Lesen und
+Schreiben liefe ausschließlich über echtes Git-über-HTTP (`git-upload-pack`/
+`git-receive-pack`, das „Smart-HTTP"-Protokoll). GitHubs Git-Smart-HTTP-
+Endpunkte senden keine permissiven CORS-Header für beliebige Origins (anders
+als z. B. `raw.githubusercontent.com`) — das ist eine bewusste
+Plattformentscheidung, die genau verhindert, dass ein reiner Browser-Client
+ohne eigenen Server/Proxy klonen oder pushen kann. Bibliotheken wie
+`isomorphic-git`, die Git-Operationen im Browser nachbilden, benötigen dafür
+exakt deshalb einen dedizierten CORS-Proxy-Server. **Ergebnis des Spikes:**
+Ein WYSIWYG-Wiki-Editor ist mit der heutigen 100-%-Client-seitigen
+Architektur **nicht machbar** — er würde entweder (a) einen Backend-Proxy
+speziell für Git-Smart-HTTP voraussetzen (ein Vorgriff auf Phase 3s
+„ANVIL Core", das ohnehin als lokaler Dienst geplant ist, nicht als
+Browser-Code) oder (b) eine komplette Neuimplementierung des Wiki-Editors
+auf Basis von öffentlich zugänglichen Nur-Lese-Wegen (z. B. dem Wiki-HTML
+selbst scrapen), was keine echte Schreibfunktion ergäbe. Entsprechend dem im
+Ursprungsdokument selbst vorgesehenen Ausweg wurde **nur ein Hinweis-Stub**
+gebaut: Deep-Link zum Wiki auf github.com plus die Machbarkeits-Notiz direkt
+in der UI. Kein Editor-Code wurde geschrieben — das Spike-Ergebnis hat den
+Scope bewusst begrenzt, bevor UI-Arbeit daran hätte beginnen können, genau
+wie das Akzeptanzkriterium es verlangt.

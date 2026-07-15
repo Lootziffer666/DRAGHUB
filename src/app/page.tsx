@@ -15,6 +15,7 @@ import { PullsButton, PullsProvider } from "@/features/pulls";
 import { IssuesButton, IssuesProvider } from "@/features/issues";
 import { TriageButton } from "@/features/triage";
 import { ControlPanelButton } from "@/features/control-panel";
+import { StartMenuButton } from "@/features/start-menu";
 import {
   GitBranch,
   GithubMark,
@@ -168,6 +169,7 @@ function TitleBar() {
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <StartMenuButton />
         <ControlPanelButton />
         <TriageButton />
         <IssuesButton />

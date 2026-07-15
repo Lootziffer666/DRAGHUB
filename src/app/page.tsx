@@ -13,6 +13,7 @@ import { ChangesButton, ChangesProvider } from "@/features/changes";
 import { MergeButton, MergeProvider } from "@/features/merge";
 import { PullsButton, PullsProvider } from "@/features/pulls";
 import { IssuesButton, IssuesProvider } from "@/features/issues";
+import { TriageButton } from "@/features/triage";
 import {
   GitBranch,
   GithubMark,
@@ -166,6 +167,7 @@ function TitleBar() {
         <span className="font-medium">{state.meta?.fullName}</span>
       </div>
       <div className="ml-auto flex items-center gap-3">
+        <TriageButton />
         <IssuesButton />
         <PullsButton />
         <MergeButton />

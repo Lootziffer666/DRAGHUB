@@ -387,7 +387,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [ ] M9 — Dock
 - [ ] M10 — Systemsteuerung (Security/Access/Branch-Rules)
 - [ ] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
-- [ ] M12 — Triage-App
+- [x] M12 — Triage-App
 - [ ] Phase-2-Freigabe durch Maintainer (dann erst: Gamification-Umsetzung)
 - [ ] Phase-3-Freigabe durch Maintainer (dann erst: `tools/anvil-core` anlegen)
 
@@ -455,3 +455,22 @@ wird der reale 403/422-Fehler der jeweiligen Aktion inline angezeigt. Details
 (mergeable-Status, Check-Runs) werden bewusst nur beim Aufklappen einer
 einzelnen PR nachgeladen, nicht für die ganze Liste — dieselbe
 Rate-Limit-Vorsicht wie bei M4s Vitalitäts-Badge.
+
+**Hinweis zur Reihenfolge (2026-07-15):** M8 (Multi-Repo-Refactor) wurde
+bewusst übersprungen, bevor M9–M12 angegangen wurden. Der Plan selbst markiert
+M8 als „größten Kernstate-Eingriff des gesamten Plans" — und da M1–M7 bereits
+sehr viel Code geschrieben haben, der auf dem heutigen Singular-`state.meta`-
+Zustand aufbaut (Explorer, FileView, alle Feature-Module), hätte ein
+überstürzter Umbau an dieser Stelle ein hohes Regressionsrisiko ohne die
+Möglichkeit gehabt, ihn in der verbleibenden Zeit ebenso gründlich zu
+verifizieren wie die bisherigen Milestones. M12 (Triage) baut direkt auf M7
+auf und ist unabhängig von M8, daher zuerst umgesetzt. M9 (Dock) und M11
+(Startmenü) bleiben wie im Plan vermerkt von M8 abhängig und damit offen.
+
+**Status M12 (umgesetzt 2026-07-15):** `src/features/triage/` baut auf M7s
+`usePulls()`/`classifyPr()` auf. Tastatur-Navigation (↑/↓ bzw. j/k, Leertaste
+zum Selektieren), Schnellauswahl nach Klasse („alle spam-suspect" etc.),
+Bulk-Aktionen (Schließen ± Branch-Löschung, Label, Review anfragen). Jede
+Bulk-Aktion zeigt vor Ausführung eine Zusammenfassung („N PRs werden
+geschlossen, N Branches gelöscht") mit Confirm/Cancel — exakt das
+Akzeptanzkriterium aus dem Plan.

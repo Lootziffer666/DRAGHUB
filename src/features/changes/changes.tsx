@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { dbPut, dbGet, dbDelete } from "@/lib/staging-db";
 import { events } from "@/lib/events";
 import {
@@ -50,7 +50,8 @@ const META_KEY = "gh-browser-changes-meta";
 
 export function ChangesProvider({ children }: { children: ReactNode }) {
   const { state, ensureDir, seedDir, invalidateDir } = useStore();
-  const meta = state.meta;
+  const repo = useActiveRepo();
+  const meta = repo?.meta ?? null;
 
   const [changes, setChanges] = useState<WorkingChange[]>([]);
   const [status, setStatus] = useState<ChangesStatus>("idle");
@@ -241,8 +242,8 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       // Explorer reflects the new commit instead of the stale overlay.
       invalidateDir("");
       void ensureDir("");
-      for (const path of Object.keys(state.expanded)) {
-        if (!state.expanded[path] || path === "") continue;
+      for (const path of Object.keys(repo?.expanded ?? {})) {
+        if (!repo?.expanded[path] || path === "") continue;
         invalidateDir(path);
         void ensureDir(path);
       }
@@ -251,7 +252,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setError(result.error);
       events.emit("checkpoint.failed", { error: result.error });
     }
-  }, [meta, message, ensureDir, invalidateDir, state.expanded]);
+  }, [meta, message, ensureDir, invalidateDir, repo?.expanded]);
 
   const changeForPath = useCallback(
     (path: string) => changes.find((c) => c.path === path),

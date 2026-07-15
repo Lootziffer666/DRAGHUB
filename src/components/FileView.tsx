@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
@@ -52,11 +52,13 @@ export function FileView() {
     loadFolderTab,
     ensureDir,
   } = useStore();
+  const repo = useActiveRepo();
   const { openMenu } = useUI();
 
+  const activeRepo = repo!;
   const activeTab =
-    state.tabs.find((t) => t.id === state.activeTabId) ?? null;
-  const meta = state.meta;
+    activeRepo.tabs.find((t) => t.id === activeRepo.activeTabId) ?? null;
+  const meta = activeRepo.meta;
   const anchor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ export function FileView() {
         icon: <Refresh width={15} height={15} />,
         separatorBefore: true,
         onClick: () => {
-          delete (state.treeCache as Record<string, unknown>)[node.path];
+          delete (activeRepo.treeCache as Record<string, unknown>)[node.path];
           void ensureDir(node.path);
         },
       });
@@ -147,7 +149,7 @@ export function FileView() {
 
   function onContextMenu(e: React.MouseEvent, node: GithubEntry) {
     e.preventDefault();
-    if (!state.selection.includes(node.path)) {
+    if (!activeRepo.selection.includes(node.path)) {
       setSelection([node.path]);
       anchor.current = node.path;
     }
@@ -160,9 +162,9 @@ export function FileView() {
     mod: "none" | "ctrl" | "shift"
   ) {
     if (mod === "ctrl") {
-      const next = state.selection.includes(node.path)
-        ? state.selection.filter((p) => p !== node.path)
-        : [...state.selection, node.path];
+      const next = activeRepo.selection.includes(node.path)
+        ? activeRepo.selection.filter((p) => p !== node.path)
+        : [...activeRepo.selection, node.path];
       setSelection(next);
       anchor.current = node.path;
       return;
@@ -217,7 +219,7 @@ export function FileView() {
           onSelect={select}
           onContextMenu={onContextMenu}
           modifiers={modifiers}
-          selection={state.selection}
+          selection={activeRepo.selection}
           meta={meta}
         />
       ) : (

@@ -383,7 +383,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [ ] M5 — Räumliches Layout / Grid-View
 - [ ] M6 — Merge-Konfliktauflösung
 - [ ] M7 — Pull-Requests- & Issues-Modul
-- [ ] M8 — Multi-Repo-„Workspaces"-Refactor
+- [x] M8 — Multi-Repo-„Workspaces"-Refactor
 - [ ] M9 — Dock
 - [ ] M10 — Systemsteuerung (Security/Access/Branch-Rules)
 - [ ] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)

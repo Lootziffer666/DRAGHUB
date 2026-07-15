@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { fetchBranches } from "@/lib/github";
 import {
   ChevronDown,
@@ -18,6 +18,7 @@ import { UploadPanel } from "./UploadPanel";
 
 export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
   const { state, openRepo, setBranch, closeRepo } = useStore();
+  const repo = useActiveRepo();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [value, setValue] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
@@ -26,7 +27,7 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
   const [showRecent, setShowRecent] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const meta = state.meta;
+  const meta = repo?.meta ?? null;
 
   useEffect(() => {
     if (meta) {

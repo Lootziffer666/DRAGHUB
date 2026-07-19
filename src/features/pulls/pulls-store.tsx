@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -55,6 +56,18 @@ export function PullsProvider({ children }: { children: ReactNode }) {
   const [details, setDetails] = useState<Record<number, PullDetail>>({});
   const [checks, setChecks] = useState<Record<number, CheckSummary>>({});
   const [detailStatus, setDetailStatus] = useState<Record<number, LoadState>>({});
+
+  // Since M8, the active repo can change without a full close/reopen (Dock
+  // quick-switch) — drop the previous repo's list so the panel re-fetches
+  // instead of showing another repo's PRs.
+  useEffect(() => {
+    setItems([]);
+    setStatus("idle");
+    setError(null);
+    setDetails({});
+    setChecks({});
+    setDetailStatus({});
+  }, [meta?.fullName]);
 
   const refresh = useCallback(async () => {
     if (!meta) return;

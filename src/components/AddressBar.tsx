@@ -36,6 +36,9 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
     } else {
       setBranches([]);
     }
+    // Clear leftover input when the active repo changes (M8 quick-switch) —
+    // otherwise the field keeps showing the previously typed repo name.
+    setValue("");
   }, [meta]);
 
   useEffect(() => {

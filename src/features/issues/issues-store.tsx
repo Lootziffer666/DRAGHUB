@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -31,6 +32,14 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<IssueSummary[]>([]);
   const [status, setStatus] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Since M8, the active repo can change without a full close/reopen —
+  // drop the previous repo's list so the panel re-fetches.
+  useEffect(() => {
+    setItems([]);
+    setStatus("idle");
+    setError(null);
+  }, [meta?.fullName]);
 
   const refresh = useCallback(async () => {
     if (!meta) return;

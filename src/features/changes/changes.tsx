@@ -48,24 +48,51 @@ type ChangesContextValue = {
 
 const ChangesContext = createContext<ChangesContextValue | null>(null);
 
-const META_KEY = "gh-browser-changes-meta";
+// Since M8, pending changes are bucketed per repository so that switching
+// the active repo (Dock quick-switch) never discards staged work. The old
+// single-list storage key ("gh-browser-changes-meta") is intentionally
+// abandoned rather than migrated — it couldn't say which repo it belonged to.
+const META_KEY = "gh-browser-changes-by-repo";
 
 export function ChangesProvider({ children }: { children: ReactNode }) {
   const { state, ensureDir, seedDir, invalidateDir } = useStore();
   const meta = state.meta;
+  const repoKey = meta?.fullName ?? null;
 
-  const [changes, setChanges] = useState<WorkingChange[]>([]);
+  const [byRepo, setByRepo] = useState<Record<string, WorkingChange[]>>({});
   const [status, setStatus] = useState<ChangesStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("Checkpoint via GitHub Browser");
 
+  const changes = useMemo(
+    () => (repoKey ? (byRepo[repoKey] ?? []) : []),
+    [byRepo, repoKey]
+  );
+
   const changesRef = useRef(changes);
   changesRef.current = changes;
+  const repoKeyRef = useRef(repoKey);
+  repoKeyRef.current = repoKey;
+
+  /** Applies `fn` to the active repo's pending-change list. */
+  const setChanges = useCallback(
+    (fn: (prev: WorkingChange[]) => WorkingChange[]) => {
+      const key = repoKeyRef.current;
+      if (!key) return;
+      setByRepo((prev) => ({ ...prev, [key]: fn(prev[key] ?? []) }));
+    },
+    []
+  );
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(META_KEY);
-      if (raw) setChanges(JSON.parse(raw) as WorkingChange[]);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setByRepo(parsed as Record<string, WorkingChange[]>);
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -73,18 +100,17 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(META_KEY, JSON.stringify(changes));
+      localStorage.setItem(META_KEY, JSON.stringify(byRepo));
     } catch {
       /* ignore */
     }
-  }, [changes]);
+  }, [byRepo]);
 
-  // Changes are per-repository; a freshly opened repo starts with a clean slate.
+  // Status/error are transient UI state for the active repo's panel.
   useEffect(() => {
-    setChanges([]);
     setStatus("idle");
     setError(null);
-  }, [meta?.fullName]);
+  }, [repoKey]);
 
   const stageAddFile = useCallback(
     async (path: string, data: Uint8Array, origin: ChangeOrigin = "manual") => {
@@ -103,7 +129,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setChanges((prev) => [...prev, change]);
       events.emit("change.staged", { kind: "add", path });
     },
-    []
+    [setChanges]
   );
 
   const stageAddFolder = useCallback(
@@ -121,7 +147,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       seedDir(path, []);
       events.emit("change.staged", { kind: "add", path });
     },
-    [seedDir]
+    [seedDir, setChanges]
   );
 
   const stageEdit = useCallback(
@@ -154,7 +180,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       }
       events.emit("change.staged", { kind: "modify", path });
     },
-    []
+    [setChanges]
   );
 
   const stageDelete = useCallback(
@@ -210,7 +236,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       });
       events.emit("change.staged", { kind: "delete", path });
     },
-    []
+    [setChanges]
   );
 
   const stageRename = useCallback(
@@ -269,7 +295,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       });
       events.emit("change.staged", { kind: "rename", path: toPath });
     },
-    []
+    [setChanges]
   );
 
   const discardChange = useCallback((id: string) => {
@@ -279,16 +305,16 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       if (change) events.emit("change.discarded", { path: change.path });
       return prev.filter((c) => c.id !== id);
     });
-  }, []);
+  }, [setChanges]);
 
   const discardAll = useCallback(() => {
     for (const c of changesRef.current) {
       if (c.blobId) void dbDelete(c.blobId);
     }
-    setChanges([]);
+    setChanges(() => []);
     setError(null);
     setStatus("idle");
-  }, []);
+  }, [setChanges]);
 
   const createCheckpoint = useCallback(async () => {
     const current = changesRef.current;
@@ -306,7 +332,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       for (const c of current) {
         if (c.blobId) await dbDelete(c.blobId);
       }
-      setChanges([]);
+      setChanges(() => []);
       setStatus("done");
       events.emit("checkpoint.created", {
         commitSha: result.commitSha,
@@ -327,7 +353,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setError(result.error);
       events.emit("checkpoint.failed", { error: result.error });
     }
-  }, [meta, message, ensureDir, invalidateDir, state.expanded]);
+  }, [meta, message, ensureDir, invalidateDir, state.expanded, setChanges]);
 
   const changeForPath = useCallback(
     (path: string) => changes.find((c) => c.path === path),

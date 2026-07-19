@@ -383,7 +383,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 - [x] M5 — Räumliches Layout / Grid-View
 - [x] M6 — Merge-Konfliktauflösung
 - [x] M7 — Pull-Requests- & Issues-Modul
-- [ ] M8 — Multi-Repo-„Workspaces"-Refactor
+- [x] M8 — Multi-Repo-„Workspaces"-Refactor
 - [x] M9 — Dock
 - [x] M10 — Systemsteuerung (Security/Access/Branch-Rules)
 - [x] M11 — Startmenü (Codespaces-Link, Releases/Packages, Wiki-Spike)
@@ -582,3 +582,46 @@ GitHub-API tut das nachweislich (sonst hätte die schon vorher im Repo
 vorhandene 403-Ratenlimit-Erkennung in `ghFetch` nie funktionieren können) —
 das Mock ohne diesen Header war schlicht unrealistisch. Mit dem korrekten
 Header im Mock verifiziert sich die Anzeige einwandfrei.
+
+**Status M8 (umgesetzt 2026-07-15, als letzter Milestone):** Der Reducer-State
+in `store.tsx` ist jetzt multi-repo: `repos: Record<"owner/repo", RepoState>`
+mit `activeRepoKey`, wobei `RepoState` exakt den im Plan skizzierten Zuschnitt
+hat (meta, tabs, activeTabId, treeCache, treeState, expanded, selection).
+Die im Plan vorgeschlagene Mitigation wurde umgesetzt, nur invertiert: Statt
+alle Konsumenten auf einen neuen `useActiveRepo()`-Selektor umzustellen,
+projiziert der Provider den aktiven `RepoState` in die **unveränderte,
+bisherige `state`-Form** (`StateView`) — dadurch mussten Explorer, FileView,
+Tabs, AddressBar, StatusBar und sämtliche Feature-Module gar nicht angefasst
+werden; sie lesen weiter `state.meta`, `state.tabs` usw. Repo-scoped Actions
+tragen jetzt einen `repoKey`, den die Callbacks beim Start der (ggf. asynchronen)
+Operation einfangen — ein nach einem Repo-Wechsel eintreffendes Ladeergebnis
+schreibt damit in das richtige (Hintergrund-)Repo statt in das gerade aktive;
+war das Repo inzwischen geschlossen, ist der Update ein No-op. `openRepo`
+wechselt nur noch, wenn das Repo bereits offen ist (Tabs/Baum/Auswahl bleiben
+erhalten) — dadurch wird das Dock (M9) automatisch zum Multi-Repo-Umschalter.
+„Schließen" (X) entfernt nur das aktive Repo und aktiviert das zuletzt
+geöffnete verbleibende, sonst Home. `pinnedRepoKeys` liegt abweichend vom
+Plan-Sketch nicht im Store, sondern bleibt im Dock-Modul (localStorage) —
+Pins sind Dock-Belang, kein Kern-State; vermerkt als bewusste Abweichung.
+
+Vier Folge-Regressionen wurden identifiziert und mitbehoben, die erst durch
+„Wechseln statt Schließen+Neuöffnen" möglich wurden: (1) `ChangesProvider`
+verwarf beim Repo-Wechsel alle Pending-Changes (Reset-Effekt auf
+`meta.fullName`) — jetzt werden Changes pro Repo gebuckets
+(`Record<repoKey, WorkingChange[]>`, neuer localStorage-Key, alter Key ohne
+Migration aufgegeben, da er keine Repo-Zuordnung hatte); ein Dock-Wechsel
+erhält gestagte Arbeit jedes Repos. (2) `FileView`s Ordner-„Refresh" mutierte
+`state.treeCache` direkt — das traf nach dem Refactor nur noch die abgeleitete
+Projektion statt des echten Stores; auf `invalidateDir` umgestellt. (3)/(4)
+`pulls-store` und `issues-store` behielten die Liste des vorherigen Repos
+über einen Wechsel hinweg (Panel lud wegen `status === "loaded"` nicht neu) —
+beide resetten jetzt bei `meta.fullName`-Wechsel. Zusätzlich leert die
+AddressBar ihr Eingabefeld beim Repo-Wechsel (zeigte sonst den zuvor
+getippten Repo-Namen weiter an).
+
+**Akzeptanzkriterium verifiziert (Playwright):** Single-Repo-Flows (CRUD,
+Editor, Grid) laufen unverändert; zweites Repo per Adressleiste geöffnet,
+während Repo A mit expandiertem Baum, offenem Datei-Tab und einem gestagten
+Delta im Hintergrund blieb; Rückwechsel über den Dock-Chip stellte alles
+exakt wieder her (Baum expandiert, Tab samt Inhalt aktiv, Pending-Change und
+Changes-Badge „1" zurück; in Repo B war das Badge korrekt leer).

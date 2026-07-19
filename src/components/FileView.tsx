@@ -60,6 +60,7 @@ export function FileView() {
     setActiveTab,
     loadFolderTab,
     ensureDir,
+    invalidateDir,
     setViewMode,
   } = useStore();
   const { openMenu } = useUI();
@@ -119,7 +120,7 @@ export function FileView() {
         icon: <Refresh width={15} height={15} />,
         separatorBefore: true,
         onClick: () => {
-          delete (state.treeCache as Record<string, unknown>)[node.path];
+          invalidateDir(node.path);
           void ensureDir(node.path);
         },
       });

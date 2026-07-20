@@ -3,13 +3,16 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { useActiveRepo } from "@/lib/store";
 import { useChanges } from "@/features/changes";
+import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
 import {
   listRetained,
+  listAllRetained,
   removeRetained,
   emptyBin,
   subscribeBin,
   GRACE_PERIOD_MS,
 } from "@/lib/recycle-bin";
+import { recycleBinSummary } from "./recycle-bin-summary";
 import type { WorkingChange } from "@/lib/github-ops";
 import { formatBytes } from "@/lib/github";
 import { Trash, Undo, X, FileIcon } from "@/components/icons";
@@ -38,11 +41,20 @@ function daysLeft(discardedAt: number): number {
 export function RecycleBinPanel({ onClose }: { onClose: () => void }) {
   const repo = useActiveRepo();
   const changes = useChanges();
+  const wm = useWindowManager();
   useBinVersion();
   const repoKey = repo?.meta.fullName ?? null;
 
+  // Staged deletions are rendered under "Staged deletions" and are
+  // intentionally preserved — Empty Recycle Bin only clears the kernel
+  // recycle-bin entries (discarded drafts from closed windows) and the
+  // domain-retention entries (retained changes), never the changes bucket.
   const stagedDeletions = changes.changes.filter((c) => c.kind === "delete");
   const retained = repoKey ? listRetained(repoKey) : [];
+
+  const kernelEntries = wm.session.recycleBin;
+  const allRetained = listAllRetained();
+  const summary = recycleBinSummary(kernelEntries, allRetained);
 
   const pathOccupied = useCallback(
     (path: string) =>
@@ -77,15 +89,21 @@ export function RecycleBinPanel({ onClose }: { onClose: () => void }) {
   };
 
   const onEmpty = async () => {
-    if (!repoKey || retained.length === 0) return;
-    const totalBytes = retained.reduce((s, r) => s + (r.change.size ?? 0), 0);
+    // Unified empty: clears BOTH the kernel recycle-bin entries (discarded
+    // drafts from closed windows) and the domain-retention entries (retained
+    // changes) across all repos. Staged deletions are intentionally preserved.
+    if (summary.kernelCount === 0 && summary.domainCount === 0) return;
     if (
       !window.confirm(
-        `Empty Recycle Bin for ${repoKey}?\n\n${retained.length} discarded draft${retained.length === 1 ? "" : "s"} (${formatBytes(totalBytes)}) will be permanently deleted. Staged deletions are not affected, and Git history is never rewritten.`
+        `${summary.kernelCount} discarded draft(s) from closed windows and ${summary.domainCount} retained change(s) across ${summary.repos.length} repo(s) will be permanently deleted. Staged deletions and Git history are not affected.`
       )
     )
       return;
-    await emptyBin(repoKey);
+    await wm.emptyRecycleBin();
+    const retainedRepos = [...new Set(allRetained.map((r) => r.repoKey))];
+    for (const rk of retainedRepos) {
+      await emptyBin(rk);
+    }
   };
 
   return (
@@ -187,7 +205,7 @@ export function RecycleBinPanel({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-end border-t border-neutral-800 px-4 py-3">
           <button
             onClick={() => void onEmpty()}
-            disabled={retained.length === 0}
+            disabled={summary.kernelCount === 0 && summary.domainCount === 0}
             className="rounded-md border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-40"
           >
             Empty Recycle Bin…

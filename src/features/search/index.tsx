@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Search } from "@/components/icons";
 import { SearchPanel } from "./SearchPanel";
+import type { DesktopWindowState } from "@/features/desktop/types";
 
 type SearchContextValue = {
   open: () => void;
@@ -20,7 +21,26 @@ type SearchContextValue = {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-export function SearchProvider({ children }: { children: ReactNode }) {
+export function repoKeyFromWindow(
+  w: DesktopWindowState | undefined,
+): string | null {
+  if (!w) return null;
+  if (w.resource.type === "repository") return w.resource.repoKey;
+  if (w.resource.type === "file") return w.resource.repoKey;
+  if (w.resource.type === "github-feature") return w.resource.repoKey;
+  if (w.owner.type === "repository") return w.owner.repoKey;
+  return null;
+}
+
+export function SearchProvider({
+  children,
+  onSelectRepo,
+  relatedRepoKey = null,
+}: {
+  children: ReactNode;
+  onSelectRepo?: (fullName: string) => void;
+  relatedRepoKey?: string | null;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const open = useCallback(() => setIsOpen(true), []);
@@ -41,7 +61,13 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={{ open, close, toggle, isOpen }}>
       {children}
-      {isOpen && <SearchPanel onClose={close} />}
+      {isOpen && (
+        <SearchPanel
+          onClose={close}
+          relatedRepoKey={relatedRepoKey}
+          onSelectRepo={onSelectRepo}
+        />
+      )}
     </SearchContext.Provider>
   );
 }

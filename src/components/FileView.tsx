@@ -22,6 +22,17 @@ import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
 import { parseConflictHunks } from "@/lib/merge";
 import { useChanges } from "@/features/changes";
 import { tokenizeLines } from "@/lib/highlight";
+import { CodeEditor } from "./CodeEditor";
+import { renderMarkdown } from "@/lib/markdown";
+import {
+  openSession as openEditorSession,
+  getSession as getEditorSession,
+  updateDraft as updateEditorDraft,
+  saveViewState as saveEditorViewState,
+  markSaved as markEditorSaved,
+  discardDraft as discardEditorDraft,
+  isDirty as isSessionDirty,
+} from "@/lib/editor-sessions";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
 
@@ -230,7 +241,9 @@ export function FileView() {
         />
       ) : (
         <FileContentView
+          key={activeTab.id}
           tab={activeTab}
+          repoKey={activeTab.repoKey}
           meta={meta}
           onOpenPath={openPath}
           onCopy={copy}
@@ -426,8 +439,14 @@ function FolderView({
   );
 }
 
+/** Files at/above this size require an explicit confirmation before the
+ * editor loads them (M3b: "Schutz vor ungefragtem Laden oder Editieren
+ * ungeeignet großer Dateien"). */
+const EDITOR_SIZE_GUARD_BYTES = 1_000_000;
+
 function FileContentView({
   tab,
+  repoKey,
   meta,
   onOpenPath,
   onCopy,
@@ -440,6 +459,7 @@ function FileContentView({
     language?: string;
     size?: number;
   };
+  repoKey: string;
   meta: { owner: string; repo: string; branch: string; htmlUrl: string };
   onOpenPath: (p: string, k: "file" | "dir") => void;
   onCopy: (t: string) => void;
@@ -447,17 +467,49 @@ function FileContentView({
   const isImage = IMAGE_EXT.includes(
     tab.path.split(".").pop()?.toLowerCase() ?? ""
   );
+  const isMarkdown = /\.(md|mdx)$/i.test(tab.path);
   const parent = tab.path.includes("/")
     ? tab.path.slice(0, tab.path.lastIndexOf("/"))
     : "";
-  const { stageAddFile } = useChanges();
+  const { stageEdit } = useChanges();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(tab.content ?? "");
+  const [mdPreview, setMdPreview] = useState(isMarkdown);
+  const [sizeGuardAccepted, setSizeGuardAccepted] = useState(false);
+  const [dirty, setDirty] = useState(() => isSessionDirty(repoKey, tab.path));
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [resetNonce, setResetNonce] = useState(0);
+  const [editPreview, setEditPreview] = useState(false);
   const [lfsProgress, setLfsProgress] = useState<string | null>(null);
   const lfsPointer = parseLfsPointer(tab.content);
   const conflictHunks = useMemo(() => parseConflictHunks(tab.content ?? ""), [tab.content]);
 
-  useEffect(() => setDraft(tab.content ?? ""), [tab.content, tab.path]);
+  const contentBytes = tab.size ?? tab.content?.length ?? 0;
+  const needsSizeGuard = contentBytes >= EDITOR_SIZE_GUARD_BYTES && !sizeGuardAccepted;
+
+  // A dirty draft from a previous visit (tab/repo switch or reload) must
+  // resurface instead of being silently lost — reopen the editor on it.
+  useEffect(() => {
+    if (dirty && !editing && !isImage && !lfsPointer && tab.contentState === "loaded") {
+      setEditing(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.contentState]);
+
+  const session =
+    editing && tab.contentState === "loaded"
+      ? openEditorSession(repoKey, tab.path, tab.content ?? "")
+      : null;
+
+  const save = () => {
+    const current = getEditorSession(repoKey, tab.path);
+    if (!current) return;
+    void stageEdit(tab.path, new TextEncoder().encode(current.draft), "edit").then(() => {
+      markEditorSaved(repoKey, tab.path);
+      setDirty(false);
+      setSavedFlash(true);
+      window.setTimeout(() => setSavedFlash(false), 1500);
+    });
+  };
 
   const lines = useMemo(
     () => (tab.content ? tokenizeLines(tab.content) : []),
@@ -503,13 +555,29 @@ function FileContentView({
             {formatBytes(tab.size)}
           </span>
         )}
+        {dirty && (
+          <span
+            title="Unsaved draft — save stages it as a Working Change"
+            className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-medium text-amber-400"
+          >
+            unsaved draft
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           {!isImage && !lfsPointer && (
             <button
               onClick={() => setEditing((v) => !v)}
               className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
             >
-              {editing ? "Preview" : "Edit"}
+              {editing ? "View" : "Edit"}
+            </button>
+          )}
+          {isMarkdown && !editing && (
+            <button
+              onClick={() => setMdPreview((v) => !v)}
+              className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            >
+              {mdPreview ? "Source" : "Preview"}
             </button>
           )}
           {parent && (
@@ -569,14 +637,84 @@ function FileContentView({
       )}
       {editing && (
         <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-neutral-300">
-          Saving creates a pending Working Changes delta, not an immediate commit.
-          <button onClick={() => void stageAddFile(tab.path, new TextEncoder().encode(draft), "manual")} className="ml-auto rounded bg-blue-600 px-2 py-1 text-white">Save delta</button>
-          <button onClick={() => setDraft(tab.content ?? "")} className="rounded bg-neutral-800 px-2 py-1">Reset</button>
+          {savedFlash ? (
+            <span className="text-emerald-400">Saved as Working Change — checkpoint when ready.</span>
+          ) : dirty ? (
+            <span className="text-amber-400">Unsaved draft — kept across tab switches and reloads.</span>
+          ) : (
+            <span>Saving stages a Working Changes delta, not an immediate commit.</span>
+          )}
+          {isMarkdown && (
+            <button
+              onClick={() => setEditPreview((v) => !v)}
+              className="ml-auto rounded bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
+            >
+              {editPreview ? "Editor" : "Preview"}
+            </button>
+          )}
+          <button
+            onClick={save}
+            disabled={!dirty}
+            title="Save (Ctrl/Cmd+S)"
+            className={[
+              isMarkdown ? "" : "ml-auto",
+              "rounded bg-blue-600 px-2 py-1 text-white disabled:opacity-40",
+            ].join(" ")}
+          >
+            Save <kbd className="ml-1 rounded bg-blue-800 px-1 text-[10px]">⌘S</kbd>
+          </button>
+          <button
+            onClick={() => {
+              discardEditorDraft(repoKey, tab.path);
+              setDirty(false);
+              setResetNonce((n) => n + 1);
+            }}
+            disabled={!dirty}
+            className="rounded bg-neutral-800 px-2 py-1 disabled:opacity-40"
+          >
+            Discard draft
+          </button>
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
-        {editing ? (
-          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} spellCheck={false} className="min-h-full w-full resize-none bg-neutral-950 p-4 font-mono text-[12.5px] leading-5 text-neutral-100 outline-none" />
+        {editing && needsSizeGuard ? (
+          <div className="flex flex-col items-center gap-3 p-8 text-center">
+            <p className="text-sm text-neutral-300">
+              This file is {formatBytes(contentBytes)} — large files can make the
+              editor slow.
+            </p>
+            <button
+              onClick={() => setSizeGuardAccepted(true)}
+              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+            >
+              Edit anyway
+            </button>
+          </div>
+        ) : editing && session ? (
+          editPreview && isMarkdown ? (
+            <div className="text-sm">{renderMarkdown(getEditorSession(repoKey, tab.path)?.draft ?? "")}</div>
+          ) : (
+            <CodeEditor
+              key={`${tab.path}:${resetNonce}`}
+              path={tab.path}
+              initialValue={session.draft}
+              initialViewState={
+                session.selection
+                  ? { selection: session.selection, scrollTop: session.scrollTop ?? 0 }
+                  : undefined
+              }
+              onChange={(value, selection) => {
+                updateEditorDraft(repoKey, tab.path, value, selection);
+                setDirty(isSessionDirty(repoKey, tab.path));
+              }}
+              onSave={save}
+              onViewState={(vs) =>
+                saveEditorViewState(repoKey, tab.path, vs.selection, vs.scrollTop)
+              }
+            />
+          )
+        ) : isMarkdown && mdPreview && tab.content !== undefined ? (
+          <div className="text-sm">{renderMarkdown(tab.content)}</div>
         ) : isImage ? (
           <div className="flex justify-center p-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}

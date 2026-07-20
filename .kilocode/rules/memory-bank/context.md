@@ -61,6 +61,42 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
   - M10: added `src/features/control-panel` with Security/Branch-protection scope probes and a CODEOWNERS generator that stages a regular file delta.
   - M11: added `src/features/start-menu` with Codespaces deep-link, releases list, and a written wiki feasibility spike note documenting the separate `.wiki.git` limitation.
 
+- [x] **M3b editor per `docs/DRAGHUB_PLAN_CORRECTION_RECORD.md` §5 (2026-07-19)** — the
+  earlier textarea explicitly did not satisfy M3; replaced with a real editor:
+  - `src/components/CodeEditor.tsx`: CodeMirror 6 (basicSetup, oneDark, language packs
+    by extension, `Mod-S` → save keymap), recreated only when the file path changes.
+  - `src/lib/editor-sessions.ts`: per-(repo,path) draft sessions; dirty drafts mirror to
+    localStorage so they survive tab/repo switches *and* reload; selection + scroll
+    position preserved; `useSyncExternalStore`-based dirty dots in `Tabs`.
+  - `src/lib/flubber-selection.ts`: FLUBBER two-long-press touch selection (§4.2) as a
+    CM6 StateField + ViewPlugin with its own grips/action bar/status chip; anchor
+    survives scrolling; all layout reads go through `view.requestMeasure`.
+  - `src/lib/markdown.tsx`: dependency-free Markdown renderer to React elements (no HTML
+    injection); `.md` files open in rendered preview by default with an editor toggle.
+  - `src/components/FileView.tsx`: 1 MB editor size guard with explicit override, save →
+    `stageEdit` Working Change (`modify` kind), discard-draft, auto-reopen when dirty.
+  - Open per PLAN.md M3 note: editing a historical ref → branch off a variant (the app
+    cannot browse historical refs yet) and maintainer end-to-end acceptance.
+
+- [x] **Functional Recycle Bin per correction record §6 / desktop-shell spec §14 (2026-07-20)**:
+  - `src/lib/recycle-bin.ts`: retention store for discarded content-bearing changes —
+    discarding a staged add/modify moves the change record here (blob stays in
+    IndexedDB) with a 7-day grace period instead of destroying it; localStorage
+    metadata, subscribe/purge/empty API.
+  - `src/features/recycle-bin/` (module): `RecycleBinPanel.tsx` shows staged deletions
+    (Restore = remove the delete delta; path-conflict guard) and discarded drafts
+    (Restore re-stages, path conflict prompts a new target as kind `add`; per-item
+    permanent delete with confirm; days-left display); Empty Bin requires a summary
+    (count + bytes) plus explicit confirmation; UI states that Git history is
+    append-only. `index.tsx` exports `RecycleBinButton` (badge = staged deletions +
+    retained drafts) wired into the title bar.
+  - `src/features/changes/changes.tsx`: `discardChange`/`discardAll` route blob-bearing
+    changes into the bin; new `restoreChange()` re-stages a retained change. Side
+    effects deliberately live outside the `setChanges` updater (StrictMode
+    double-invokes updaters — this caused a double-retain bug caught in verification).
+  - Known limitation (noted in PLAN.md): bin entries are keyed per repo, not yet per
+    variant/branch — must gain a variant dimension once branch switching exists.
+
 ## Current Structure
 
 | File | Purpose |
@@ -95,6 +131,12 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 | `src/features/control-panel/` | Security/access/branch-rule probes and CODEOWNERS generator |
 | `src/features/start-menu/` | Codespaces/release launcher and wiki feasibility note |
 | `src/features/triage/` | Bulk PR triage module built on PR classification |
+| `src/components/CodeEditor.tsx` | CodeMirror 6 editor wrapper (M3b) |
+| `src/lib/editor-sessions.ts` | Per-file draft sessions, dirty tracking, reload survival |
+| `src/lib/flubber-selection.ts` | FLUBBER two-long-press touch text selection (CM6 extension) |
+| `src/lib/markdown.tsx` | Dependency-free Markdown → React renderer |
+| `src/lib/recycle-bin.ts` | Retention store for discarded content-bearing changes (7-day grace) |
+| `src/features/recycle-bin/` | **Feature module**: `RecycleBinPanel.tsx`, `index.tsx` (`RecycleBinButton`) |
 
 ## Key Decisions
 
@@ -121,3 +163,5 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | 2026-07-15 | PLAN.md M1+M2: Explorer CRUD (new/rename/delete/move) staged as a changeset, Working-Changes/Checkpoint panel, single-commit changeset primitive with blob-sha reuse for renames; fixed a `ContextMenu` bug that silently dropped items marked `separatorBefore` |
 | 2026-07-15 | PLAN.md M8: Multi-repo workspace state with active repo selector and title-bar workspace switcher; opening another repo preserves the existing repo workspace |
 | 2026-07-15 | PLAN.md M3–M7 and M9–M12: editor/delta, LFS and large-file read guards, grid layout, conflict primitives, PR/Issue/Triage modules, Dock, Control Panel, Start Menu, and wiki spike note |
+| 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard |
+| 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange` |

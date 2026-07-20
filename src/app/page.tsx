@@ -10,6 +10,7 @@ import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { SearchButton, SearchProvider } from "@/features/search";
 import { ChangesButton, ChangesProvider } from "@/features/changes";
+import { RecycleBinButton } from "@/features/recycle-bin";
 import { PullsButton, PullsProvider } from "@/features/pulls";
 import { IssuesButton, IssuesProvider } from "@/features/issues";
 import { Dock } from "@/features/dock";
@@ -189,6 +190,7 @@ function TitleBar() {
         </div>
         <StartMenuButton />
         <ChangesButton />
+        <RecycleBinButton />
         <PullsButton />
         <IssuesButton />
         <TriageButton />

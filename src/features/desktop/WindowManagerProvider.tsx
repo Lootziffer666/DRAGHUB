@@ -380,12 +380,34 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         children,
         reason: "user-request" as const,
       };
-      const blockers = await demoLifecycle.inspectClose(partial);
       mutate((s) => ({
         ...s,
         pendingCloseId: id,
-        closeContext: { ...partial, blockers },
+        closeContext: { ...partial, blockers: [] },
       }));
+      try {
+        const blockers = await demoLifecycle.inspectClose(partial);
+        mutate((s) =>
+          s.closeContext?.transactionId === partial.transactionId
+            ? { ...s, closeContext: { ...partial, blockers } }
+            : s,
+        );
+      } catch (error) {
+        mutate((s) =>
+          s.closeContext?.transactionId === partial.transactionId
+            ? {
+                ...s,
+                closeContext: {
+                  ...s.closeContext,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Close inspection failed",
+                },
+              }
+            : s,
+        );
+      }
     },
     resolveCloseWindow: async (resolution) => {
       const context = session.closeContext;
@@ -396,25 +418,44 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       }
       if (resolvingClose.current === context.transactionId) return;
       resolvingClose.current = context.transactionId;
-      const result = await demoLifecycle.resolveClose(context, resolution);
-      resolvingClose.current = null;
-      setSession((current) => {
-        if (current.closeContext?.transactionId !== context.transactionId)
-          return current;
-        if (!result.success)
-          return {
-            ...current,
-            closeContext: {
-              ...current.closeContext,
-              error: result.error ?? "Close resolution failed",
-            },
-          };
-        return closeWindowState(
-          current,
-          context.target.id,
-          result.recycleBinEntries ?? [],
+      try {
+        const result = await demoLifecycle.resolveClose(context, resolution);
+        setSession((current) => {
+          if (current.closeContext?.transactionId !== context.transactionId)
+            return current;
+          if (!result.success)
+            return {
+              ...current,
+              closeContext: {
+                ...current.closeContext,
+                error: result.error ?? "Close resolution failed",
+              },
+            };
+          return closeWindowState(
+            current,
+            context.target.id,
+            result.recycleBinEntries ?? [],
+          );
+        });
+      } catch (error) {
+        setSession((current) =>
+          current.closeContext?.transactionId === context.transactionId
+            ? {
+                ...current,
+                closeContext: {
+                  ...current.closeContext,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Close resolution failed",
+                },
+              }
+            : current,
         );
-      });
+      } finally {
+        if (resolvingClose.current === context.transactionId)
+          resolvingClose.current = null;
+      }
     },
     cancelCloseWindow: () =>
       mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null })),

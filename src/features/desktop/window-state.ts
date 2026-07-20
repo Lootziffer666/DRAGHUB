@@ -14,7 +14,9 @@ export function focusWindowState(
   return {
     ...s,
     windows: s.windows.map((w) =>
-      w.id === id ? { ...w, zIndex: top, lastFocusedAt: Date.now() } : w,
+      w.id === id
+        ? { ...w, minimized: false, zIndex: top, lastFocusedAt: Date.now() }
+        : w,
     ),
     activeWindowId: id,
   };

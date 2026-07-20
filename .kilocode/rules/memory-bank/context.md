@@ -15,6 +15,9 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Desktop race and v4 migration hardening (2026-07-20)**:
+  - v4 retention/history survives schema-v5 migration; close inspection and resolution now guard pre-await transaction IDs, exceptions, cancellation, stale results, and lock ownership while applying successful results to current state only.
+
 - [x] **Desktop correctness pass / persistence v5 (2026-07-20)**:
   - Separated window presentation from minimized visibility, guarded asynchronous close results by transaction ID, scoped child deduplication to owners, and fully validated discriminated resources plus parent ownership during session loading.
 

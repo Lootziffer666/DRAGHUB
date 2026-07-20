@@ -16,7 +16,7 @@ export function migratePersistedSession(
   const data = value as Partial<Envelope>;
   if (data.version === 5 && isSession(data.session))
     return sanitizeDesktopSession(data.session, fallback);
-  if ([1, 2, 3, 4].includes(data.version ?? 0) && isSession(data.session))
+  if (data.version === 4 && isSession(data.session))
     return sanitizeDesktopSession(
       {
         ...data.session,
@@ -33,6 +33,29 @@ export function migratePersistedSession(
         }),
         pendingCloseId: null,
         activeWindowId: data.session.activeWindowId ?? null,
+        closeContext: null,
+        recycleBin: data.session.recycleBin ?? [],
+        restoredItems: data.session.restoredItems ?? [],
+        recycleError: null,
+      },
+      fallback,
+    );
+  if ([1, 2, 3].includes(data.version ?? 0) && isSession(data.session))
+    return sanitizeDesktopSession(
+      {
+        ...data.session,
+        windows: data.session.windows.map((window) => {
+          const old = window as typeof window & { state?: string };
+          return {
+            ...window,
+            presentation:
+              old.state === "maximized"
+                ? ("maximized" as const)
+                : ("normal" as const),
+            minimized: old.state === "minimized",
+          };
+        }),
+        pendingCloseId: null,
         closeContext: null,
         recycleBin: [],
         restoredItems: [],
@@ -96,15 +119,23 @@ export function sanitizeDesktopSession(
       validOwner(w.owner) &&
       validResource(w.resource),
   );
-  const repositoryIds = new Set(
+  const repositoryParents = new Map(
     initiallyValid
-      .filter((w) => w.resource.type === "repository")
-      .map((w) => w.id),
+      .filter(
+        (w) =>
+          w.applicationId === "repository-explorer" &&
+          w.resource.type === "repository" &&
+          w.owner.type === "desktop",
+      )
+      .map((w) => [
+        w.id,
+        w.resource.type === "repository" ? w.resource.repoKey : "",
+      ]),
   );
   const windows = initiallyValid.filter(
     (w) =>
       w.owner.type === "desktop" ||
-      repositoryIds.has(w.owner.repositoryWindowId),
+      repositoryParents.get(w.owner.repositoryWindowId) === w.owner.repoKey,
   );
   const ids = new Set(windows.map((w) => w.id));
   const repoIds = new Set(
@@ -118,10 +149,18 @@ export function sanitizeDesktopSession(
     rubberBands: session.rubberBands.filter((r) =>
       repoIds.has(r.repositoryWindowId),
     ),
-    activeWindowId:
-      session.activeWindowId && ids.has(session.activeWindowId)
-        ? session.activeWindowId
-        : null,
+    activeWindowId: (() => {
+      const requested = windows.find(
+        (w) => w.id === session.activeWindowId && !w.minimized,
+      );
+      return (
+        requested?.id ??
+        [...windows]
+          .filter((w) => !w.minimized)
+          .sort((a, b) => b.zIndex - a.zIndex)[0]?.id ??
+        null
+      );
+    })(),
     pendingCloseId: null,
     closeContext: null,
     recycleBin: Array.isArray(session.recycleBin)

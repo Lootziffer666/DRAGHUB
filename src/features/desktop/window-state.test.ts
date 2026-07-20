@@ -340,6 +340,30 @@ describe("window state", () => {
   });
 });
 describe("persistence", () => {
+  test("v4 migration preserves valid recycle payloads", () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const entry = {
+      id: "kept",
+      kind: "draft" as const,
+      sourceWindowId: s.windows[0].id,
+      label: "kept draft",
+      discardedAt: 42,
+      payload: { content: "unchanged", language: "markdown" },
+    };
+    const legacy = {
+      ...s,
+      windows: s.windows.map((w) => ({ ...w, state: "minimized" })),
+      recycleBin: [entry],
+      restoredItems: [{ id: "r", label: "restored", restoredAt: 9 }],
+    };
+    const migrated = migratePersistedSession(
+      { version: 4, session: legacy },
+      empty(),
+    );
+    expect(migrated.recycleBin).toEqual([entry]);
+    expect(migrated.restoredItems).toEqual(legacy.restoredItems);
+    expect(migrated.windows[0].minimized).toBe(true);
+  });
   test("migrates v1 and rejects invalid data", () => {
     const s = empty();
     expect(
@@ -383,7 +407,7 @@ describe("persistence", () => {
     expect(clean.windows).toHaveLength(1);
     expect(clean.taskbarOrder).toEqual([valid.id]);
     expect(clean.rubberBands).toHaveLength(0);
-    expect(clean.activeWindowId).toBeNull();
+    expect(clean.activeWindowId).toBe(valid.id);
   });
 });
 describe("close transaction", () => {

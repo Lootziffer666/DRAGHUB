@@ -1,70 +1,80 @@
 import type { WindowApplicationDefinition } from "./types";
-import { MockRepositoryWindow } from "./demo/MockRepositoryWindow";
-import { MockImageViewer } from "./demo/MockImageViewer";
-import { MockGithubFeatureWindow } from "./demo/MockGithubFeatureWindow";
-import { MockToolWindow } from "./demo/MockToolWindow";
-import { MockSettingsWindow } from "./demo/MockSettingsWindow";
-import { MockRecycleBinWindow } from "./demo/MockRecycleBinWindow";
+import { RepositoryExplorerApp } from "@/features/desktop-apps/RepositoryExplorerApp";
+import { FileViewerApp, FileEditorApp } from "@/features/desktop-apps/FileWindowApp";
+import { GithubFeatureApp } from "@/features/desktop-apps/GithubFeatureApp";
+import { ScratchpadApp } from "@/features/desktop-apps/ScratchpadApp";
+import { SettingsApp } from "@/features/desktop-apps/SettingsApp";
+import { RecycleBinApp } from "@/features/desktop-apps/RecycleBinApp";
 const definitions: WindowApplicationDefinition[] = [
   {
     id: "repository-explorer",
     kind: "repository",
     title: "Repository Explorer",
     iconKey: "repo",
-    defaultSize: { width: 760, height: 540 },
-    minimumSize: { width: 480, height: 330 },
+    defaultSize: { width: 900, height: 620 },
+    minimumSize: { width: 520, height: 360 },
     allowMultiple: true,
-    render: (p) => <MockRepositoryWindow {...p} />,
+    render: (p) => <RepositoryExplorerApp {...p} />,
   },
   {
     id: "image-viewer",
     kind: "viewer",
-    title: "Image Viewer",
+    title: "File Viewer",
     iconKey: "image",
-    defaultSize: { width: 570, height: 430 },
+    defaultSize: { width: 640, height: 480 },
     minimumSize: { width: 380, height: 280 },
     allowMultiple: true,
-    render: (p) => <MockImageViewer {...p} />,
+    render: (p) => <FileViewerApp {...p} />,
+  },
+  {
+    id: "file-editor",
+    kind: "editor",
+    title: "Code Editor",
+    iconKey: "tool",
+    defaultSize: { width: 720, height: 540 },
+    minimumSize: { width: 420, height: 300 },
+    allowMultiple: true,
+    render: (p) => <FileEditorApp {...p} />,
   },
   {
     id: "github-feature",
     kind: "github-feature",
     title: "GitHub Feature",
     iconKey: "github",
-    defaultSize: { width: 560, height: 400 },
-    minimumSize: { width: 380, height: 260 },
+    defaultSize: { width: 640, height: 480 },
+    minimumSize: { width: 380, height: 280 },
     allowMultiple: true,
-    render: (p) => <MockGithubFeatureWindow {...p} />,
+    render: (p) => <GithubFeatureApp {...p} />,
   },
   {
     id: "tool-window",
     kind: "tool",
-    title: "Desktop Tool",
+    title: "Scratchpad",
     iconKey: "tool",
     defaultSize: { width: 490, height: 350 },
     minimumSize: { width: 340, height: 240 },
     allowMultiple: true,
-    render: (p) => <MockToolWindow {...p} />,
+    render: (p) => <ScratchpadApp {...p} />,
   },
   {
     id: "settings",
     kind: "system",
-    title: "System",
+    title: "Settings",
     iconKey: "settings",
-    defaultSize: { width: 520, height: 390 },
+    defaultSize: { width: 560, height: 430 },
     minimumSize: { width: 360, height: 260 },
     allowMultiple: false,
-    render: (p) => <MockSettingsWindow {...p} />,
+    render: () => <SettingsApp />,
   },
   {
     id: "recycle-bin",
     kind: "system",
     title: "Recycle Bin",
     iconKey: "bin",
-    defaultSize: { width: 560, height: 420 },
-    minimumSize: { width: 380, height: 280 },
+    defaultSize: { width: 680, height: 500 },
+    minimumSize: { width: 400, height: 300 },
     allowMultiple: false,
-    render: (p) => <MockRecycleBinWindow {...p} />,
+    render: () => <RecycleBinApp />,
   },
 ];
 export const applicationRegistry = new Map(definitions.map((d) => [d.id, d]));

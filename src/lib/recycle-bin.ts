@@ -56,6 +56,12 @@ export function listRetained(repoKey: string): RetainedChange[] {
   return load().filter((r) => r.repoKey === repoKey);
 }
 
+/** Retained discarded changes across every repository (system Recycle Bin). */
+export function listAllRetained(): RetainedChange[] {
+  void purgeExpired();
+  return [...load()];
+}
+
 /** Removes a retained entry (after restore, or per-item permanent delete).
  * `releaseBlob` permanently deletes the cached content. */
 export async function removeRetained(changeId: string, releaseBlob: boolean): Promise<void> {

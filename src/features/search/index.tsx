@@ -20,7 +20,15 @@ type SearchContextValue = {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-export function SearchProvider({ children }: { children: ReactNode }) {
+export function SearchProvider({
+  children,
+  onSelectRepo,
+}: {
+  children: ReactNode;
+  /** Overrides what selecting a repository result does — the desktop shell
+   * opens/focuses a repository window instead of the global store. */
+  onSelectRepo?: (fullName: string) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const open = useCallback(() => setIsOpen(true), []);
@@ -41,7 +49,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={{ open, close, toggle, isOpen }}>
       {children}
-      {isOpen && <SearchPanel onClose={close} />}
+      {isOpen && <SearchPanel onClose={close} onSelectRepo={onSelectRepo} />}
     </SearchContext.Provider>
   );
 }

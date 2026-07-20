@@ -23,7 +23,13 @@ import {
 
 type Mode = "repos" | "related" | "releases";
 
-export function SearchPanel({ onClose }: { onClose: () => void }) {
+export function SearchPanel({
+  onClose,
+  onSelectRepo,
+}: {
+  onClose: () => void;
+  onSelectRepo?: (fullName: string) => void;
+}) {
   const { state, openRepo } = useStore();
   const repo = useActiveRepo();
   const [mode, setMode] = useState<Mode>("repos");
@@ -107,7 +113,8 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
   ];
 
   function selectRepo(fullName: string) {
-    void openRepo(fullName);
+    if (onSelectRepo) onSelectRepo(fullName);
+    else void openRepo(fullName);
     onClose();
   }
 

@@ -44,26 +44,14 @@ import type {
   WindowLifecycleAdapter,
   RecycleBinLifecycleAdapter,
 } from "./types";
-const repo = (name: string): DesktopIconState => ({
-  id: name.toLowerCase(),
-  kind: "repository-drive",
-  title: name,
-  iconKey: "repo",
-  resource: { type: "repository", repoKey: `Lootziffer666/${name}` },
-  position: { x: 24, y: name === "ANVIL" ? 76 : 190 },
-  selected: false,
-  pinned: true,
-});
 const initialIcons: DesktopIconState[] = [
-  repo("ANVIL"),
-  repo("SHADED"),
   {
     id: "bin",
     kind: "recycle-bin",
     title: "Recycle Bin",
     iconKey: "bin",
     resource: { type: "system", systemId: "recycle-bin" },
-    position: { x: 24, y: 304 },
+    position: { x: 24, y: 76 },
     selected: false,
     pinned: true,
   },
@@ -73,11 +61,45 @@ const initialIcons: DesktopIconState[] = [
     title: "Settings",
     iconKey: "settings",
     resource: { type: "system", systemId: "settings" },
-    position: { x: 24, y: 418 },
+    position: { x: 24, y: 190 },
     selected: false,
     pinned: true,
   },
 ];
+/** Icon slot for the next repository drive (below the system icons). */
+function nextIconPosition(icons: DesktopIconState[]) {
+  const used = icons.map((i) => i.position.y).filter((y) => y >= 0);
+  const y = 76 + icons.length * 114;
+  return { x: 24, y: Math.max(304, used.length ? Math.max(...used) + 114 : y) };
+}
+function repositoryIcon(
+  repoKey: string,
+  icons: DesktopIconState[],
+): DesktopIconState {
+  return {
+    id: `repo:${repoKey.toLowerCase()}`,
+    kind: "repository-drive",
+    title: repoKey.split("/").pop() ?? repoKey,
+    iconKey: "repo",
+    resource: { type: "repository", repoKey },
+    position: nextIconPosition(icons),
+    selected: false,
+    pinned: true,
+  };
+}
+/** Adds a desktop drive icon for a repository if none exists yet. */
+function ensureRepositoryIcon(
+  s: DesktopSession,
+  repoKey: string,
+): DesktopSession {
+  const exists = s.icons.some(
+    (i) =>
+      i.resource?.type === "repository" &&
+      i.resource.repoKey.toLowerCase() === repoKey.toLowerCase(),
+  );
+  if (exists) return s;
+  return { ...s, icons: [...s.icons, repositoryIcon(repoKey, s.icons)] };
+}
 const base: DesktopSession = {
   windows: [],
   icons: initialIcons,
@@ -90,48 +112,13 @@ const base: DesktopSession = {
   restoredItems: [],
   recycleError: null,
 };
-const demoLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
-  async inspectClose(context) {
-    const candidates = [context.target, ...context.children];
-    return candidates.flatMap((w) =>
-      w.applicationId === "tool-window" ||
-      (w.resource.type === "repository" &&
-        w.resource.repoKey.endsWith("/ANVIL"))
-        ? [
-            {
-              type: "unsaved-draft" as const,
-              windowId: w.id,
-              label: `Unsaved demo state in ${w.title}`,
-            },
-          ]
-        : [],
-    );
+/** Fallback adapter when no domain lifecycle is injected: closes cleanly. */
+const cleanLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
+  async inspectClose() {
+    return [];
   },
-  async resolveClose(context, resolution) {
-    if (resolution.action === "cancel") return { success: false };
-    if (resolution.action === "discard-to-recycle-bin-and-close")
-      return {
-        success: true,
-        recycleBinEntries: [
-          {
-            id: crypto.randomUUID(),
-            kind: "draft",
-            sourceWindowId: context.target.id,
-            repoKey:
-              context.target.resource.type === "repository"
-                ? context.target.resource.repoKey
-                : undefined,
-            path: "docs/unsaved-demo.md",
-            label: `Unsaved ${context.target.title} demo draft`,
-            discardedAt: Date.now(),
-            payload: {
-              content: "# Recoverable demo draft\n",
-              language: "markdown",
-            },
-          },
-        ],
-      };
-    return { success: true };
+  async resolveClose(_context, resolution) {
+    return { success: resolution.action !== "cancel" };
   },
   async restoreEntry() {
     return { success: true };
@@ -189,7 +176,18 @@ function viewport(): DesktopViewport {
         taskbarHeight: 78,
       };
 }
-export function WindowManagerProvider({ children }: { children: ReactNode }) {
+export function WindowManagerProvider({
+  children,
+  lifecycle,
+}: {
+  children: ReactNode;
+  /** Domain lifecycle adapter for close inspection/resolution and
+   * Recycle-Bin restore. Defaults to a clean-close adapter. */
+  lifecycle?: WindowLifecycleAdapter & RecycleBinLifecycleAdapter;
+}) {
+  const adapter = lifecycle ?? cleanLifecycle;
+  const adapterRef = useRef(adapter);
+  adapterRef.current = adapter;
   const [session, setSession] = useState(base);
   const [vp, setVp] = useState(DEFAULT_VIEWPORT);
   const hydrated = useRef(false);
@@ -199,89 +197,19 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     const v = viewport();
     setVp(v);
     let loaded = loadSession(base);
-    if (!loaded.windows.length) {
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "repo-anvil",
-          applicationId: "repository-explorer",
-          owner: { type: "desktop" },
-          resource: { type: "repository", repoKey: "Lootziffer666/ANVIL" },
-          title: "ANVIL — Demo",
-          bounds: { x: 150, y: 82, width: 690, height: 510 },
-        },
-        v,
-      );
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "repo-shaded",
-          applicationId: "repository-explorer",
-          owner: { type: "desktop" },
-          resource: { type: "repository", repoKey: "Lootziffer666/SHADED" },
-          title: "SHADED — Demo",
-          bounds: { x: 610, y: 155, width: 680, height: 500 },
-        },
-        v,
-      );
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "anvil-image",
-          applicationId: "image-viewer",
-          owner: childOwner("Lootziffer666/ANVIL", "repo-anvil"),
-          resource: {
-            type: "file",
-            repoKey: "Lootziffer666/ANVIL",
-            path: "assets/anvil-mark.svg",
-          },
-          title: "anvil-mark.svg — Demo",
-          bounds: { x: 330, y: 270, width: 520, height: 390 },
-        },
-        v,
-      );
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "shaded-actions",
-          applicationId: "github-feature",
-          owner: childOwner("Lootziffer666/SHADED", "repo-shaded"),
-          resource: {
-            type: "github-feature",
-            repoKey: "Lootziffer666/SHADED",
-            featureId: "actions",
-          },
-          title: "SHADED Actions — Demo",
-          bounds: { x: 790, y: 90, width: 500, height: 360 },
-        },
-        v,
-      );
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "global-settings",
-          applicationId: "settings",
-          owner: { type: "desktop" },
-          resource: { type: "system", systemId: "settings" },
-          title: "Settings — Demo",
-          bounds: { x: 420, y: 180, width: 520, height: 390 },
-        },
-        v,
-      );
-      loaded = minimizeWindowState(loaded, "global-settings");
-      loaded = openWindowState(
-        loaded,
-        {
-          id: "global-tool",
-          applicationId: "tool-window",
-          owner: { type: "desktop" },
-          resource: { type: "tool", toolId: "scratchpad-unsaved" },
-          title: "Scratchpad — Demo",
-          bounds: { x: 480, y: 220, width: 490, height: 350 },
-        },
-        v,
-      );
-      loaded = minimizeWindowState(loaded, "global-tool");
+    // First run (no persisted session): surface recently used repositories
+    // as desktop drives. No windows are force-opened.
+    if (!loaded.windows.length && !loaded.icons.some((i) => i.kind === "repository-drive")) {
+      try {
+        const recent: string[] = JSON.parse(
+          localStorage.getItem("gh-browser-recent") ?? "[]",
+        );
+        for (const repoKey of recent.slice(0, 4)) {
+          loaded = ensureRepositoryIcon(loaded, repoKey);
+        }
+      } catch {
+        /* ignore */
+      }
     }
     setSession(loaded);
     hydrated.current = true;
@@ -305,9 +233,20 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   }, [session]);
   const mutate = (fn: (s: DesktopSession) => DesktopSession) => setSession(fn);
   const openWindow = (i: OpenWindowInput) =>
-    mutate((s) => openWindowState(s, i, vp));
+    mutate((s) =>
+      i.resource.type === "repository"
+        ? ensureRepositoryIcon(openWindowState(s, i, vp), i.resource.repoKey)
+        : openWindowState(s, i, vp),
+    );
   const openOrFocusWindow = (i: OpenWindowInput) =>
-    mutate((s) => openOrFocusWindowState(s, i, vp));
+    mutate((s) =>
+      i.resource.type === "repository"
+        ? ensureRepositoryIcon(
+            openOrFocusWindowState(s, i, vp),
+            i.resource.repoKey,
+          )
+        : openOrFocusWindowState(s, i, vp),
+    );
   const focusWindow = (id: string) => mutate((s) => focusWindowState(s, id));
   const minimizeWindow = (id: string) =>
     mutate((s) => minimizeWindowState(s, id));
@@ -397,7 +336,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         },
       }));
       try {
-        const blockers = await demoLifecycle.inspectClose(partial);
+        const blockers = await adapterRef.current.inspectClose(partial);
         mutate((s) =>
           s.closeContext?.transactionId === partial.transactionId
             ? {
@@ -441,7 +380,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       resolvingClose.current = context.transactionId;
       mutate((s) => applyCloseResolutionPending(s, context.transactionId));
       try {
-        const result = await demoLifecycle.resolveClose(context, resolution);
+        const result = await adapterRef.current.resolveClose(context, resolution);
         setSession((current) => {
           if (current.closeContext?.transactionId !== context.transactionId)
             return current;
@@ -491,7 +430,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         },
       }));
       try {
-        const blockers = await demoLifecycle.inspectClose(partial);
+        const blockers = await adapterRef.current.inspectClose(partial);
         mutate((s) =>
           s.closeContext?.transactionId === transactionId
             ? {
@@ -567,7 +506,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     restoreRecycleEntry: async (id) => {
       const entry = session.recycleBin.find((e) => e.id === id);
       if (!entry) return;
-      const result = await demoLifecycle.restoreEntry(entry);
+      const result = await adapterRef.current.restoreEntry(entry);
       mutate((s) =>
         result.success
           ? {

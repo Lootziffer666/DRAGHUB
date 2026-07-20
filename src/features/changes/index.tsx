@@ -7,6 +7,13 @@ import { ChangesPanel } from "./ChangesPanel";
 import type { ReactNode } from "react";
 
 export { useChanges };
+export {
+  changesFor,
+  pendingCount,
+  repoKeysWithChanges,
+  subscribeChanges,
+  updateBucket,
+} from "./store";
 export type { WorkingChange, ChangeKind, EntryKind, ChangeOrigin } from "@/lib/github-ops";
 
 export function ChangesProvider({ children }: { children: ReactNode }) {

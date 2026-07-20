@@ -1,12 +1,25 @@
 "use client";
 import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { groupTaskbar } from "./window-state";
 import { icon } from "./WindowFrame";
 import { useWindowManager } from "./WindowManagerProvider";
+import { useSearch } from "@/features/search";
+import {
+  repoKeysWithChanges,
+  changesFor,
+  subscribeChanges,
+} from "@/features/changes/store";
 export function Taskbar() {
   const wm = useWindowManager();
+  const search = useSearch();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const pendingTotal = useSyncExternalStore(
+    subscribeChanges,
+    () =>
+      repoKeysWithChanges().reduce((n, k) => n + changesFor(k).length, 0),
+    () => 0,
+  );
   const orderedWindows = [...wm.session.windows].sort((a, b) => {
     return (
       wm.session.taskbarOrder.indexOf(a.id) -
@@ -22,13 +35,13 @@ export function Taskbar() {
     <footer className="desktop-taskbar">
       <button
         className="launcher"
-        aria-label="Open launcher"
+        aria-label="Open scratchpad"
         onClick={() =>
           wm.openOrFocusWindow({
             applicationId: "tool-window",
             owner: { type: "desktop" },
-            resource: { type: "tool", toolId: "scratchpad-unsaved" },
-            title: "Scratchpad — Demo",
+            resource: { type: "tool", toolId: "scratchpad" },
+            title: "Scratchpad",
           })
         }
       >
@@ -36,14 +49,8 @@ export function Taskbar() {
       </button>
       <button
         className="search-launch"
-        onClick={() =>
-          wm.openOrFocusWindow({
-            applicationId: "tool-window",
-            owner: { type: "desktop" },
-            resource: { type: "tool", toolId: "search" },
-            title: "Search — Demo",
-          })
-        }
+        onClick={search.open}
+        title="Search repositories (Ctrl/Cmd+K)"
       >
         ⌕ <span>Launcher / Search</span>
       </button>
@@ -106,8 +113,8 @@ export function Taskbar() {
         })}
       </div>
       <div className="task-jobs">
-        <span>TOOLS</span>
-        <b>Demo mode</b>
+        <span>CHANGES</span>
+        <b>{pendingTotal > 0 ? `${pendingTotal} pending` : "clean"}</b>
       </div>
       <div className="task-status" aria-label="Local desktop status">
         LOCAL

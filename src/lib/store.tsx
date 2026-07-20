@@ -47,22 +47,27 @@ export type RepoState = {
   viewMode: ViewMode;
 };
 
+type RepoRequest = { loading: boolean; error: string | null };
+
 type State = {
   repos: Record<string, RepoState>;
   activeRepoKey: string | null;
   pinnedRepoKeys: string[];
   recent: string[];
-  repoError: string | null;
-  repoLoading: boolean;
+  // Per-repository hydration status keyed by a LOWERCASED repoKey, so
+  // "Owner/Repo" and "owner/repo" resolve to the same entry. This isolates
+  // each repository window's loading/error state (Alpha can load while Beta
+  // shows an error) instead of leaking a single global flag everywhere.
+  repoRequests: Record<string, RepoRequest>;
 };
 
 // Every repository-scoped action carries its target repoKey explicitly, so
 // two repository windows can mutate their own workspace concurrently without
 // racing over a single "active" pointer (MULTI_REPO_WINDOW_DOCK_SPEC §7).
 type Action =
-  | { type: "REPO_LOADING" }
+  | { type: "REPO_LOADING_FOR"; repoKey: string }
   | { type: "REPO_LOADED"; meta: RepoMeta }
-  | { type: "REPO_ERROR"; error: string }
+  | { type: "REPO_ERROR_FOR"; repoKey: string; error: string }
   | { type: "CLOSE_REPO" }
   | { type: "RELEASE_REPO"; repoKey: string }
   | { type: "SWITCH_REPO"; repoKey: string }
@@ -130,13 +135,12 @@ function languageFor(path: string): string {
   return map[ext] ?? (path.toLowerCase() === "dockerfile" ? "Dockerfile" : "Text");
 }
 
-const initialState: State = {
+export const initialState: State = {
   repos: {},
   activeRepoKey: null,
   pinnedRepoKeys: [],
   recent: [],
-  repoError: null,
-  repoLoading: false,
+  repoRequests: {},
 };
 
 function updateRepo(state: State, repoKey: string, fn: (repo: RepoState) => RepoState): State {
@@ -145,33 +149,57 @@ function updateRepo(state: State, repoKey: string, fn: (repo: RepoState) => Repo
   return { ...state, repos: { ...state.repos, [repoKey]: fn(repo) } };
 }
 
-function reducer(state: State, action: Action): State {
+// Exported (test-only) so the regression suite can assert per-repo isolation
+// by dispatching REPO_LOADING_FOR / REPO_LOADED / REPO_ERROR_FOR for two repos.
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case "REPO_LOADING":
-      return { ...state, repoLoading: true, repoError: null };
+    case "REPO_LOADING_FOR": {
+      // Only this repository's status changes — other repos are untouched,
+      // so parallel hydration of Alpha + Beta stays independent.
+      return {
+        ...state,
+        repoRequests: { ...state.repoRequests, [action.repoKey]: { loading: true, error: null } },
+      };
+    }
     case "REPO_LOADED": {
       const repoKey = action.meta.fullName;
       return {
         ...state,
-        repoLoading: false,
-        repoError: null,
+        // Reconcile canonical vs requested casing of the repoKey.
+        repoRequests: {
+          ...state.repoRequests,
+          [repoKey.toLowerCase()]: { loading: false, error: null },
+        },
         activeRepoKey: repoKey,
         repos: { ...state.repos, [repoKey]: state.repos[repoKey] ?? emptyRepo(action.meta) },
         recent: state.recent.includes(repoKey) ? state.recent : [repoKey, ...state.recent].slice(0, 8),
       };
     }
-    case "REPO_ERROR":
-      return { ...state, repoLoading: false, repoError: action.error };
+    case "REPO_ERROR_FOR": {
+      // Only this repository's status changes — other repos are untouched.
+      return {
+        ...state,
+        repoRequests: {
+          ...state.repoRequests,
+          [action.repoKey]: { loading: false, error: action.error },
+        },
+      };
+    }
 
     case "CLOSE_REPO":
-      return { ...state, activeRepoKey: null, repoError: null, repoLoading: false };
+      // Clear only the focused-repo pointer; per-repo hydration status is left
+      // intact so re-opening the same repository does not flash a stale error.
+      return { ...state, activeRepoKey: null };
     case "RELEASE_REPO": {
       if (!state.repos[action.repoKey]) return state;
       const repos = { ...state.repos };
       delete repos[action.repoKey];
+      const repoRequests = { ...state.repoRequests };
+      delete repoRequests[action.repoKey.toLowerCase()];
       return {
         ...state,
         repos,
+        repoRequests,
         activeRepoKey: state.activeRepoKey === action.repoKey ? null : state.activeRepoKey,
         pinnedRepoKeys: state.pinnedRepoKeys.filter((k) => k !== action.repoKey),
       };
@@ -307,10 +335,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const openRepo = useCallback(async (input: string) => {
     const parsed = parseRepoInput(input);
     if (!parsed) {
-      dispatch({ type: "REPO_ERROR", error: "Invalid repository. Use owner/repo or a github.com URL." });
+      dispatch({ type: "REPO_ERROR_FOR", repoKey: (input ?? "").toLowerCase(), error: "Invalid repository. Use owner/repo or a github.com URL." });
       return;
     }
-    dispatch({ type: "REPO_LOADING" });
+    const reqKey = `${parsed.owner}/${parsed.repo}`.toLowerCase();
+    dispatch({ type: "REPO_LOADING_FOR", repoKey: reqKey });
     try {
       const meta = await fetchRepoMeta(parsed.owner, parsed.repo);
       const repoKey = meta.fullName;
@@ -326,7 +355,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("gh-browser-recent", JSON.stringify(recent));
       } catch { /* ignore */ }
     } catch (err) {
-      dispatch({ type: "REPO_ERROR", error: err instanceof Error ? err.message : "Failed to load repository." });
+      dispatch({ type: "REPO_ERROR_FOR", repoKey: reqKey, error: err instanceof Error ? err.message : "Failed to load repository." });
     }
   }, [loadRoot]);
 
@@ -496,3 +525,13 @@ export function useStore(): StoreContextValue {
 export function useActiveRepo(): RepoState | null {
   return useStore().activeRepo;
 }
+
+/** Per-repository hydration status for `repoKey`, isolated from every other
+ * repository window. Returns a neutral status when the key was never loaded. */
+export function useRepoRequest(repoKey: string | null): RepoRequest {
+  const { state } = useStore();
+  return state.repoRequests[(repoKey ?? "").toLowerCase()] ?? { loading: false, error: null };
+}
+
+// Test-only alias for the regression suite (kept in sync with `reducer`).
+export const __reducer = reducer;

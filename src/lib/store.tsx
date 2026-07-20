@@ -533,5 +533,8 @@ export function useRepoRequest(repoKey: string | null): RepoRequest {
   return state.repoRequests[(repoKey ?? "").toLowerCase()] ?? { loading: false, error: null };
 }
 
-// Test-only alias for the regression suite (kept in sync with `reducer`).
+// Test-only aliases for the regression suite (kept in sync with `reducer`).
+export const __initialState: State = initialState;
 export const __reducer = reducer;
+export type __State = State;
+export type __Action = Action;

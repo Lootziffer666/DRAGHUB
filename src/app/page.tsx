@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { StoreProvider, useActiveRepo, useStore } from "@/lib/store";
 import { StagingProvider } from "@/lib/staging";
 import { UIProvider } from "@/components/ui-context";
@@ -13,244 +13,70 @@ import { ChangesButton, ChangesProvider } from "@/features/changes";
 import { RecycleBinButton } from "@/features/recycle-bin";
 import { PullsButton, PullsProvider } from "@/features/pulls";
 import { IssuesButton, IssuesProvider } from "@/features/issues";
-import { Dock } from "@/features/dock";
 import { ControlPanelButton, ControlPanelProvider } from "@/features/control-panel";
 import { StartMenuButton, StartMenuProvider } from "@/features/start-menu";
 import { TriageButton, TriageProvider } from "@/features/triage";
-import {
-  GitBranch,
-  GithubMark,
-  Search,
-  FileIcon,
-} from "@/components/icons";
+import { FileIcon, Folder, GithubMark, Search } from "@/components/icons";
 
-function Home() {
+type WindowInstance = { id: string; app: "launcher" | "repository"; repoKey?: string; title: string; x: number; y: number; w: number; h: number; z: number; minimized: boolean; maximized: boolean; restore?: Pick<WindowInstance,"x"|"y"|"w"|"h"> };
+const STORAGE = "draghub-desktop-windows-v1";
+const starter: WindowInstance[] = [{ id:"welcome", app:"launcher", title:"Open repository", x:170, y:105, w:520, h:380, z:1, minimized:false, maximized:false }];
+
+function Launcher({ onOpened }: { onOpened: (repo: string) => void }) {
   const { state, openRepo } = useStore();
-  const [recent, setRecent] = useState<string[]>([]);
-  const [value, setValue] = useState("");
+  const [value,setValue]=useState("");
+  const submit=async()=>{ const repo=value.trim(); if(!repo)return; await openRepo(repo); onOpened(repo.replace(/^https?:\/\/github\.com\//,"").replace(/\/$/,"")); };
+  return <div className="launcher-app">
+    <div className="launcher-mark"><GithubMark width={30} height={30}/></div>
+    <div><p className="eyebrow">DRAGHUB SYSTEM</p><h1>Your code has a place.</h1><p className="launcher-copy">Mount a GitHub repository as a drive. It opens in its own window—not on a new page.</p></div>
+    <form onSubmit={e=>{e.preventDefault();void submit()}} className="mount-form"><Search width={18}/><input value={value} onChange={e=>setValue(e.target.value)} placeholder="owner/repository" autoFocus/><button disabled={state.repoLoading}>{state.repoLoading?"Mounting…":"Mount drive"}</button></form>
+    {state.repoError&&<p className="mount-error">{state.repoError}</p>}
+    <div className="launcher-tip"><span>⌘ K</span><p><strong>System search</strong><br/>Find repositories, releases and tools from anywhere.</p></div>
+  </div>
+}
 
-  useEffect(() => {
-    try {
-      setRecent(JSON.parse(localStorage.getItem("gh-browser-recent") ?? "[]"));
-    } catch {
-      setRecent([]);
-    }
-  }, [state.repoLoading]);
+function RepositoryApp() {
+  const repo=useActiveRepo();
+  if(!repo)return <div className="empty-app">This drive is not mounted.</div>;
+  return <div className="repo-app"><AddressBar onGoHome={()=>{}}/><div className="repo-work"><aside><Explorer/></aside><main><Tabs/><div className="file-area"><FileView/></div></main></div></div>
+}
 
-  return (
-    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-neutral-950 via-neutral-900 to-black p-6">
-      <div className="w-full max-w-xl">
-        <div className="mb-4 flex justify-end">
-          <SearchButton />
-        </div>
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-900 ring-1 ring-neutral-800">
-            <GithubMark width={34} height={34} />
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-neutral-100">
-            GitHub Browser
-          </h1>
-          <p className="mt-2 text-sm text-neutral-400">
-            A desktop-style repository explorer — tabs, context menus, drag &amp;
-            drop and touch support.
-          </p>
-        </div>
+function WindowFrame({ win, active, onFocus, onClose, onMinimize, onMaximize, onMove, onResize, children }:{win:WindowInstance;active:boolean;onFocus:()=>void;onClose:()=>void;onMinimize:()=>void;onMaximize:()=>void;onMove:(x:number,y:number)=>void;onResize:(w:number,h:number)=>void;children:ReactNode}){
+  const drag=useRef<{sx:number;sy:number;x:number;y:number}|null>(null); const resize=useRef<{sx:number;sy:number;w:number;h:number}|null>(null);
+  const startDrag=(e:ReactPointerEvent)=>{if(win.maximized||(e.target as HTMLElement).closest("button"))return;onFocus();drag.current={sx:e.clientX,sy:e.clientY,x:win.x,y:win.y};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};
+  const dragMove=(e:ReactPointerEvent)=>{if(!drag.current)return;onMove(Math.max(0,drag.current.x+e.clientX-drag.current.sx),Math.max(48,drag.current.y+e.clientY-drag.current.sy))};
+  const startResize=(e:ReactPointerEvent)=>{e.stopPropagation();onFocus();resize.current={sx:e.clientX,sy:e.clientY,w:win.w,h:win.h};(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};
+  const resizeMove=(e:ReactPointerEvent)=>{if(resize.current)onResize(Math.max(420,resize.current.w+e.clientX-resize.current.sx),Math.max(260,resize.current.h+e.clientY-resize.current.sy))};
+  if(win.minimized)return null;
+  return <section className={`os-window ${active?"is-active":""} ${win.maximized?"is-maximized":""}`} style={{left:win.maximized?0:win.x,top:win.maximized?48:win.y,width:win.maximized?"100%":win.w,height:win.maximized?"calc(100% - 126px)":win.h,zIndex:win.z}} onPointerDown={onFocus}>
+    <header className="window-titlebar" onDoubleClick={onMaximize} onPointerDown={startDrag} onPointerMove={dragMove} onPointerUp={()=>drag.current=null}>
+      <div className="window-app-icon">{win.app==="repository"?"◆":"+"}</div><div className="window-title"><strong>{win.title}</strong><span>{win.app==="repository"?"Repository Explorer":"System"}</span></div>
+      <div className="window-controls"><button onClick={onMinimize} aria-label="Minimize">—</button><button onClick={onMaximize} aria-label="Maximize">□</button><button className="close" onClick={onClose} aria-label="Close">×</button></div>
+    </header><div className="window-content">{children}</div>{!win.maximized&&<div className="resize-handle" onPointerDown={startResize} onPointerMove={resizeMove} onPointerUp={()=>resize.current=null}/>}</section>
+}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (value.trim()) void openRepo(value);
-          }}
-          className="flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 focus-within:border-blue-600"
-        >
-          <Search width={18} height={18} className="text-neutral-500" />
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Open a repository — e.g. facebook/react"
-            className="flex-1 bg-transparent text-base text-neutral-100 outline-none placeholder:text-neutral-600"
-            spellCheck={false}
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Open
-          </button>
-        </form>
-
-        {state.repoError && (
-          <div className="mt-3 rounded-lg border border-red-900/60 bg-red-950/40 px-4 py-2 text-sm text-red-300">
-            {state.repoError}
-          </div>
-        )}
-
-        <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {[
-            ["Tabs", "Click to switch, drag to reorder, middle-click to close."],
-            ["Context menu", "Right-click (or long-press) any file or folder."],
-            ["Drag & drop", "Drag a node onto the tab bar to open it in a new tab."],
-            ["Multi-select", "Ctrl/Cmd+click or Shift+click to select several."],
-          ].map(([t, d]) => (
-            <div
-              key={t}
-              className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3"
-            >
-              <div className="text-sm font-medium text-neutral-200">{t}</div>
-              <div className="mt-0.5 text-xs text-neutral-500">{d}</div>
-            </div>
-          ))}
-        </div>
-
-        {recent.length > 0 && (
-          <div className="mt-6">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-              Recent
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {recent.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => void openRepo(r)}
-                  className="flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300 hover:border-neutral-600 hover:text-neutral-100"
-                >
-                  <GitBranch width={13} height={13} className="text-neutral-500" />
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="mt-10 text-xs text-neutral-600">
-        Data from the public GitHub REST API · unauthenticated rate limit applies
-      </div>
+function Desktop(){
+  const { state,switchRepo }=useStore(); const [windows,setWindows]=useState<WindowInstance[]>(starter); const [ready,setReady]=useState(false); const z=useRef(2);
+  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(STORAGE)||"null");if(Array.isArray(saved)&&saved.length)setWindows(saved)}catch{}setReady(true)},[]);
+  useEffect(()=>{if(ready)localStorage.setItem(STORAGE,JSON.stringify(windows))},[windows,ready]);
+  const patch=useCallback((id:string,part:Partial<WindowInstance>)=>setWindows(ws=>ws.map(w=>w.id===id?{...w,...part}:w)),[]);
+  const focus=useCallback((w:WindowInstance)=>{z.current+=1;patch(w.id,{z:z.current});if(w.repoKey&&state.repos[w.repoKey])switchRepo(w.repoKey)},[patch,state.repos,switchRepo]);
+  const openLauncher=()=>{const existing=windows.find(w=>w.app==="launcher");if(existing){patch(existing.id,{minimized:false,z:++z.current});return}setWindows(ws=>[...ws,{...starter[0],id:crypto.randomUUID(),z:++z.current}])};
+  const openRepoWindow=useCallback((repoKey:string)=>{const key=Object.keys(state.repos).find(k=>k.toLowerCase()===repoKey.toLowerCase())||state.activeRepoKey||repoKey;setWindows(ws=>[...ws,{id:crypto.randomUUID(),app:"repository",repoKey:key,title:key,x:90+(ws.length%5)*38,y:76+(ws.length%4)*34,w:Math.min(1050,window.innerWidth-130),h:Math.min(680,window.innerHeight-170),z:++z.current,minimized:false,maximized:false}])},[state.activeRepoKey,state.repos]);
+  const visible=windows.filter(w=>!w.minimized); const active=visible.reduce<WindowInstance|undefined>((a,w)=>!a||w.z>a.z?w:a,undefined);
+  const clock=useMemo(()=>new Intl.DateTimeFormat(undefined,{hour:"2-digit",minute:"2-digit"}).format(new Date()),[]);
+  return <div className="desktop-shell">
+    <div className="wallpaper-orb orb-one"/><div className="wallpaper-orb orb-two"/>
+    <header className="system-bar"><button className="brand" onClick={openLauncher}><span>◈</span> DRAGHUB</button><nav><span>Desktop</span><span>Window</span><span>Repository</span></nav><div className="system-status"><span className="online-dot"/> GitHub connected <kbd>⌘ K</kbd><strong>{clock}</strong></div></header>
+    <div className="desktop-icons">
+      <button onDoubleClick={openLauncher} onClick={openLauncher}><span className="desktop-icon add-drive">+</span><b>Mount repository</b></button>
+      {Object.keys(state.repos).map(k=><button key={k} onDoubleClick={()=>openRepoWindow(k)}><span className="desktop-icon repo-drive"><Folder width={31}/><i>GIT</i></span><b>{k.split("/").pop()}</b><small>{k.split("/")[0]}</small></button>)}
+      <button><span className="desktop-icon"><FileIcon width={30}/></span><b>Workspaces</b></button>
     </div>
-  );
+    <div className="desktop-watermark"><span>DRAG</span><strong>HUB</strong><small>GITHUB, REIMAGINED AS A PLACE.</small></div>
+    {windows.map(w=><WindowFrame key={w.id} win={w} active={active?.id===w.id} onFocus={()=>focus(w)} onClose={()=>setWindows(ws=>ws.filter(x=>x.id!==w.id))} onMinimize={()=>patch(w.id,{minimized:true})} onMaximize={()=>patch(w.id,w.maximized?{maximized:false,...w.restore}:{maximized:true,restore:{x:w.x,y:w.y,w:w.w,h:w.h}})} onMove={(x,y)=>patch(w.id,{x,y})} onResize={(width,height)=>patch(w.id,{w:width,h:height})}>{w.app==="launcher"?<Launcher onOpened={openRepoWindow}/>:<RepositoryApp/>}</WindowFrame>)}
+    <footer className="taskbar"><button className="launcher-button" onClick={openLauncher}>◈</button><div className="task-separator"/><SearchButton label="Search" className="task-tool"/><div className="running-apps">{windows.map(w=><button key={w.id} className={`${active?.id===w.id?"active":""} ${w.minimized?"minimized":""}`} onClick={()=>{patch(w.id,{minimized:false,z:++z.current});if(w.repoKey)switchRepo(w.repoKey)}}><span>{w.app==="repository"?"◆":"+"}</span><em>{w.title}</em></button>)}</div><div className="task-tools"><StartMenuButton/><ChangesButton/><PullsButton/><IssuesButton/><TriageButton/><RecycleBinButton/><ControlPanelButton/></div></footer>
+  </div>
 }
 
-function StatusBar() {
-  const repo = useActiveRepo();
-  const active = repo?.tabs.find((t) => t.id === repo.activeTabId);
-  return (
-    <div className="flex items-center gap-4 border-t border-neutral-800 bg-neutral-950 px-3 py-1 text-[11px] text-neutral-500">
-      <span className="flex items-center gap-1">
-        <GitBranch width={12} height={12} />
-        {repo?.meta.branch}
-      </span>
-      {active && (
-        <span className="flex items-center gap-1 truncate">
-          <FileIcon width={12} height={12} />
-          <span className="truncate">
-            {repo?.meta.fullName} / {active.path || "/"}
-          </span>
-        </span>
-      )}
-      <span className="ml-auto">
-        {repo && repo.selection.length > 0
-          ? `${repo.selection.length} selected`
-          : `${repo?.tabs.length ?? 0} tab${repo?.tabs.length === 1 ? "" : "s"}`}
-      </span>
-    </div>
-  );
-}
-
-function TitleBar() {
-  const { state, switchRepo } = useStore();
-  const repo = useActiveRepo();
-  return (
-    <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-3 py-1.5">
-      <div className="flex items-center gap-2">
-        <span className="h-3 w-3 rounded-full bg-red-500/90" />
-        <span className="h-3 w-3 rounded-full bg-yellow-500/90" />
-        <span className="h-3 w-3 rounded-full bg-green-500/90" />
-      </div>
-      <div className="flex items-center gap-2 text-sm text-neutral-300">
-        <GithubMark width={15} height={15} />
-        <span className="font-medium">{repo?.meta.fullName}</span>
-      </div>
-      <div className="ml-auto flex min-w-0 items-center gap-3">
-        <div className="hidden max-w-[40vw] items-center gap-1 overflow-x-auto md:flex">
-          {Object.keys(state.repos).map((repoKey) => (
-            <button
-              key={repoKey}
-              onClick={() => switchRepo(repoKey)}
-              className={[
-                "shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-                repoKey === state.activeRepoKey
-                  ? "border-blue-500/60 bg-blue-500/15 text-blue-200"
-                  : "border-neutral-800 bg-neutral-900 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300",
-              ].join(" ")}
-              title={`Switch to ${repoKey}`}
-            >
-              {repoKey}
-            </button>
-          ))}
-        </div>
-        <StartMenuButton />
-        <ChangesButton />
-        <RecycleBinButton />
-        <PullsButton />
-        <IssuesButton />
-        <TriageButton />
-        <ControlPanelButton />
-        <SearchButton />
-        <span className="text-[11px] text-neutral-600">GitHub Browser</span>
-      </div>
-    </div>
-  );
-}
-
-function Workspace() {
-  const { closeRepo } = useStore();
-  const repo = useActiveRepo();
-  if (!repo) return <Home />;
-  return (
-    <div className="flex h-full flex-col">
-      <TitleBar />
-      <AddressBar onGoHome={closeRepo} />
-      <Dock />
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-72 shrink-0 border-r border-neutral-800">
-          <Explorer />
-        </aside>
-        <main className="flex min-w-0 flex-1 flex-col">
-          <Tabs />
-          <div className="min-h-0 flex-1">
-            <FileView />
-          </div>
-        </main>
-      </div>
-      <StatusBar />
-    </div>
-  );
-}
-
-export default function Page() {
-  return (
-    <StoreProvider>
-      <StagingProvider>
-        <ChangesProvider>
-          <PullsProvider>
-            <IssuesProvider>
-              <ControlPanelProvider>
-                <StartMenuProvider>
-                  <TriageProvider>
-                    <UIProvider>
-                      <SearchProvider>
-                        <div className="h-screen w-screen overflow-hidden">
-                          <Workspace />
-                        </div>
-                      </SearchProvider>
-                    </UIProvider>
-                  </TriageProvider>
-                </StartMenuProvider>
-              </ControlPanelProvider>
-            </IssuesProvider>
-          </PullsProvider>
-        </ChangesProvider>
-      </StagingProvider>
-    </StoreProvider>
-  );
-}
+export default function Page(){return <StoreProvider><StagingProvider><ChangesProvider><PullsProvider><IssuesProvider><ControlPanelProvider><StartMenuProvider><TriageProvider><UIProvider><SearchProvider><Desktop/></SearchProvider></UIProvider></TriageProvider></StartMenuProvider></ControlPanelProvider></IssuesProvider></PullsProvider></ChangesProvider></StagingProvider></StoreProvider>}

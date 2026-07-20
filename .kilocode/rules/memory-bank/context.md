@@ -1,4 +1,4 @@
-# Active Context: GitHub Browser (desktop-style repo explorer)
+# Active Context: DRAGHUB virtual GitHub desktop
 
 > **Roadmap:** See `/PLAN.md` at the repo root for the full execution plan —
 > extended GitHub Browser (Phase 1, milestones M1–M12), gamification seams
@@ -17,6 +17,12 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 (long-press for context menus, tap to open).
 
 ## Recently Completed
+
+- [x] **Desktop Shell and multi-instance Window Manager (2026-07-20)**:
+  - Replaced the page-oriented Home/Workspace switch with a persistent desktop surface, system bar, wallpaper, desktop drive shortcuts, taskbar, grouped running-window entries, and a repository mounting app.
+  - Repository Explorers now run inside independent draggable, resizable, minimizable, maximizable, focusable window instances. Multiple instances can overlap; taskbar clicks restore minimized windows instead of closing them.
+  - Window geometry, z-order, minimized/maximized state, app type, and repository binding persist in localStorage and restore after reload.
+  - Existing GitHub tools remain available from the persistent shell/taskbar while repository content opens inside windows rather than navigating away from the desktop.
 
 - [x] GitHub REST API client (`src/lib/github.ts`) with caching + rate-limit errors
 - [x] App state store: reducer + async helpers (`src/lib/store.tsx`)

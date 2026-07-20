@@ -375,7 +375,3 @@ export function useStore(): StoreContextValue {
 export function useActiveRepo(): RepoState | null {
   return useStore().activeRepo;
 }
-
-export function useActiveRepo(): RepoState | null {
-  return useStore().activeRepo;
-}

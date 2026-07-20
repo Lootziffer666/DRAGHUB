@@ -1,9 +1,9 @@
 import { fetchTreeRecursive } from "./github";
 import { commitChangeset, type TreeOpEntry } from "./github-write";
 
-export type ChangeKind = "add" | "delete" | "rename";
+export type ChangeKind = "add" | "modify" | "delete" | "rename";
 export type EntryKind = "file" | "dir";
-export type ChangeOrigin = "manual" | "upload" | "edit";
+export type ChangeOrigin = "manual" | "upload" | "edit" | "merge";
 
 /**
  * A single pending mutation against the repository tree, not yet committed.
@@ -82,8 +82,8 @@ export async function commitWorkingChanges(
     };
 
     for (const change of changes) {
-      if (change.kind === "add") {
-        if (change.entryKind === "dir") {
+      if (change.kind === "add" || change.kind === "modify") {
+        if (change.kind === "add" && change.entryKind === "dir") {
           entries.push({ path: gitkeepPathFor(change.path), op: "upsert", data: new Uint8Array(0) });
           continue;
         }

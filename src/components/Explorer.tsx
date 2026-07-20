@@ -216,6 +216,14 @@ export function Explorer() {
           onClick: () => restoreEntry(node),
         });
       } else {
+        if (node.status === "modified") {
+          items.push({
+            id: "revert",
+            label: "Revert edit",
+            icon: <Undo width={15} height={15} />,
+            onClick: () => restoreEntry(node),
+          });
+        }
         items.push({
           id: "delete",
           label: "Delete",
@@ -520,6 +528,10 @@ function TreeNode({
     node.status === "added" ? (
       <span className="ml-1 shrink-0 rounded bg-emerald-500/20 px-1 text-[10px] font-medium text-emerald-400">
         new
+      </span>
+    ) : node.status === "modified" ? (
+      <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1 text-[10px] font-medium text-amber-400">
+        modified
       </span>
     ) : node.status === "renamed-in" ? (
       <span className="ml-1 shrink-0 rounded bg-blue-500/20 px-1 text-[10px] font-medium text-blue-400">

@@ -1,13 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { useActiveRepo, useStore, type Tab } from "@/lib/store";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
+import { subscribeDirty, getDirtyKeys, sessionKey } from "@/lib/editor-sessions";
 import { FileIcon, Folder, Grip, X } from "./icons";
+
+const EMPTY_DIRTY: ReadonlySet<string> = new Set();
+
+function useDirtyKeys(): ReadonlySet<string> {
+  return useSyncExternalStore(subscribeDirty, getDirtyKeys, () => EMPTY_DIRTY);
+}
 
 export function Tabs() {
   const { setActiveTab, closeTab, moveTab, openInNewTab } = useStore();
   const repo = useActiveRepo();
+  const dirtyKeys = useDirtyKeys();
   const dragIndex = useRef<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [dropActive, setDropActive] = useState(false);
@@ -50,6 +58,7 @@ export function Tabs() {
           tab={tab}
           index={i}
           active={tab.id === repo.activeTabId}
+          dirty={tab.kind === "file" && dirtyKeys.has(sessionKey(tab.repoKey, tab.path))}
           isOver={overIndex === i}
           onActivate={() => setActiveTab(tab.id)}
           onClose={(e) => {
@@ -77,6 +86,7 @@ function TabButton({
   tab,
   index,
   active,
+  dirty,
   isOver,
   onActivate,
   onClose,
@@ -87,6 +97,7 @@ function TabButton({
   tab: Tab;
   index: number;
   active: boolean;
+  dirty: boolean;
   isOver: boolean;
   onActivate: () => void;
   onClose: (e: React.MouseEvent) => void;
@@ -136,6 +147,12 @@ function TabButton({
         <FileIcon width={14} height={14} className="shrink-0 text-sky-400" />
       )}
       <span className="truncate">{tab.label}</span>
+      {dirty && (
+        <span
+          title="Unsaved editor draft"
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
+        />
+      )}
       <button
         onClick={onClose}
         title="Close tab (middle-click)"

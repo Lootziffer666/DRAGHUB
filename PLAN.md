@@ -378,7 +378,7 @@ Diese Punkte sind bewusst **nicht** im Plan vorentschieden:
 
 - [x] M1 — Explorer-CRUD (neu/umbenennen/löschen/verschieben)
 - [x] M2 — Working-Changes-/Checkpoint-Panel (Upload-Sonderpfad-Vereinheitlichung noch offen, siehe Hinweis unten)
-- [x] M3 — In-Browser-Code-Editing
+- [ ] M3 — In-Browser-Code-Editing — Häkchen war laut `docs/DRAGHUB_PLAN_CORRECTION_RECORD.md` §5 zu früh gesetzt (Textarea ≠ M3). Stand 2026-07-19: M3b-Editor auf CodeMirror-6-Basis implementiert (Syntax-Highlighting im Edit-Modus, Zeilennummern, Suchen/Ersetzen, Undo/Redo, `Ctrl/Cmd+S` → Working Change, Dirty-Punkt im Tab, Draft-Erhalt über Tab-/Repo-Wechsel und Reload, Cursor-/Scroll-Erhalt, gerenderte Markdown-Vorschau, Großdatei-Schutz, FLUBBER-Zwei-Long-Press-Textauswahl mit eigenen Griffen). Offen: „historischen Ref editieren → Variante abzweigen" (App kennt noch kein Browsen historischer Refs) sowie die End-to-End-Abnahme durch den Maintainer.
 - [x] M4 — LFS- & Großdatei-Lesebewusstsein
 - [x] M5 — Räumliches Layout / Grid-View
 - [x] M6 — Merge-Konfliktauflösung

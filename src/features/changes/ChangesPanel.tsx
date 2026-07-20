@@ -17,12 +17,14 @@ import type { ChangeKind } from "@/lib/github-ops";
 
 function kindIcon(kind: ChangeKind) {
   if (kind === "add") return <FilePlus width={14} height={14} className="shrink-0 text-emerald-400" />;
+  if (kind === "modify") return <Edit width={14} height={14} className="shrink-0 text-amber-400" />;
   if (kind === "delete") return <Trash width={14} height={14} className="shrink-0 text-red-400" />;
   return <Edit width={14} height={14} className="shrink-0 text-blue-400" />;
 }
 
 function kindLabel(kind: ChangeKind): string {
   if (kind === "add") return "New";
+  if (kind === "modify") return "Modify";
   if (kind === "delete") return "Delete";
   return "Rename";
 }
@@ -131,7 +133,9 @@ export function ChangesPanel({ onClose }: { onClose: () => void }) {
                         c.path
                       )}
                     </span>
-                    {typeof c.size === "number" && c.kind === "add" && c.entryKind === "file" && (
+                    {typeof c.size === "number" &&
+                      (c.kind === "add" || c.kind === "modify") &&
+                      c.entryKind === "file" && (
                       <span className="shrink-0 text-xs text-neutral-500">
                         {formatBytes(c.size)}
                       </span>

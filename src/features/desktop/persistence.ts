@@ -68,6 +68,7 @@ export function migratePersistedSession(
 const applications = new Set([
   "repository-explorer",
   "image-viewer",
+  "file-editor",
   "github-feature",
   "tool-window",
   "settings",

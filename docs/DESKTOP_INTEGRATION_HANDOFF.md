@@ -27,3 +27,5 @@ Persistence schema v5 models minimization independently from normal/maximized pr
 The v4 migration preserves valid recycle payloads, restored-item history, icons, and desktop layout while resetting only transient close state. Both close inspection and resolution register transaction IDs before awaiting adapters; stale, cancelled, failed, or throwing adapter results cannot overwrite a newer dialog or concurrent desktop changes.
 
 Close inspection has explicit `pending`, `ready`, and `failed` states. Pending inspection permits only cancellation; failed inspection permits cancellation or a new transaction-scoped retry. Destructive resolutions are runtime-gated until inspection is ready, and a pending resolution is locked against duplicate submissions.
+
+Resolution `pending` exists only while the adapter call is running. Adapter failures and exceptions return the matching transaction to `idle`, preserve the ready inspection result and blockers, and allow another valid resolution or Cancel; beginning a retry clears the previous resolution error.

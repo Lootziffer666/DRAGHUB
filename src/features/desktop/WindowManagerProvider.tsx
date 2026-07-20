@@ -16,7 +16,11 @@ import {
 } from "./geometry";
 import { loadSession, saveSession } from "./persistence";
 import { getApplication } from "./application-registry";
-import { canResolveClose } from "./lifecycle";
+import {
+  applyCloseResolutionFailure,
+  applyCloseResolutionPending,
+  canResolveClose,
+} from "./lifecycle";
 import {
   childOwner,
   clampSession,
@@ -435,27 +439,18 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       }
       if (resolvingClose.current === context.transactionId) return;
       resolvingClose.current = context.transactionId;
-      mutate((s) =>
-        s.closeContext?.transactionId === context.transactionId
-          ? {
-              ...s,
-              closeContext: { ...s.closeContext, resolutionStatus: "pending" },
-            }
-          : s,
-      );
+      mutate((s) => applyCloseResolutionPending(s, context.transactionId));
       try {
         const result = await demoLifecycle.resolveClose(context, resolution);
         setSession((current) => {
           if (current.closeContext?.transactionId !== context.transactionId)
             return current;
           if (!result.success)
-            return {
-              ...current,
-              closeContext: {
-                ...current.closeContext,
-                error: result.error ?? "Close resolution failed",
-              },
-            };
+            return applyCloseResolutionFailure(
+              current,
+              context.transactionId,
+              result.error ?? "Close resolution failed",
+            );
           return closeWindowState(
             current,
             context.target.id,
@@ -464,18 +459,11 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         });
       } catch (error) {
         setSession((current) =>
-          current.closeContext?.transactionId === context.transactionId
-            ? {
-                ...current,
-                closeContext: {
-                  ...current.closeContext,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Close resolution failed",
-                },
-              }
-            : current,
+          applyCloseResolutionFailure(
+            current,
+            context.transactionId,
+            error instanceof Error ? error.message : "Close resolution failed",
+          ),
         );
       } finally {
         if (resolvingClose.current === context.transactionId)

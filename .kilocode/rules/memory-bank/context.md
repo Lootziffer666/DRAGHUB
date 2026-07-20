@@ -15,6 +15,9 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Final close-resolution recovery fix (2026-07-20)**:
+  - Adapter failures and exceptions return the matching transaction from pending to idle without changing inspection results, blockers, windows, or concurrent desktop edits; old errors are cleared on retry and transaction guards remain enforced.
+
 - [x] **Close inspection safety state (2026-07-20)**:
   - Explicit pending/ready/failed inspection plus idle/pending resolution states prevent destructive actions before inspection, support transaction-safe retry, surface adapter exceptions, and block duplicate resolution calls in both UI and runtime.
 
@@ -120,7 +123,7 @@ codebase but are intentionally not connected to the new window layer yet.
 
 | File                                    | Purpose                                                                                                                                                 |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/page.tsx`                      | App shell: Home vs Workspace, title/status bar                                                                                                          |
+| `src/app/page.tsx`                      | Mounts WindowManagerProvider and DesktopShell for the isolated desktop UX foundation.                                                                   |
 | `src/lib/github.ts`                     | GitHub API client (repo, contents, file, branches)                                                                                                      |
 | `src/lib/store.tsx`                     | Multi-repo workspace state (repo map + active repo selector, reducer + async loaders)                                                                   |
 | `src/lib/dnd.ts`                        | Shared drag-and-drop mime/type                                                                                                                          |

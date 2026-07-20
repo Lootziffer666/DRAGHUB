@@ -21,7 +21,12 @@ import {
 } from "./window-state";
 import { migratePersistedSession, sanitizeDesktopSession } from "./persistence";
 import type { DesktopSession, OpenWindowInput } from "./types";
-import { canResolveClose, resolveCloseTransaction } from "./lifecycle";
+import {
+  applyCloseResolutionFailure,
+  applyCloseResolutionPending,
+  canResolveClose,
+  resolveCloseTransaction,
+} from "./lifecycle";
 const empty = (): DesktopSession => ({
   windows: [],
   icons: [],
@@ -411,6 +416,48 @@ describe("persistence", () => {
   });
 });
 describe("close transaction", () => {
+  test("resolution failure returns current transaction to idle without losing state", () => {
+    let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const target = s.windows[0];
+    const context = {
+      transactionId: "tx-a",
+      inspectionStatus: "ready" as const,
+      resolutionStatus: "pending" as const,
+      target,
+      children: [],
+      blockers: [
+        { type: "unsaved-draft" as const, windowId: target.id, label: "draft" },
+      ],
+      reason: "user-request" as const,
+    };
+    s = { ...s, closeContext: context, pendingCloseId: target.id };
+    const moved = {
+      ...s,
+      windows: s.windows.map((w) => ({
+        ...w,
+        bounds: { ...w.bounds, x: 777 },
+      })),
+    };
+    const failed = applyCloseResolutionFailure(moved, "tx-a", "adapter failed");
+    expect(failed.closeContext?.inspectionStatus).toBe("ready");
+    expect(failed.closeContext?.resolutionStatus).toBe("idle");
+    expect(failed.closeContext?.error).toBe("adapter failed");
+    expect(failed.windows[0].bounds.x).toBe(777);
+    expect(
+      canResolveClose(failed.closeContext!, { action: "commit-and-close" }),
+    ).toBe(true);
+    expect(canResolveClose(failed.closeContext!, { action: "cancel" })).toBe(
+      true,
+    );
+    const newer = {
+      ...failed,
+      closeContext: { ...context, transactionId: "tx-b", error: undefined },
+    };
+    expect(applyCloseResolutionFailure(newer, "tx-a", "stale")).toEqual(newer);
+    const retry = applyCloseResolutionPending(failed, "tx-a");
+    expect(retry.closeContext?.resolutionStatus).toBe("pending");
+    expect(retry.closeContext?.error).toBeUndefined();
+  });
   test("inspection status gates destructive resolutions", () => {
     const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
       target = s.windows[0];

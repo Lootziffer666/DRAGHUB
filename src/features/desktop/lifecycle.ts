@@ -19,6 +19,37 @@ export function canResolveClose(
   if (resolution.action === "close-clean") return context.blockers.length === 0;
   return context.blockers.length > 0;
 }
+export function applyCloseResolutionPending(
+  session: DesktopSession,
+  transactionId: string,
+): DesktopSession {
+  return session.closeContext?.transactionId === transactionId
+    ? {
+        ...session,
+        closeContext: {
+          ...session.closeContext,
+          resolutionStatus: "pending",
+          error: undefined,
+        },
+      }
+    : session;
+}
+export function applyCloseResolutionFailure(
+  session: DesktopSession,
+  transactionId: string,
+  message: string,
+): DesktopSession {
+  return session.closeContext?.transactionId === transactionId
+    ? {
+        ...session,
+        closeContext: {
+          ...session.closeContext,
+          resolutionStatus: "idle",
+          error: message,
+        },
+      }
+    : session;
+}
 export async function resolveCloseTransaction(
   session: DesktopSession,
   context: WindowCloseContext,

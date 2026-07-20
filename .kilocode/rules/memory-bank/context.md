@@ -9,20 +9,16 @@
 
 ## Current State
 
-**Status**: ✅ GitHub Browser built and passing typecheck + lint + production build.
-
-A web app (Next.js 16, TS, Tailwind 4) that browses GitHub repositories with a
-desktop file-explorer UX: tabbed browsing, a tree sidebar, right-click context
-menus, drag-and-drop tab reordering / open, multi-selection, and touch support
-(long-press for context menus, tap to open).
+**Status**: ✅ Isolated desktop UX foundation built and tested. The visible shell
+currently uses mock applications only; existing GitHub features remain in the
+codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
-- [x] **Desktop Shell and multi-instance Window Manager (2026-07-20)**:
-  - Replaced the page-oriented Home/Workspace switch with a persistent desktop surface, system bar, wallpaper, desktop drive shortcuts, taskbar, grouped running-window entries, and a repository mounting app.
-  - Repository Explorers now run inside independent draggable, resizable, minimizable, maximizable, focusable window instances. Multiple instances can overlap; taskbar clicks restore minimized windows instead of closing them.
-  - Window geometry, z-order, minimized/maximized state, app type, and repository binding persist in localStorage and restore after reload.
-  - Existing GitHub tools remain available from the persistent shell/taskbar while repository content opens inside windows rather than navigating away from the desktop.
+- [x] **Isolated DRAGHUB desktop UX foundation (2026-07-20)**:
+  - Adapter-neutral application registry, typed resources/owners, multi-instance window manager, desktop icons, grouped taskbar, repository rubber bands, responsive mobile presentation, guarded closing, and versioned lightweight persistence.
+  - ANVIL and SHADED are explicitly mock repositories with independent component-local state; no GitHub API, repository store, Theia, or ANVIL-Core integration is claimed.
+  - Pure window-state tests cover focus, lifecycle, geometry, grouping, ownership, persistence migration, duplicate avoidance, and mobile selection.
 
 - [x] GitHub REST API client (`src/lib/github.ts`) with caching + rate-limit errors
 - [x] App state store: reducer + async helpers (`src/lib/store.tsx`)
@@ -46,11 +42,10 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
   - `src/lib/github.ts`: added `fetchTreeRecursive()` (recursive git tree read, throws on GitHub's `truncated` flag rather than operating on a partial listing)
   - `src/lib/events.ts`: minimal typed pub/sub (`checkpoint.created`, `change.staged`, …) — the Phase-2/3 seam from PLAN.md §5
   - `src/features/changes/` (module): `changes.tsx` (`ChangesProvider`/`useChanges`, persists pending changes to localStorage + IndexedDB like the existing staging cache; dedups rename-of-a-pending-add and rename-of-a-pending-rename into a single change), `overlay.ts` (merges a directory's base entries with pending deltas for display — added/renamed-in/pending-delete statuses), `actions.ts` (name-prompt/collision helpers), `ChangesPanel.tsx` + `index.tsx` (`ChangesButton`, badge count, "Create checkpoint")
-  - `src/components/Explorer.tsx`: rewritten on top of the overlay — New File/New Folder (context menu + root toolbar), Rename, Delete (with confirm), Restore/Discard, drag a node onto a folder row to move it. A brand-new folder is seeded into the store's tree cache directly (no network 404) via `seedDir`. A renamed-in-pending folder is still fully browsable pre-checkpoint by transparently reading through its untouched original path (`readPathFor`); further Rename/Delete of *existing* entries reached that way is disabled (would double-process against the pending move) while creating new files/folders inside it stays safe and enabled
+  - `src/components/Explorer.tsx`: rewritten on top of the overlay — New File/New Folder (context menu + root toolbar), Rename, Delete (with confirm), Restore/Discard, drag a node onto a folder row to move it. A brand-new folder is seeded into the store's tree cache directly (no network 404) via `seedDir`. A renamed-in-pending folder is still fully browsable pre-checkpoint by transparently reading through its untouched original path (`readPathFor`); further Rename/Delete of _existing_ entries reached that way is disabled (would double-process against the pending move) while creating new files/folders inside it stays safe and enabled
   - `src/lib/store.tsx`: added `seedDir`/`invalidateDir` + `DIR_INVALIDATE` action
-  - **Bug fixed along the way**: `ContextMenu.tsx` silently dropped any menu item marked `separatorBefore` — it rendered *only* the divider and never the item's own button, which had already been swallowing "Refresh"/"Copy path" before this session and would have swallowed "Rename"/"New File" too. Fixed to render the divider and the item.
+  - **Bug fixed along the way**: `ContextMenu.tsx` silently dropped any menu item marked `separatorBefore` — it rendered _only_ the divider and never the item's own button, which had already been swallowing "Refresh"/"Copy path" before this session and would have swallowed "Rename"/"New File" too. Fixed to render the divider and the item.
   - **Known gaps for a later pass**: `FileView`'s folder table (main pane) still shows the raw remote listing, not the overlay (Explorer sidebar is the source of truth); `UploadPanel`/`staging.tsx` still commits through its own path rather than the new changeset (M2's stated acceptance criterion — deferred, not done); no in-browser editor yet (M3) so new files are always created empty.
-
 
 - [x] **PLAN.md M8 — Multi-Repo-„Workspaces"-Refactor**:
   - `src/lib/store.tsx`: refactored the single-repo state into `repos: Record<string, RepoState>` plus `activeRepoKey`, `pinnedRepoKeys`, shared recent/error/loading fields, `switchRepo()`, and `useActiveRepo()` for consumers. Opening another repository now keeps existing repo tabs/tree/selection cached instead of replacing them.
@@ -68,11 +63,11 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
   - M11: added `src/features/start-menu` with Codespaces deep-link, releases list, and a written wiki feasibility spike note documenting the separate `.wiki.git` limitation.
 
 - [x] **M3b editor per `docs/DRAGHUB_PLAN_CORRECTION_RECORD.md` §5 (2026-07-19)** — the
-  earlier textarea explicitly did not satisfy M3; replaced with a real editor:
+      earlier textarea explicitly did not satisfy M3; replaced with a real editor:
   - `src/components/CodeEditor.tsx`: CodeMirror 6 (basicSetup, oneDark, language packs
     by extension, `Mod-S` → save keymap), recreated only when the file path changes.
   - `src/lib/editor-sessions.ts`: per-(repo,path) draft sessions; dirty drafts mirror to
-    localStorage so they survive tab/repo switches *and* reload; selection + scroll
+    localStorage so they survive tab/repo switches _and_ reload; selection + scroll
     position preserved; `useSyncExternalStore`-based dirty dots in `Tabs`.
   - `src/lib/flubber-selection.ts`: FLUBBER two-long-press touch selection (§4.2) as a
     CM6 StateField + ViewPlugin with its own grips/action bar/status chip; anchor
@@ -105,44 +100,44 @@ menus, drag-and-drop tab reordering / open, multi-selection, and touch support
 
 ## Current Structure
 
-| File | Purpose |
-|------|---------|
-| `src/app/page.tsx` | App shell: Home vs Workspace, title/status bar |
-| `src/lib/github.ts` | GitHub API client (repo, contents, file, branches) |
-| `src/lib/store.tsx` | Multi-repo workspace state (repo map + active repo selector, reducer + async loaders) |
-| `src/lib/dnd.ts` | Shared drag-and-drop mime/type |
-| `src/lib/highlight.tsx` | Dependency-free tokenizer for code view |
-| `src/components/ui-context.tsx` | Single context menu + global close handling |
-| `src/components/ContextMenu.tsx` | Keyboard-navigable context menu |
-| `src/components/AddressBar.tsx` | Repo open / branch / meta |
-| `src/components/Explorer.tsx` | Tree sidebar |
-| `src/components/Tabs.tsx` | Draggable tab bar |
-| `src/components/FileView.tsx` | Folder grid + code/image viewer |
-| `src/components/icons.tsx` | Inline SVG icons (no icon dependency) |
-| `src/lib/extract.ts` | Archive extraction: zip (JSZip) + 7z/rar (libarchive.js) |
-| `src/lib/github-write.ts` | Commit engine: blob/tree/commit, auto-split, Git LFS |
-| `src/lib/staging.tsx` + `staging-db.ts` | IndexedDB staging cache persisted until commit succeeds |
-| `src/components/UploadPanel.tsx` | Upload modal UI (token, dropzone, staged list, options) |
-| `src/features/search/` | **Isolated feature module**: `github-search.ts` (API), `SearchPanel.tsx` (UI), `index.tsx` (`SearchProvider`/`useSearch`/`SearchButton`) |
-| `src/lib/github-ops.ts` | `WorkingChange` model + `commitWorkingChanges()` (changeset → single commit) |
-| `src/lib/events.ts` | Minimal domain event bus (Phase-2/3 seam) |
-| `src/features/changes/` | **Feature module** (M1/M2): `changes.tsx`, `overlay.ts`, `actions.ts`, `ChangesPanel.tsx`, `index.tsx` (`ChangesProvider`/`useChanges`/`ChangesButton`) |
-| `src/lib/lfs.ts` | Git LFS pointer parsing and on-demand object download |
-| `src/lib/vitality.ts` | Lazy commit-history vitality metadata |
-| `src/lib/layout.ts` | Grid snap math and IndexedDB layout persistence |
-| `src/lib/merge.ts` | Merge-conflict hunk parsing/resolution primitives |
-| `src/features/pulls/` | Pull request list/actions/classification module |
-| `src/features/issues/` | Issue list/actions module |
-| `src/features/dock/` | Workspace dock, pinning, rate-limit budget polling |
-| `src/features/control-panel/` | Security/access/branch-rule probes and CODEOWNERS generator |
-| `src/features/start-menu/` | Codespaces/release launcher and wiki feasibility note |
-| `src/features/triage/` | Bulk PR triage module built on PR classification |
-| `src/components/CodeEditor.tsx` | CodeMirror 6 editor wrapper (M3b) |
-| `src/lib/editor-sessions.ts` | Per-file draft sessions, dirty tracking, reload survival |
-| `src/lib/flubber-selection.ts` | FLUBBER two-long-press touch text selection (CM6 extension) |
-| `src/lib/markdown.tsx` | Dependency-free Markdown → React renderer |
-| `src/lib/recycle-bin.ts` | Retention store for discarded content-bearing changes (7-day grace) |
-| `src/features/recycle-bin/` | **Feature module**: `RecycleBinPanel.tsx`, `index.tsx` (`RecycleBinButton`) |
+| File                                    | Purpose                                                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/page.tsx`                      | App shell: Home vs Workspace, title/status bar                                                                                                          |
+| `src/lib/github.ts`                     | GitHub API client (repo, contents, file, branches)                                                                                                      |
+| `src/lib/store.tsx`                     | Multi-repo workspace state (repo map + active repo selector, reducer + async loaders)                                                                   |
+| `src/lib/dnd.ts`                        | Shared drag-and-drop mime/type                                                                                                                          |
+| `src/lib/highlight.tsx`                 | Dependency-free tokenizer for code view                                                                                                                 |
+| `src/components/ui-context.tsx`         | Single context menu + global close handling                                                                                                             |
+| `src/components/ContextMenu.tsx`        | Keyboard-navigable context menu                                                                                                                         |
+| `src/components/AddressBar.tsx`         | Repo open / branch / meta                                                                                                                               |
+| `src/components/Explorer.tsx`           | Tree sidebar                                                                                                                                            |
+| `src/components/Tabs.tsx`               | Draggable tab bar                                                                                                                                       |
+| `src/components/FileView.tsx`           | Folder grid + code/image viewer                                                                                                                         |
+| `src/components/icons.tsx`              | Inline SVG icons (no icon dependency)                                                                                                                   |
+| `src/lib/extract.ts`                    | Archive extraction: zip (JSZip) + 7z/rar (libarchive.js)                                                                                                |
+| `src/lib/github-write.ts`               | Commit engine: blob/tree/commit, auto-split, Git LFS                                                                                                    |
+| `src/lib/staging.tsx` + `staging-db.ts` | IndexedDB staging cache persisted until commit succeeds                                                                                                 |
+| `src/components/UploadPanel.tsx`        | Upload modal UI (token, dropzone, staged list, options)                                                                                                 |
+| `src/features/search/`                  | **Isolated feature module**: `github-search.ts` (API), `SearchPanel.tsx` (UI), `index.tsx` (`SearchProvider`/`useSearch`/`SearchButton`)                |
+| `src/lib/github-ops.ts`                 | `WorkingChange` model + `commitWorkingChanges()` (changeset → single commit)                                                                            |
+| `src/lib/events.ts`                     | Minimal domain event bus (Phase-2/3 seam)                                                                                                               |
+| `src/features/changes/`                 | **Feature module** (M1/M2): `changes.tsx`, `overlay.ts`, `actions.ts`, `ChangesPanel.tsx`, `index.tsx` (`ChangesProvider`/`useChanges`/`ChangesButton`) |
+| `src/lib/lfs.ts`                        | Git LFS pointer parsing and on-demand object download                                                                                                   |
+| `src/lib/vitality.ts`                   | Lazy commit-history vitality metadata                                                                                                                   |
+| `src/lib/layout.ts`                     | Grid snap math and IndexedDB layout persistence                                                                                                         |
+| `src/lib/merge.ts`                      | Merge-conflict hunk parsing/resolution primitives                                                                                                       |
+| `src/features/pulls/`                   | Pull request list/actions/classification module                                                                                                         |
+| `src/features/issues/`                  | Issue list/actions module                                                                                                                               |
+| `src/features/dock/`                    | Workspace dock, pinning, rate-limit budget polling                                                                                                      |
+| `src/features/control-panel/`           | Security/access/branch-rule probes and CODEOWNERS generator                                                                                             |
+| `src/features/start-menu/`              | Codespaces/release launcher and wiki feasibility note                                                                                                   |
+| `src/features/triage/`                  | Bulk PR triage module built on PR classification                                                                                                        |
+| `src/components/CodeEditor.tsx`         | CodeMirror 6 editor wrapper (M3b)                                                                                                                       |
+| `src/lib/editor-sessions.ts`            | Per-file draft sessions, dirty tracking, reload survival                                                                                                |
+| `src/lib/flubber-selection.ts`          | FLUBBER two-long-press touch text selection (CM6 extension)                                                                                             |
+| `src/lib/markdown.tsx`                  | Dependency-free Markdown → React renderer                                                                                                               |
+| `src/lib/recycle-bin.ts`                | Retention store for discarded content-bearing changes (7-day grace)                                                                                     |
+| `src/features/recycle-bin/`             | **Feature module**: `RecycleBinPanel.tsx`, `index.tsx` (`RecycleBinButton`)                                                                             |
 
 ## Key Decisions
 
@@ -160,14 +155,14 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 
 ## Session History
 
-| Date | Changes |
-|------|---------|
-| Initial | Next.js template created |
-| 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch) |
-| 2026-07-09 | Added GitHub Search feature module (repos / related / releases+APK) |
-| 2026-07-09 | Added Upload/Commit feature (archive unpack, staging cache, commit splitting, LFS) |
+| Date       | Changes                                                                                                                                                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial    | Next.js template created                                                                                                                                                                                                                                         |
+| 2026-07-09 | Built GitHub Browser with desktop UX (tabs, context menus, DnD, touch)                                                                                                                                                                                           |
+| 2026-07-09 | Added GitHub Search feature module (repos / related / releases+APK)                                                                                                                                                                                              |
+| 2026-07-09 | Added Upload/Commit feature (archive unpack, staging cache, commit splitting, LFS)                                                                                                                                                                               |
 | 2026-07-15 | PLAN.md M1+M2: Explorer CRUD (new/rename/delete/move) staged as a changeset, Working-Changes/Checkpoint panel, single-commit changeset primitive with blob-sha reuse for renames; fixed a `ContextMenu` bug that silently dropped items marked `separatorBefore` |
-| 2026-07-15 | PLAN.md M8: Multi-repo workspace state with active repo selector and title-bar workspace switcher; opening another repo preserves the existing repo workspace |
-| 2026-07-15 | PLAN.md M3–M7 and M9–M12: editor/delta, LFS and large-file read guards, grid layout, conflict primitives, PR/Issue/Triage modules, Dock, Control Panel, Start Menu, and wiki spike note |
-| 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard |
-| 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange` |
+| 2026-07-15 | PLAN.md M8: Multi-repo workspace state with active repo selector and title-bar workspace switcher; opening another repo preserves the existing repo workspace                                                                                                    |
+| 2026-07-15 | PLAN.md M3–M7 and M9–M12: editor/delta, LFS and large-file read guards, grid layout, conflict primitives, PR/Issue/Triage modules, Dock, Control Panel, Start Menu, and wiki spike note                                                                          |
+| 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard                                       |
+| 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange`                            |

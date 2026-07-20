@@ -103,4 +103,46 @@ export type DesktopSession = {
   taskbarOrder: string[];
   pendingCloseId: null | WindowId;
   mobileActiveWindowId: null | WindowId;
+  closeContext: WindowCloseContext | null;
+  recycleBin: RecycleBinEntry[];
 };
+export type WindowCloseReason =
+  | "user-request"
+  | "parent-window-closing"
+  | "group-close"
+  | "desktop-reset";
+export type WindowCloseBlocker =
+  | { type: "unsaved-draft"; windowId: WindowId; label: string }
+  | { type: "working-changes"; windowId: WindowId; count: number }
+  | { type: "running-operation"; windowId: WindowId; label: string };
+export type WindowCloseResolution =
+  | { action: "close-clean" }
+  | { action: "commit-and-close" }
+  | { action: "discard-to-recycle-bin-and-close" }
+  | { action: "cancel" };
+export type WindowCloseContext = {
+  target: DesktopWindowState;
+  children: DesktopWindowState[];
+  blockers: WindowCloseBlocker[];
+  reason: WindowCloseReason;
+  error?: string;
+};
+export type RecycleBinEntry = {
+  id: string;
+  sourceWindowId: WindowId;
+  repoKey?: RepoKey;
+  type: "draft" | "working-change";
+  path?: string;
+  label: string;
+  content?: string;
+  discardedAt: number;
+};
+export interface WindowLifecycleAdapter {
+  inspectClose(
+    context: Omit<WindowCloseContext, "blockers">,
+  ): Promise<WindowCloseBlocker[]>;
+  resolveClose(
+    context: WindowCloseContext,
+    resolution: WindowCloseResolution,
+  ): Promise<{ success: boolean; error?: string }>;
+}

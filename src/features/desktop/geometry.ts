@@ -43,3 +43,44 @@ export function maximizeBounds(v: DesktopViewport): WindowBounds {
 export function snapPoint(value: number, grid = 16) {
   return Math.round(value / grid) * grid;
 }
+export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+export function resizeBounds(
+  original: WindowBounds,
+  direction: ResizeDirection,
+  deltaX: number,
+  deltaY: number,
+  minimumSize: { width: number; height: number },
+  viewport: DesktopViewport,
+): WindowBounds {
+  let { x, y, width, height } = original;
+  if (direction.includes("e")) width += deltaX;
+  if (direction.includes("s")) height += deltaY;
+  if (direction.includes("w")) {
+    width -= deltaX;
+    x += deltaX;
+  }
+  if (direction.includes("n")) {
+    height -= deltaY;
+    y += deltaY;
+  }
+  if (width < minimumSize.width) {
+    if (direction.includes("w")) x -= minimumSize.width - width;
+    width = minimumSize.width;
+  }
+  if (height < minimumSize.height) {
+    if (direction.includes("n")) y -= minimumSize.height - height;
+    height = minimumSize.height;
+  }
+  return clampBounds({ x, y, width, height }, viewport);
+}
+export function clampMenuPosition(
+  x: number,
+  y: number,
+  menu: { width: number; height: number },
+  viewport: { width: number; height: number },
+) {
+  return {
+    x: Math.max(0, Math.min(x, viewport.width - menu.width)),
+    y: Math.max(0, Math.min(y, viewport.height - menu.height)),
+  };
+}

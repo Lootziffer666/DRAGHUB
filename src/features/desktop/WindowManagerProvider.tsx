@@ -8,8 +8,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_VIEWPORT, type DesktopViewport } from "./geometry";
+import {
+  DEFAULT_VIEWPORT,
+  resizeBounds,
+  type DesktopViewport,
+  type ResizeDirection,
+} from "./geometry";
 import { loadSession, saveSession } from "./persistence";
+import { getApplication } from "./application-registry";
+import { resolveCloseTransaction } from "./lifecycle";
 import {
   childOwner,
   clampSession,
@@ -28,6 +35,8 @@ import type {
   RubberBandState,
   WindowBounds,
   WindowId,
+  WindowCloseResolution,
+  WindowLifecycleAdapter,
 } from "./types";
 const repo = (name: string): DesktopIconState => ({
   id: name.toLowerCase(),
@@ -70,6 +79,30 @@ const base: DesktopSession = {
   taskbarOrder: [],
   pendingCloseId: null,
   mobileActiveWindowId: null,
+  closeContext: null,
+  recycleBin: [],
+};
+const demoLifecycle: WindowLifecycleAdapter = {
+  async inspectClose(context) {
+    const candidates = [context.target, ...context.children];
+    return candidates.flatMap((w) =>
+      w.applicationId === "tool-window" ||
+      (w.resource.type === "repository" &&
+        w.resource.repoKey.endsWith("/ANVIL"))
+        ? [
+            {
+              type: "unsaved-draft" as const,
+              windowId: w.id,
+              label: `Unsaved demo state in ${w.title}`,
+            },
+          ]
+        : [],
+    );
+  },
+  async resolveClose(_context, resolution) {
+    if (resolution.action === "cancel") return { success: false };
+    return { success: true };
+  },
 };
 type API = {
   session: DesktopSession;
@@ -78,7 +111,13 @@ type API = {
   openOrFocusWindow: (i: OpenWindowInput) => void;
   focusWindow: (id: string) => void;
   moveWindow: (id: string, x: number, y: number) => void;
-  resizeWindow: (id: string, width: number, height: number) => void;
+  resizeWindow: (
+    id: string,
+    direction: ResizeDirection,
+    deltaX: number,
+    deltaY: number,
+    original: WindowBounds,
+  ) => void;
   minimizeWindow: (id: string) => void;
   restoreWindow: (id: string) => void;
   toggleMinimizeWindow: (id: string) => void;
@@ -86,7 +125,7 @@ type API = {
   restoreMaximizedWindow: (id: string) => void;
   toggleMaximizeWindow: (id: string) => void;
   requestCloseWindow: (id: string) => void;
-  confirmCloseWindow: () => void;
+  resolveCloseWindow: (resolution: WindowCloseResolution) => Promise<void>;
   cancelCloseWindow: () => void;
   setTaskbarOrder: (ids: string[]) => void;
   restoreDesktopSession: () => void;
@@ -101,6 +140,7 @@ type API = {
     title: string,
   ) => void;
   flushPersistence: () => void;
+  restoreRecycleEntry: (id: string) => void;
 };
 const C = createContext<API | null>(null);
 function viewport(): DesktopViewport {
@@ -258,12 +298,24 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
           vp,
         ),
       ),
-    resizeWindow: (id, width, height) =>
+    resizeWindow: (id, direction, deltaX, deltaY, original) =>
       mutate((s) => ({
         ...s,
-        windows: s.windows.map((w) =>
-          w.id === id ? { ...w, bounds: { ...w.bounds, width, height } } : w,
-        ),
+        windows: s.windows.map((w) => {
+          if (w.id !== id) return w;
+          const app = getApplication(w.applicationId);
+          return {
+            ...w,
+            bounds: resizeBounds(
+              original,
+              direction,
+              deltaX,
+              deltaY,
+              app.minimumSize,
+              vp,
+            ),
+          };
+        }),
       })),
     minimizeWindow,
     restoreWindow,
@@ -284,28 +336,38 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       session.windows.find((w) => w.id === id)?.state === "maximized"
         ? restoreMaximizedWindow(id)
         : maximizeWindow(id),
-    requestCloseWindow: (id) => mutate((s) => ({ ...s, pendingCloseId: id })),
-    confirmCloseWindow: () =>
-      mutate((s) => {
-        const id = s.pendingCloseId;
-        if (!id) return s;
-        return {
-          ...s,
-          windows: s.windows.filter(
-            (w) =>
-              w.id !== id &&
-              !(
-                w.owner.type === "repository" &&
-                w.owner.repositoryWindowId === id
-              ),
-          ),
-          taskbarOrder: s.taskbarOrder.filter((x) => x !== id),
-          pendingCloseId: null,
-          mobileActiveWindowId:
-            s.mobileActiveWindowId === id ? null : s.mobileActiveWindowId,
-        };
-      }),
-    cancelCloseWindow: () => mutate((s) => ({ ...s, pendingCloseId: null })),
+    requestCloseWindow: async (id) => {
+      const target = session.windows.find((w) => w.id === id);
+      if (!target) return;
+      const children = session.windows.filter(
+        (w) =>
+          w.owner.type === "repository" && w.owner.repositoryWindowId === id,
+      );
+      const partial = { target, children, reason: "user-request" as const };
+      const blockers = await demoLifecycle.inspectClose(partial);
+      mutate((s) => ({
+        ...s,
+        pendingCloseId: id,
+        closeContext: { ...partial, blockers },
+      }));
+    },
+    resolveCloseWindow: async (resolution) => {
+      const context = session.closeContext;
+      if (!context) return;
+      if (resolution.action === "cancel") {
+        mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null }));
+        return;
+      }
+      const next = await resolveCloseTransaction(
+        session,
+        context,
+        resolution,
+        demoLifecycle,
+      );
+      setSession(next);
+    },
+    cancelCloseWindow: () =>
+      mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null })),
     setTaskbarOrder: (ids) => mutate((s) => ({ ...s, taskbarOrder: ids })),
     restoreDesktopSession: () => setSession(loadSession(base)),
     resetDesktopSession: () => setSession(base),
@@ -345,6 +407,11 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       });
     },
     flushPersistence: () => saveSession(session),
+    restoreRecycleEntry: (id) =>
+      mutate((s) => ({
+        ...s,
+        recycleBin: s.recycleBin.filter((entry) => entry.id !== id),
+      })),
   };
   return <C.Provider value={api}>{children}</C.Provider>;
 }

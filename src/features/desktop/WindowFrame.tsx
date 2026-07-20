@@ -1,9 +1,16 @@
 "use client";
 import { useRef, type PointerEvent } from "react";
+import type { ResizeDirection } from "./geometry";
 import { getApplication } from "./application-registry";
 import { useWindowManager } from "./WindowManagerProvider";
 import type { DesktopWindowState } from "./types";
-export function WindowFrame({ window }: { window: DesktopWindowState }) {
+export function WindowFrame({
+  window,
+  mobileVisible = true,
+}: {
+  window: DesktopWindowState;
+  mobileVisible?: boolean;
+}) {
   const wm = useWindowManager();
   const app = getApplication(window.applicationId);
   const drag = useRef<{ x: number; y: number; bx: number; by: number } | null>(
@@ -14,6 +21,8 @@ export function WindowFrame({ window }: { window: DesktopWindowState }) {
     y: number;
     width: number;
     height: number;
+    direction: ResizeDirection;
+    original: DesktopWindowState["bounds"];
   } | null>(null);
   const active =
     wm.session.mobileActiveWindowId === window.id ||
@@ -26,10 +35,12 @@ export function WindowFrame({ window }: { window: DesktopWindowState }) {
         drag.current.by + e.clientY - drag.current.y,
       );
   };
-  if (window.state === "minimized") return null;
   return (
     <section
-      className={`desktop-window ${active ? "active" : ""} ${window.state === "maximized" ? "maximized" : ""}`}
+      tabIndex={-1}
+      className={`desktop-window ${active ? "active" : ""} ${window.state === "maximized" ? "maximized" : ""} ${window.state === "minimized" ? "is-minimized" : ""} ${mobileVisible ? "mobile-visible" : "mobile-hidden"}`}
+      aria-hidden={window.state === "minimized" || !mobileVisible}
+      inert={window.state === "minimized" || !mobileVisible ? true : undefined}
       data-window-id={window.id}
       style={{
         left: window.bounds.x,
@@ -98,39 +109,41 @@ export function WindowFrame({ window }: { window: DesktopWindowState }) {
           owner: window.owner,
         })}
       </div>
-      {window.state !== "maximized" && (
-        <button
-          className="window-resizer"
-          aria-label={`Resize ${window.title}`}
-          onPointerDown={(e) => {
-            size.current = {
-              x: e.clientX,
-              y: e.clientY,
-              width: window.bounds.width,
-              height: window.bounds.height,
-            };
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerMove={(e) => {
-            if (size.current)
-              wm.resizeWindow(
-                window.id,
-                Math.max(
-                  app.minimumSize.width,
-                  size.current.width + e.clientX - size.current.x,
-                ),
-                Math.max(
-                  app.minimumSize.height,
-                  size.current.height + e.clientY - size.current.y,
-                ),
-              );
-          }}
-          onPointerUp={() => {
-            size.current = null;
-            wm.flushPersistence();
-          }}
-        />
-      )}
+      {window.state !== "maximized" &&
+        (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeDirection[]).map(
+          (direction) => (
+            <button
+              key={direction}
+              className={`window-resizer resize-${direction}`}
+              aria-label={`Resize ${window.title} ${direction}`}
+              onPointerDown={(e) => {
+                size.current = {
+                  x: e.clientX,
+                  y: e.clientY,
+                  width: window.bounds.width,
+                  height: window.bounds.height,
+                  direction,
+                  original: { ...window.bounds },
+                };
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (size.current)
+                  wm.resizeWindow(
+                    window.id,
+                    size.current.direction,
+                    e.clientX - size.current.x,
+                    e.clientY - size.current.y,
+                    size.current.original,
+                  );
+              }}
+              onPointerUp={() => {
+                size.current = null;
+                wm.flushPersistence();
+              }}
+            />
+          ),
+        )}
     </section>
   );
 }

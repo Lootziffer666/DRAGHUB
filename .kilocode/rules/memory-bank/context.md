@@ -15,6 +15,11 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Desktop window lifecycle hardening (2026-07-20)**:
+  - Minimized and mobile-hidden applications remain mounted; visual state changes no longer reset mock repository/viewer state.
+  - Repository taskbar groups now include all owned child windows, while asynchronous close inspection/resolution atomically cleans parent/child references and can retain discarded demo drafts in the local Recycle Bin without touching shortcuts or repositories.
+  - Added eight-direction resize geometry, registry `allowMultiple` enforcement, defensive session sanitization, keyboard-accessible close/context menus, and expanded pure lifecycle tests.
+
 - [x] **Isolated DRAGHUB desktop UX foundation (2026-07-20)**:
   - Adapter-neutral application registry, typed resources/owners, multi-instance window manager, desktop icons, grouped taskbar, repository rubber bands, responsive mobile presentation, guarded closing, and versioned lightweight persistence.
   - ANVIL and SHADED are explicitly mock repositories with independent component-local state; no GitHub API, repository store, Theia, or ANVIL-Core integration is claimed.

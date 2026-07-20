@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_VIEWPORT, clampBounds } from "./geometry";
+import {
+  DEFAULT_VIEWPORT,
+  clampBounds,
+  clampMenuPosition,
+  resizeBounds,
+  type ResizeDirection,
+} from "./geometry";
 import {
   childOwner,
   focusWindowState,
@@ -11,9 +17,11 @@ import {
   openWindowState,
   restoreMaximizedState,
   restoreWindowState,
+  closeWindowState,
 } from "./window-state";
-import { migratePersistedSession } from "./persistence";
+import { migratePersistedSession, sanitizeDesktopSession } from "./persistence";
 import type { DesktopSession, OpenWindowInput } from "./types";
+import { resolveCloseTransaction } from "./lifecycle";
 const empty = (): DesktopSession => ({
   windows: [],
   icons: [],
@@ -21,6 +29,8 @@ const empty = (): DesktopSession => ({
   taskbarOrder: [],
   pendingCloseId: null,
   mobileActiveWindowId: null,
+  closeContext: null,
+  recycleBin: [],
 });
 const input: OpenWindowInput = {
   applicationId: "repository-explorer",
@@ -95,9 +105,167 @@ describe("window state", () => {
       },
       DEFAULT_VIEWPORT,
     );
-    expect(groupTaskbar(s.windows)).toHaveLength(2);
+    expect(groupTaskbar(s.windows)).toHaveLength(1);
+    expect(groupTaskbar(s.windows)[0].items).toHaveLength(2);
     expect(s.windows[1].owner).toEqual(owner);
   });
+  test("two repositories form exactly two groups", () => {
+    let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const anvil = s.windows[0];
+    s = openWindowState(
+      s,
+      {
+        ...input,
+        resource: { type: "repository", repoKey: "Lootziffer666/SHADED" },
+      },
+      DEFAULT_VIEWPORT,
+    );
+    const shaded = s.windows[1];
+    s = openWindowState(
+      s,
+      {
+        applicationId: "image-viewer",
+        owner: childOwner("Lootziffer666/ANVIL", anvil.id),
+        resource: {
+          type: "file",
+          repoKey: "Lootziffer666/ANVIL",
+          path: "a.png",
+        },
+      },
+      DEFAULT_VIEWPORT,
+    );
+    s = openWindowState(
+      s,
+      {
+        applicationId: "github-feature",
+        owner: childOwner("Lootziffer666/SHADED", shaded.id),
+        resource: {
+          type: "github-feature",
+          repoKey: "Lootziffer666/SHADED",
+          featureId: "actions",
+        },
+      },
+      DEFAULT_VIEWPORT,
+    );
+    expect(groupTaskbar(s.windows)).toHaveLength(2);
+  });
+  test("minimizing retains the same instance data", () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const w = s.windows[0],
+      min = minimizeWindowState(s, w.id);
+    expect(min.windows).toHaveLength(1);
+    expect(min.windows[0].id).toBe(w.id);
+    expect(min.windows[0].resource).toBe(w.resource);
+  });
+  test("closing parent atomically cleans children and references but keeps icon", () => {
+    let s = {
+      ...empty(),
+      icons: [
+        {
+          id: "anvil",
+          kind: "repository-drive" as const,
+          title: "ANVIL",
+          iconKey: "repo",
+          resource: input.resource,
+          position: { x: 0, y: 0 },
+          selected: false,
+          pinned: true,
+        },
+      ],
+    };
+    s = openWindowState(s, input, DEFAULT_VIEWPORT);
+    const id = s.windows[0].id;
+    s = openWindowState(
+      s,
+      {
+        applicationId: "image-viewer",
+        owner: childOwner("Lootziffer666/ANVIL", id),
+        resource: {
+          type: "file",
+          repoKey: "Lootziffer666/ANVIL",
+          path: "a.png",
+        },
+      },
+      DEFAULT_VIEWPORT,
+    );
+    s = {
+      ...s,
+      rubberBands: [
+        {
+          repoKey: "Lootziffer666/ANVIL",
+          repositoryWindowId: id,
+          edge: "top",
+          collapsed: false,
+          autoHide: false,
+          itemOrder: [],
+        },
+      ],
+      mobileActiveWindowId: s.windows[1].id,
+    };
+    const closed = closeWindowState(s, id);
+    expect(closed.windows).toHaveLength(0);
+    expect(closed.taskbarOrder).toHaveLength(0);
+    expect(closed.rubberBands).toHaveLength(0);
+    expect(closed.mobileActiveWindowId).toBeNull();
+    expect(closed.icons).toHaveLength(1);
+  });
+  test("discard creates recoverable entries", () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    expect(closeWindowState(s, s.windows[0].id, true).recycleBin).toHaveLength(
+      1,
+    );
+  });
+  test("allowMultiple false focuses system window while true permits explicit duplicates", () => {
+    const system = {
+      applicationId: "system-window",
+      owner: { type: "desktop" as const },
+      resource: { type: "system" as const, systemId: "settings" },
+    };
+    let s = openWindowState(empty(), system, DEFAULT_VIEWPORT);
+    s = openWindowState(
+      s,
+      { ...system, resource: { type: "system", systemId: "other" } },
+      DEFAULT_VIEWPORT,
+    );
+    expect(s.windows).toHaveLength(1);
+    s = openWindowState(s, input, DEFAULT_VIEWPORT);
+    s = openWindowState(s, input, DEFAULT_VIEWPORT);
+    expect(
+      s.windows.filter((w) => w.applicationId === "repository-explorer"),
+    ).toHaveLength(2);
+  });
+  test("all eight resize directions respect minimums", () => {
+    for (const d of [
+      "n",
+      "s",
+      "e",
+      "w",
+      "ne",
+      "nw",
+      "se",
+      "sw",
+    ] as ResizeDirection[]) {
+      const b = resizeBounds(
+        { x: 100, y: 100, width: 400, height: 300 },
+        d,
+        -500,
+        -500,
+        { width: 320, height: 220 },
+        DEFAULT_VIEWPORT,
+      );
+      expect(b.width).toBeGreaterThanOrEqual(320);
+      expect(b.height).toBeGreaterThanOrEqual(220);
+    }
+  });
+  test("context menu clamps to viewport", () =>
+    expect(
+      clampMenuPosition(
+        990,
+        790,
+        { width: 200, height: 150 },
+        { width: 1000, height: 800 },
+      ),
+    ).toEqual({ x: 800, y: 650 }));
   test("mobile selection uses active non-minimized window", () => {
     let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
     s = openWindowState(
@@ -121,7 +289,86 @@ describe("persistence", () => {
         .pendingCloseId,
     ).toBeNull();
     expect(
-      migratePersistedSession({ version: 2, session: { bad: true } }, s),
+      migratePersistedSession({ version: 3, session: { bad: true } }, s),
     ).toBe(s);
+  });
+  test("sanitization drops corrupt windows and dead references", () => {
+    let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const valid = s.windows[0];
+    s = {
+      ...s,
+      windows: [
+        valid,
+        {
+          ...valid,
+          id: "bad",
+          applicationId: "unknown",
+          state: "broken" as never,
+          bounds: { x: NaN, y: 0, width: 1, height: 1 },
+        },
+      ],
+      taskbarOrder: [valid.id, "dead"],
+      rubberBands: [
+        {
+          repoKey: "x",
+          repositoryWindowId: "dead",
+          edge: "top",
+          collapsed: false,
+          autoHide: false,
+          itemOrder: [],
+        },
+      ],
+      mobileActiveWindowId: "dead",
+    };
+    const clean = sanitizeDesktopSession(s, empty());
+    expect(clean.windows).toHaveLength(1);
+    expect(clean.taskbarOrder).toEqual([valid.id]);
+    expect(clean.rubberBands).toHaveLength(0);
+    expect(clean.mobileActiveWindowId).toBeNull();
+  });
+});
+describe("close transaction", () => {
+  test("cancel and failed resolution retain every window; success removes only after await", async () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
+      target = s.windows[0],
+      context = {
+        target,
+        children: [],
+        blockers: [
+          {
+            type: "unsaved-draft" as const,
+            windowId: target.id,
+            label: "draft",
+          },
+        ],
+        reason: "user-request" as const,
+      };
+    const fail = {
+      inspectClose: async () => [],
+      resolveClose: async () => ({ success: false, error: "nope" }),
+    };
+    expect(
+      (await resolveCloseTransaction(s, context, { action: "cancel" }, fail))
+        .windows,
+    ).toHaveLength(1);
+    const failed = await resolveCloseTransaction(
+      s,
+      context,
+      { action: "commit-and-close" },
+      fail,
+    );
+    expect(failed.windows).toHaveLength(1);
+    expect(failed.closeContext?.error).toBe("nope");
+    const success = { ...fail, resolveClose: async () => ({ success: true }) };
+    expect(
+      (
+        await resolveCloseTransaction(
+          s,
+          context,
+          { action: "commit-and-close" },
+          success,
+        )
+      ).windows,
+    ).toHaveLength(0);
   });
 });

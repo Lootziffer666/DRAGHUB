@@ -13,9 +13,6 @@ export function DesktopCanvas() {
   const canvas = useRef<HTMLDivElement>(null);
   const mobile = wm.viewport.width < 720;
   const mobileWindow = mobileVisibleWindow(wm.session);
-  const windows = mobile
-    ? wm.session.windows.filter((w) => w.id === mobileWindow?.id)
-    : wm.session.windows;
   const down = (e: PointerEvent) => {
     if (e.target !== canvas.current) return;
     wm.selectIcons([]);
@@ -59,8 +56,12 @@ export function DesktopCanvas() {
       }}
     >
       <DesktopIcons />
-      {windows.map((w) => (
-        <WindowFrame key={w.id} window={w} />
+      {wm.session.windows.map((w) => (
+        <WindowFrame
+          key={w.id}
+          window={w}
+          mobileVisible={!mobile || w.id === mobileWindow?.id}
+        />
       ))}
       {start && current && (
         <div

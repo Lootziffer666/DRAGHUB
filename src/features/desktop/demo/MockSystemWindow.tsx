@@ -12,6 +12,20 @@ export function MockSystemWindow({ resource }: WindowContentProps) {
           ? "Shortcuts removed from the desktop would appear here. Remote repositories are never deleted."
           : "The isolated desktop layer stores only lightweight window and icon state."}
       </p>
+      {id === "recycle-bin" &&
+        wm.session.recycleBin.map((entry) => (
+          <div className="mock-row" key={entry.id}>
+            <span>
+              <b>{entry.label}</b>
+              <small>
+                {entry.repoKey ?? "Global draft"} · recoverable demo content
+              </small>
+            </span>
+            <button onClick={() => wm.restoreRecycleEntry(entry.id)}>
+              Restore
+            </button>
+          </div>
+        ))}
       {id !== "recycle-bin" && (
         <button onClick={wm.resetDesktopSession}>Reset desktop session</button>
       )}

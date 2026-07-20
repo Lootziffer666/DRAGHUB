@@ -15,3 +15,7 @@ ANVIL Core remains an interchangeable Git-native module/backend below DRAGHUB—
 ## Ownership
 
 A repository main window owns its child windows through `{ type: "repository", repoKey, repositoryWindowId }`. Real repository state should therefore be keyed by the repository window ID and resource binding. Closing a main window can enumerate its children without knowing anything about the backing service.
+
+## Window lifecycle invariants
+
+Minimizing a window and hiding it during a mobile window switch are presentation-only operations: the application stays mounted and retains local state. Closing is an asynchronous domain transaction; a lifecycle adapter inspects the parent and all children, then resolves blockers before any instance is removed. Discarding retains lightweight recoverable change data in the local Recycle Bin—it never deletes a repository or its desktop shortcut. Confirmed parent closure atomically cleans child, taskbar, rubber-band, mobile-focus, and pending-close references.

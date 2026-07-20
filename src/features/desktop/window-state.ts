@@ -27,6 +27,12 @@ export function openWindowState(
   const app = getApplication(input.applicationId),
     now = Date.now(),
     n = s.windows.length;
+  if (!app.allowMultiple) {
+    const existing = s.windows.find(
+      (window) => window.applicationId === app.id,
+    );
+    if (existing) return restoreWindowState(s, existing.id);
+  }
   const bounds = clampBounds(
     {
       x: input.bounds?.x ?? 110 + (n % 6) * 34,
@@ -157,13 +163,67 @@ export function clampSession(s: DesktopSession, v: DesktopViewport) {
 export function groupTaskbar(windows: DesktopWindowState[]) {
   const groups = new Map<string, DesktopWindowState[]>();
   for (const w of windows) {
-    const key =
+    const repoKey =
       w.owner.type === "repository"
-        ? `${w.owner.repoKey}:${w.applicationId}`
-        : w.groupKey;
+        ? w.owner.repoKey
+        : w.resource.type === "repository"
+          ? w.resource.repoKey
+          : null;
+    const key = repoKey ? `repository:${repoKey}` : w.groupKey;
     groups.set(key, [...(groups.get(key) ?? []), w]);
   }
   return [...groups.entries()].map(([key, items]) => ({ key, items }));
+}
+export function closeWindowState(
+  s: DesktopSession,
+  id: string,
+  recycle = false,
+): DesktopSession {
+  const target = s.windows.find((w) => w.id === id);
+  if (!target) return s;
+  const closingIds = new Set([
+    id,
+    ...s.windows
+      .filter(
+        (w) =>
+          w.owner.type === "repository" && w.owner.repositoryWindowId === id,
+      )
+      .map((w) => w.id),
+  ]);
+  const entries = recycle
+    ? [
+        ...s.recycleBin,
+        ...[...closingIds].map((sourceWindowId) => ({
+          id: crypto.randomUUID(),
+          sourceWindowId,
+          repoKey:
+            target.resource.type === "repository"
+              ? target.resource.repoKey
+              : target.owner.type === "repository"
+                ? target.owner.repoKey
+                : undefined,
+          type: "draft" as const,
+          label: `Recoverable demo changes from ${target.title}`,
+          content: "Demo draft content",
+          discardedAt: Date.now(),
+        })),
+      ]
+    : s.recycleBin;
+  return {
+    ...s,
+    windows: s.windows.filter((w) => !closingIds.has(w.id)),
+    taskbarOrder: s.taskbarOrder.filter((x) => !closingIds.has(x)),
+    rubberBands: s.rubberBands.filter(
+      (r) => !closingIds.has(r.repositoryWindowId),
+    ),
+    mobileActiveWindowId:
+      s.mobileActiveWindowId && closingIds.has(s.mobileActiveWindowId)
+        ? null
+        : s.mobileActiveWindowId,
+    pendingCloseId: null,
+    closeContext: null,
+    recycleBin: entries,
+  };
 }
 export function childOwner(repoKey: string, repositoryWindowId: string) {
   return { type: "repository" as const, repoKey, repositoryWindowId };

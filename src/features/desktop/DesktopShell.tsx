@@ -1,9 +1,12 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { DesktopCanvas } from "./DesktopCanvas";
 import { Taskbar } from "./Taskbar";
 import { useWindowManager } from "./WindowManagerProvider";
 export function DesktopShell() {
   const wm = useWindowManager();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const lastClosingId = useRef<string | null>(null);
   const closing = wm.session.windows.find(
     (w) => w.id === wm.session.pendingCloseId,
   );
@@ -14,6 +17,18 @@ export function DesktopShell() {
         w.owner.type === "repository" &&
         w.owner.repositoryWindowId === closing.id,
     );
+  const context = wm.session.closeContext;
+  useEffect(() => {
+    if (context) {
+      lastClosingId.current = context.target.id;
+      dialogRef.current?.focus();
+    } else if (lastClosingId.current)
+      document
+        .querySelector<HTMLElement>(
+          `[data-window-id="${lastClosingId.current}"]`,
+        )
+        ?.focus();
+  }, [context]);
   return (
     <div className="draghub-desktop">
       <header className="desktop-systembar">
@@ -28,19 +43,33 @@ export function DesktopShell() {
       </header>
       <DesktopCanvas />
       <Taskbar />
-      {closing && (
+      {closing && context && (
         <div
           className="close-overlay"
           role="dialog"
           aria-modal="true"
           aria-labelledby="close-title"
         >
-          <div>
+          <div
+            ref={dialogRef}
+            tabIndex={-1}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                wm.cancelCloseWindow();
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (context.blockers.length) wm.cancelCloseWindow();
+                else void wm.resolveCloseWindow({ action: "close-clean" });
+              }
+            }}
+          >
             <span className="warning">!</span>
             <h2 id="close-title">Close “{closing.title}”?</h2>
             <p>
-              {closing.applicationId === "tool-window"
-                ? "This demo window may contain an unsaved draft."
+              {context.blockers.length
+                ? `${context.blockers.length} unsaved or running item(s) must be resolved before closing.`
                 : children?.length
                   ? `${children.length} repository child window(s) will close with it.`
                   : "The window will be removed from this desktop session."}
@@ -48,11 +77,39 @@ export function DesktopShell() {
             <small>
               Desktop shortcuts are never removed when a window closes.
             </small>
+            {context.error && <p className="close-error">{context.error}</p>}
             <footer>
               <button onClick={wm.cancelCloseWindow}>Cancel</button>
-              <button className="danger" onClick={wm.confirmCloseWindow}>
-                Close window
-              </button>
+              {context.blockers.length ? (
+                <>
+                  <button
+                    onClick={() =>
+                      void wm.resolveCloseWindow({ action: "commit-and-close" })
+                    }
+                  >
+                    Commit / Checkpoint and close
+                  </button>
+                  <button
+                    className="danger"
+                    onClick={() =>
+                      void wm.resolveCloseWindow({
+                        action: "discard-to-recycle-bin-and-close",
+                      })
+                    }
+                  >
+                    Discard to Recycle Bin and close
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="danger"
+                  onClick={() =>
+                    void wm.resolveCloseWindow({ action: "close-clean" })
+                  }
+                >
+                  Close window
+                </button>
+              )}
             </footer>
           </div>
         </div>

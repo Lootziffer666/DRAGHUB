@@ -15,6 +15,9 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Close inspection safety state (2026-07-20)**:
+  - Explicit pending/ready/failed inspection plus idle/pending resolution states prevent destructive actions before inspection, support transaction-safe retry, surface adapter exceptions, and block duplicate resolution calls in both UI and runtime.
+
 - [x] **Desktop race and v4 migration hardening (2026-07-20)**:
   - v4 retention/history survives schema-v5 migration; close inspection and resolution now guard pre-await transaction IDs, exceptions, cancellation, stale results, and lock ownership while applying successful results to current state only.
 

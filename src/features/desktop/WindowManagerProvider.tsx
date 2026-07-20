@@ -16,6 +16,7 @@ import {
 } from "./geometry";
 import { loadSession, saveSession } from "./persistence";
 import { getApplication } from "./application-registry";
+import { canResolveClose } from "./lifecycle";
 import {
   childOwner,
   clampSession,
@@ -154,6 +155,7 @@ type API = {
   toggleMaximizeWindow: (id: string) => void;
   requestCloseWindow: (id: string) => void;
   resolveCloseWindow: (resolution: WindowCloseResolution) => Promise<void>;
+  retryCloseInspection: () => Promise<void>;
   cancelCloseWindow: () => void;
   setTaskbarOrder: (ids: string[]) => void;
   restoreDesktopSession: () => void;
@@ -383,13 +385,26 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       mutate((s) => ({
         ...s,
         pendingCloseId: id,
-        closeContext: { ...partial, blockers: [] },
+        closeContext: {
+          ...partial,
+          blockers: [],
+          inspectionStatus: "pending",
+          resolutionStatus: "idle",
+        },
       }));
       try {
         const blockers = await demoLifecycle.inspectClose(partial);
         mutate((s) =>
           s.closeContext?.transactionId === partial.transactionId
-            ? { ...s, closeContext: { ...partial, blockers } }
+            ? {
+                ...s,
+                closeContext: {
+                  ...partial,
+                  blockers,
+                  inspectionStatus: "ready",
+                  resolutionStatus: "idle",
+                },
+              }
             : s,
         );
       } catch (error) {
@@ -399,6 +414,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
                 ...s,
                 closeContext: {
                   ...s.closeContext,
+                  inspectionStatus: "failed",
                   error:
                     error instanceof Error
                       ? error.message
@@ -412,12 +428,21 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     resolveCloseWindow: async (resolution) => {
       const context = session.closeContext;
       if (!context) return;
+      if (!canResolveClose(context, resolution)) return;
       if (resolution.action === "cancel") {
         mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null }));
         return;
       }
       if (resolvingClose.current === context.transactionId) return;
       resolvingClose.current = context.transactionId;
+      mutate((s) =>
+        s.closeContext?.transactionId === context.transactionId
+          ? {
+              ...s,
+              closeContext: { ...s.closeContext, resolutionStatus: "pending" },
+            }
+          : s,
+      );
       try {
         const result = await demoLifecycle.resolveClose(context, resolution);
         setSession((current) => {
@@ -455,6 +480,59 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       } finally {
         if (resolvingClose.current === context.transactionId)
           resolvingClose.current = null;
+      }
+    },
+    retryCloseInspection: async () => {
+      const current = session.closeContext;
+      if (!current || current.inspectionStatus !== "failed") return;
+      const transactionId = crypto.randomUUID();
+      const partial = {
+        transactionId,
+        target: current.target,
+        children: current.children,
+        reason: current.reason,
+      };
+      mutate((s) => ({
+        ...s,
+        pendingCloseId: current.target.id,
+        closeContext: {
+          ...partial,
+          blockers: [],
+          inspectionStatus: "pending",
+          resolutionStatus: "idle",
+        },
+      }));
+      try {
+        const blockers = await demoLifecycle.inspectClose(partial);
+        mutate((s) =>
+          s.closeContext?.transactionId === transactionId
+            ? {
+                ...s,
+                closeContext: {
+                  ...partial,
+                  blockers,
+                  inspectionStatus: "ready",
+                  resolutionStatus: "idle",
+                },
+              }
+            : s,
+        );
+      } catch (error) {
+        mutate((s) =>
+          s.closeContext?.transactionId === transactionId
+            ? {
+                ...s,
+                closeContext: {
+                  ...s.closeContext,
+                  inspectionStatus: "failed",
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Close inspection failed",
+                },
+              }
+            : s,
+        );
       }
     },
     cancelCloseWindow: () =>

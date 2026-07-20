@@ -125,6 +125,8 @@ export type WindowCloseResolution =
   | { action: "cancel" };
 export type WindowCloseContext = {
   transactionId: string;
+  inspectionStatus: "pending" | "ready" | "failed";
+  resolutionStatus: "idle" | "pending";
   target: DesktopWindowState;
   children: DesktopWindowState[];
   blockers: WindowCloseBlocker[];
@@ -168,7 +170,10 @@ export type CloseResolutionResult = {
 };
 export interface WindowLifecycleAdapter {
   inspectClose(
-    context: Omit<WindowCloseContext, "blockers">,
+    context: Omit<
+      WindowCloseContext,
+      "blockers" | "inspectionStatus" | "resolutionStatus"
+    >,
   ): Promise<WindowCloseBlocker[]>;
   resolveClose(
     context: WindowCloseContext,

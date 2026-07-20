@@ -21,7 +21,7 @@ import {
 } from "./window-state";
 import { migratePersistedSession, sanitizeDesktopSession } from "./persistence";
 import type { DesktopSession, OpenWindowInput } from "./types";
-import { resolveCloseTransaction } from "./lifecycle";
+import { canResolveClose, resolveCloseTransaction } from "./lifecycle";
 const empty = (): DesktopSession => ({
   windows: [],
   icons: [],
@@ -411,6 +411,51 @@ describe("persistence", () => {
   });
 });
 describe("close transaction", () => {
+  test("inspection status gates destructive resolutions", () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
+      target = s.windows[0];
+    const base = {
+      transactionId: "tx",
+      target,
+      children: [],
+      blockers: [],
+      reason: "user-request" as const,
+      resolutionStatus: "idle" as const,
+    };
+    const pending = { ...base, inspectionStatus: "pending" as const };
+    expect(canResolveClose(pending, { action: "close-clean" })).toBe(false);
+    expect(canResolveClose(pending, { action: "commit-and-close" })).toBe(
+      false,
+    );
+    expect(
+      canResolveClose(pending, { action: "discard-to-recycle-bin-and-close" }),
+    ).toBe(false);
+    const failed = { ...base, inspectionStatus: "failed" as const };
+    expect(canResolveClose(failed, { action: "close-clean" })).toBe(false);
+    const ready = { ...base, inspectionStatus: "ready" as const };
+    expect(canResolveClose(ready, { action: "close-clean" })).toBe(true);
+    expect(
+      canResolveClose(
+        {
+          ...ready,
+          blockers: [
+            {
+              type: "unsaved-draft" as const,
+              windowId: target.id,
+              label: "draft",
+            },
+          ],
+        },
+        { action: "commit-and-close" },
+      ),
+    ).toBe(true);
+    expect(
+      canResolveClose(
+        { ...ready, resolutionStatus: "pending" },
+        { action: "close-clean" },
+      ),
+    ).toBe(false);
+  });
   test("cancel and failed resolution retain every window; success removes only after await", async () => {
     const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
       target = s.windows[0],

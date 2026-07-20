@@ -56,31 +56,52 @@ export function DesktopShell() {
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 e.preventDefault();
-                wm.cancelCloseWindow();
+                if (context.resolutionStatus === "idle") wm.cancelCloseWindow();
               }
               if (e.key === "Enter") {
                 e.preventDefault();
-                if (context.blockers.length) wm.cancelCloseWindow();
-                else void wm.resolveCloseWindow({ action: "close-clean" });
+                if (
+                  context.inspectionStatus === "ready" &&
+                  context.resolutionStatus === "idle" &&
+                  !context.blockers.length
+                )
+                  void wm.resolveCloseWindow({ action: "close-clean" });
               }
             }}
           >
             <span className="warning">!</span>
             <h2 id="close-title">Close “{closing.title}”?</h2>
             <p>
-              {context.blockers.length
-                ? `${context.blockers.length} unsaved or running item(s) must be resolved before closing.`
-                : children?.length
-                  ? `${children.length} repository child window(s) will close with it.`
-                  : "The window will be removed from this desktop session."}
+              {context.inspectionStatus === "pending"
+                ? "Checking window state…"
+                : context.inspectionStatus === "failed"
+                  ? "Window state could not be inspected."
+                  : context.resolutionStatus === "pending"
+                    ? "Resolving window state…"
+                    : context.blockers.length
+                      ? `${context.blockers.length} unsaved or running item(s) must be resolved before closing.`
+                      : children?.length
+                        ? `${children.length} repository child window(s) will close with it.`
+                        : "The window will be removed from this desktop session."}
             </p>
             <small>
               Desktop shortcuts are never removed when a window closes.
             </small>
             {context.error && <p className="close-error">{context.error}</p>}
             <footer>
-              <button onClick={wm.cancelCloseWindow}>Cancel</button>
-              {context.blockers.length ? (
+              <button
+                disabled={context.resolutionStatus === "pending"}
+                onClick={wm.cancelCloseWindow}
+              >
+                Cancel
+              </button>
+              {context.inspectionStatus === "failed" ? (
+                <button onClick={() => void wm.retryCloseInspection()}>
+                  Retry Inspection
+                </button>
+              ) : context.inspectionStatus === "ready" &&
+                context.resolutionStatus === "idle" &&
+                context.blockers.length ? (
                 <>
                   <button
                     onClick={() =>
@@ -100,7 +121,8 @@ export function DesktopShell() {
                     Discard to Recycle Bin and close
                   </button>
                 </>
-              ) : (
+              ) : context.inspectionStatus === "ready" &&
+                context.resolutionStatus === "idle" ? (
                 <button
                   className="danger"
                   onClick={() =>
@@ -109,7 +131,7 @@ export function DesktopShell() {
                 >
                   Close window
                 </button>
-              )}
+              ) : null}
             </footer>
           </div>
         </div>

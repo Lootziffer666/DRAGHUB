@@ -20,9 +20,9 @@ Companion document for the first post-PR #8 integration pass
 | Recycle Bin (`lib/recycle-bin` domain store) | `recycle-bin` system application (kernel entries + staged deletions + retained drafts) | integrated |
 | Settings | `settings` system application (PAT, desktop reset) | integrated |
 | Upload / staging (`UploadPanel`, `lib/staging`) | repository window via AddressBar | mounted, own commit path (M2 gap unchanged) |
-| Triage (`features/triage`) | deferred — modal panel not yet a window application | deferred |
-| Control Panel (`features/control-panel`) | deferred (`security`/`settings` rubber-band items show an honest deferred panel) | deferred |
-| Start Menu (`features/start-menu`) | deferred | deferred |
+| Triage (`features/triage` API + classify) | `github-feature` child (`triage`) via rubber band; bulk close with explicit double-confirm | integrated |
+| Control Panel (`features/control-panel` API) | `github-feature` children: `security` (scope probes + CODEOWNERS staged as a working change) and `settings` (branch-protection probe + link-out) | integrated |
+| Start Menu (`features/start-menu` API) | `github-feature` child (`releases`): releases list, Codespaces deep-link, wiki limitation note | integrated |
 | Dock (`features/dock`, M9) | superseded by the kernel taskbar; module retained for the rate-limit budget logic to be re-homed later | superseded |
 
 ## 2. Per-window repository-state design

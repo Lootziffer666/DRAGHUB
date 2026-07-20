@@ -9,11 +9,23 @@
 
 ## Current State
 
-**Status**: ✅ Isolated desktop UX foundation built and tested. The visible shell
-currently uses mock applications only; existing GitHub features remain in the
-codebase but are intentionally not connected to the new window layer yet.
+**Status**: ✅ The PR #8 desktop kernel now runs the real DRAGHUB GitHub
+features: repository windows browse/edit real repositories with per-window
+state, child windows (viewer/editor/PRs/issues/actions/triage/security/
+releases/changes) bind to typed resources, and the close/Recycle-Bin
+lifecycle inspects real dirty drafts and pending changes. PR #9 tracks this
+integration. Deferred: shares (ADR), Theia/ANVIL-Core, daedalOS UX extras.
 
 ## Recently Completed
+
+- [x] **Second integration slice (2026-07-20)**: Triage, Security, Releases and
+  repo-Settings became real `github-feature` child windows
+  (`desktop-apps/feature-views.tsx`, reusing the existing triage/control-panel/
+  start-menu API layers); rubber band gained Triage/Releases items (persisted
+  orders merge new items instead of hiding them); CODEOWNERS staging from the
+  Security window updates the parent window's Changes badge through the shared
+  bucket store. Playwright-verified (pw25.js) with zero console errors.
+  PR #9: https://github.com/Lootziffer666/DRAGHUB/pull/9
 
 - [x] **First post-PR8 integration pass (2026-07-20, per `docs/POST_PR8_REFERENCE_INTEGRATION.md`)**:
   - Mock desktop applications replaced through the Application Registry with the

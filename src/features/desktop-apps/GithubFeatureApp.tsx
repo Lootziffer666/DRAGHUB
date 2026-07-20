@@ -18,6 +18,12 @@ import {
   type IssueSummary,
 } from "@/features/issues/api";
 import { Spinner } from "@/components/icons";
+import {
+  TriageView,
+  SecurityView,
+  ReleasesView,
+  RepoSettingsView,
+} from "./feature-views";
 import type { WindowContentProps } from "@/features/desktop/types";
 
 /**
@@ -39,6 +45,14 @@ export function GithubFeatureApp({ resource }: WindowContentProps) {
       return <ActionsView owner={owner} repo={repoName} />;
     case "changes":
       return <ChangesWindow repoKey={repoKey} />;
+    case "triage":
+      return <TriageView owner={owner} repo={repoName} />;
+    case "security":
+      return <SecurityWindow repoKey={repoKey} />;
+    case "releases":
+      return <BranchAwareView repoKey={repoKey} view="releases" />;
+    case "settings":
+      return <BranchAwareView repoKey={repoKey} view="settings" />;
     default:
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 bg-neutral-950 p-6 text-center">
@@ -51,7 +65,7 @@ export function GithubFeatureApp({ resource }: WindowContentProps) {
           </p>
           <a
             className="text-xs text-blue-400 hover:underline"
-            href={`https://github.com/${repoKey}/${featureId === "security" ? "security" : ""}`}
+            href={`https://github.com/${repoKey}`}
             target="_blank"
             rel="noreferrer"
           >
@@ -62,7 +76,9 @@ export function GithubFeatureApp({ resource }: WindowContentProps) {
   }
 }
 
-function ChangesWindow({ repoKey }: { repoKey: string }) {
+/** Resolves the possibly differently-cased resource repoKey against loaded
+ * repositories; null while the owning repository window is still hydrating. */
+function useCanonicalRepo(repoKey: string) {
   const { state } = useStore();
   const canonical =
     (state.repos[repoKey]
@@ -70,22 +86,59 @@ function ChangesWindow({ repoKey }: { repoKey: string }) {
       : Object.keys(state.repos).find(
           (k) => k.toLowerCase() === repoKey.toLowerCase()
         )) ?? null;
-  if (!canonical) {
-    return (
-      <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">Waiting for repository {repoKey}…</p>
-      </Center>
-    );
-  }
+  return canonical ? { key: canonical, repo: state.repos[canonical] } : null;
+}
+
+function WaitingForRepo({ repoKey }: { repoKey: string }) {
   return (
-    <RepoScope repoKey={canonical}>
+    <Center>
+      <Spinner width={20} height={20} className="text-blue-400" />
+      <p className="text-sm text-neutral-400">Waiting for repository {repoKey}…</p>
+    </Center>
+  );
+}
+
+function ChangesWindow({ repoKey }: { repoKey: string }) {
+  const resolved = useCanonicalRepo(repoKey);
+  if (!resolved) return <WaitingForRepo repoKey={repoKey} />;
+  return (
+    <RepoScope repoKey={resolved.key}>
       <ChangesProvider>
         <div className="flex h-full flex-col bg-neutral-900">
           <ChangesPanelBody />
         </div>
       </ChangesProvider>
     </RepoScope>
+  );
+}
+
+function SecurityWindow({ repoKey }: { repoKey: string }) {
+  const resolved = useCanonicalRepo(repoKey);
+  if (!resolved) return <WaitingForRepo repoKey={repoKey} />;
+  const meta = resolved.repo.meta;
+  return (
+    <RepoScope repoKey={resolved.key}>
+      <ChangesProvider>
+        <SecurityView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
+      </ChangesProvider>
+    </RepoScope>
+  );
+}
+
+function BranchAwareView({
+  repoKey,
+  view,
+}: {
+  repoKey: string;
+  view: "releases" | "settings";
+}) {
+  const resolved = useCanonicalRepo(repoKey);
+  if (!resolved) return <WaitingForRepo repoKey={repoKey} />;
+  const meta = resolved.repo.meta;
+  return view === "releases" ? (
+    <ReleasesView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
+  ) : (
+    <RepoSettingsView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
   );
 }
 

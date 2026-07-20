@@ -7,6 +7,8 @@ const items = [
   "Pull Requests",
   "Issues",
   "Actions",
+  "Triage",
+  "Releases",
   "Security",
   "Changes",
   "Settings",
@@ -31,7 +33,15 @@ export function RubberBand({
     itemOrder: items,
   };
   const ordered = useMemo(
-    () => (state.itemOrder.length ? state.itemOrder : items),
+    () =>
+      state.itemOrder.length
+        ? // Persisted orders from older sessions may miss newly added items —
+          // append those at the end instead of hiding them.
+          [
+            ...state.itemOrder,
+            ...items.filter((i) => !state.itemOrder.includes(i)),
+          ]
+        : items,
     [state.itemOrder],
   );
   return (

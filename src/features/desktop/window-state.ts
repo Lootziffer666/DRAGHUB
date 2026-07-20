@@ -50,7 +50,8 @@ export function openWindowState(
     resource: input.resource,
     title: input.title ?? app.title,
     iconKey: app.iconKey,
-    state: "normal",
+    presentation: "normal",
+    minimized: false,
     bounds,
     zIndex: Math.max(0, ...s.windows.map((x) => x.zIndex)) + 1,
     groupKey: input.groupKey ?? groupKeyFor(input),
@@ -67,7 +68,8 @@ export function openWindowState(
 function sameResource(a: DesktopWindowState, input: OpenWindowInput) {
   return (
     a.applicationId === input.applicationId &&
-    JSON.stringify(a.resource) === JSON.stringify(input.resource)
+    JSON.stringify(a.resource) === JSON.stringify(input.resource) &&
+    JSON.stringify(a.owner) === JSON.stringify(input.owner)
   );
 }
 export function openOrFocusWindowState(
@@ -81,9 +83,7 @@ export function openOrFocusWindowState(
     {
       ...s,
       windows: s.windows.map((w) =>
-        w.id === found.id
-          ? { ...w, state: w.state === "minimized" ? "normal" : w.state }
-          : w,
+        w.id === found.id ? { ...w, minimized: false } : w,
       ),
     },
     found.id,
@@ -91,12 +91,12 @@ export function openOrFocusWindowState(
 }
 export function minimizeWindowState(s: DesktopSession, id: string) {
   const windows = s.windows.map((w) =>
-    w.id === id ? { ...w, state: "minimized" as const } : w,
+    w.id === id ? { ...w, minimized: true } : w,
   );
   const next =
     s.activeWindowId === id
       ? [...windows]
-          .filter((w) => w.state !== "minimized")
+          .filter((w) => !w.minimized)
           .sort((a, b) => b.zIndex - a.zIndex)[0]
       : undefined;
   return {
@@ -113,7 +113,7 @@ export function restoreWindowState(s: DesktopSession, id: string) {
     {
       ...s,
       windows: s.windows.map((w) =>
-        w.id === id ? { ...w, state: "normal" } : w,
+        w.id === id ? { ...w, minimized: false } : w,
       ),
     },
     id,
@@ -128,10 +128,10 @@ export function maximizeWindowState(
     {
       ...s,
       windows: s.windows.map((w) =>
-        w.id === id && w.state !== "maximized"
+        w.id === id && w.presentation !== "maximized"
           ? {
               ...w,
-              state: "maximized",
+              presentation: "maximized",
               restoreBounds: { ...w.bounds },
               bounds: maximizeBounds(v),
             }
@@ -146,10 +146,11 @@ export function restoreMaximizedState(s: DesktopSession, id: string) {
     {
       ...s,
       windows: s.windows.map((w) =>
-        w.id === id && w.state === "maximized"
+        w.id === id && w.presentation === "maximized"
           ? {
               ...w,
-              state: "normal",
+              presentation: "normal",
+              minimized: false,
               bounds: w.restoreBounds ?? w.bounds,
               restoreBounds: undefined,
             }
@@ -165,7 +166,9 @@ export function clampSession(s: DesktopSession, v: DesktopViewport) {
     windows: s.windows.map((w) => ({
       ...w,
       bounds:
-        w.state === "maximized" ? maximizeBounds(v) : clampBounds(w.bounds, v),
+        w.presentation === "maximized"
+          ? maximizeBounds(v)
+          : clampBounds(w.bounds, v),
     })),
   };
 }
@@ -215,7 +218,7 @@ export function closeWindowState(
 function nextActiveId(s: DesktopSession, excluded = new Set<string>()) {
   return (
     [...s.windows]
-      .filter((w) => !excluded.has(w.id) && w.state !== "minimized")
+      .filter((w) => !excluded.has(w.id) && !w.minimized)
       .sort((a, b) => b.zIndex - a.zIndex)[0]?.id ?? null
   );
 }
@@ -224,12 +227,12 @@ export function childOwner(repoKey: string, repositoryWindowId: string) {
 }
 export function mobileVisibleWindow(s: DesktopSession) {
   const active = s.windows.find(
-    (w) => w.id === s.activeWindowId && w.state !== "minimized",
+    (w) => w.id === s.activeWindowId && !w.minimized,
   );
   return (
     active ??
     [...s.windows]
-      .filter((w) => w.state !== "minimized")
+      .filter((w) => !w.minimized)
       .sort((a, b) => b.zIndex - a.zIndex)[0] ??
     null
   );

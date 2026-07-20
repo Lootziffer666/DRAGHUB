@@ -32,7 +32,8 @@ export type DesktopWindowState = {
   resource: WindowResource;
   title: string;
   iconKey: string;
-  state: "normal" | "minimized" | "maximized";
+  presentation: "normal" | "maximized";
+  minimized: boolean;
   bounds: WindowBounds;
   restoreBounds?: WindowBounds;
   zIndex: number;
@@ -123,6 +124,7 @@ export type WindowCloseResolution =
   | { action: "discard-to-recycle-bin-and-close" }
   | { action: "cancel" };
 export type WindowCloseContext = {
+  transactionId: string;
   target: DesktopWindowState;
   children: DesktopWindowState[];
   blockers: WindowCloseBlocker[];

@@ -36,9 +36,9 @@ export function WindowFrame({
   return (
     <section
       tabIndex={-1}
-      className={`desktop-window ${active ? "active" : ""} ${window.state === "maximized" ? "maximized" : ""} ${window.state === "minimized" ? "is-minimized" : ""} ${mobileVisible ? "mobile-visible" : "mobile-hidden"}`}
-      aria-hidden={window.state === "minimized" || !mobileVisible}
-      inert={window.state === "minimized" || !mobileVisible ? true : undefined}
+      className={`desktop-window ${active ? "active" : ""} ${window.presentation === "maximized" ? "maximized" : ""} ${window.minimized ? "is-minimized" : ""} ${mobileVisible ? "mobile-visible" : "mobile-hidden"}`}
+      aria-hidden={window.minimized || !mobileVisible}
+      inert={window.minimized || !mobileVisible ? true : undefined}
       data-window-id={window.id}
       style={{
         left: window.bounds.x,
@@ -52,7 +52,7 @@ export function WindowFrame({
       <header
         onPointerDown={(e) => {
           if (
-            window.state === "maximized" ||
+            window.presentation === "maximized" ||
             (e.target as HTMLElement).closest("button")
           )
             return;
@@ -86,7 +86,7 @@ export function WindowFrame({
             ―
           </button>
           <button
-            aria-label={`${window.state === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
+            aria-label={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
             onClick={() => wm.toggleMaximizeWindow(window.id)}
           >
             □
@@ -107,7 +107,7 @@ export function WindowFrame({
           owner: window.owner,
         })}
       </div>
-      {window.state !== "maximized" &&
+      {window.presentation !== "maximized" &&
         (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeDirection[]).map(
           (direction) => (
             <button

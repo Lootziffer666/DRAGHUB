@@ -59,10 +59,10 @@ describe("window state", () => {
   test("minimize and restore preserve the window", () => {
     const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
       id = s.windows[0].id;
-    expect(minimizeWindowState(s, id).windows[0].state).toBe("minimized");
+    expect(minimizeWindowState(s, id).windows[0].minimized).toBe(true);
     expect(
-      restoreWindowState(minimizeWindowState(s, id), id).windows[0].state,
-    ).toBe("normal");
+      restoreWindowState(minimizeWindowState(s, id), id).windows[0].minimized,
+    ).toBe(false);
   });
   test("maximize restores exact bounds", () => {
     const s = openWindowState(
@@ -89,7 +89,7 @@ describe("window state", () => {
     s = minimizeWindowState(s, s.windows[0].id);
     s = openOrFocusWindowState(s, input, DEFAULT_VIEWPORT);
     expect(s.windows).toHaveLength(1);
-    expect(s.windows[0].state).toBe("normal");
+    expect(s.windows[0].minimized).toBe(false);
   });
   test("taskbar groups repository applications", () => {
     let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
@@ -347,7 +347,7 @@ describe("persistence", () => {
         .pendingCloseId,
     ).toBeNull();
     expect(
-      migratePersistedSession({ version: 4, session: { bad: true } }, s),
+      migratePersistedSession({ version: 5, session: { bad: true } }, s),
     ).toBe(s);
   });
   test("sanitization drops corrupt windows and dead references", () => {
@@ -361,7 +361,8 @@ describe("persistence", () => {
           ...valid,
           id: "bad",
           applicationId: "unknown",
-          state: "broken" as never,
+          presentation: "broken" as never,
+          minimized: false,
           bounds: { x: NaN, y: 0, width: 1, height: 1 },
         },
       ],

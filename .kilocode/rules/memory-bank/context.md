@@ -15,6 +15,9 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Desktop correctness pass / persistence v5 (2026-07-20)**:
+  - Separated window presentation from minimized visibility, guarded asynchronous close results by transaction ID, scoped child deduplication to owners, and fully validated discriminated resources plus parent ownership during session loading.
+
 - [x] **Desktop lifecycle responsibility fixes (2026-07-20)**:
   - Settings and Recycle Bin are independent singleton apps; lifecycle adapters exclusively produce and restore typed retention payloads.
   - Added deterministic `activeWindowId` transfer, child-window resource deduplication, restore/permanent-delete/empty-bin flows, and schema-v4 validation for recycle and focus state.

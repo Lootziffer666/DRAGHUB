@@ -1,6 +1,6 @@
 import type { DesktopSession } from "./types";
 export const DESKTOP_STORAGE_KEY = "draghub.desktop.session";
-export const DESKTOP_SESSION_VERSION = 4;
+export const DESKTOP_SESSION_VERSION = 5;
 type Envelope = { version: number; session: DesktopSession };
 export function serializeSession(session: DesktopSession) {
   return JSON.stringify({
@@ -14,12 +14,23 @@ export function migratePersistedSession(
 ): DesktopSession {
   if (!value || typeof value !== "object") return fallback;
   const data = value as Partial<Envelope>;
-  if (data.version === 4 && isSession(data.session))
+  if (data.version === 5 && isSession(data.session))
     return sanitizeDesktopSession(data.session, fallback);
-  if ([1, 2, 3].includes(data.version ?? 0) && isSession(data.session))
+  if ([1, 2, 3, 4].includes(data.version ?? 0) && isSession(data.session))
     return sanitizeDesktopSession(
       {
         ...data.session,
+        windows: data.session.windows.map((window) => {
+          const old = window as typeof window & { state?: string };
+          return {
+            ...window,
+            presentation:
+              old.state === "maximized"
+                ? ("maximized" as const)
+                : ("normal" as const),
+            minimized: old.state === "minimized",
+          };
+        }),
         pendingCloseId: null,
         activeWindowId: data.session.activeWindowId ?? null,
         closeContext: null,
@@ -43,18 +54,31 @@ export function sanitizeDesktopSession(
   session: DesktopSession,
   fallback: DesktopSession,
 ): DesktopSession {
-  const validState = (x: unknown) =>
-    x === "normal" || x === "minimized" || x === "maximized";
+  const validPresentation = (x: unknown) => x === "normal" || x === "maximized";
   const validBounds = (b: unknown) =>
     !!b &&
     typeof b === "object" &&
     ["x", "y", "width", "height"].every((k) =>
       Number.isFinite((b as Record<string, unknown>)[k]),
     );
-  const validResource = (r: unknown) =>
-    !!r &&
-    typeof r === "object" &&
-    typeof (r as { type?: unknown }).type === "string";
+  const validResource = (r: unknown) => {
+    if (!r || typeof r !== "object") return false;
+    const x = r as Record<string, unknown>;
+    switch (x.type) {
+      case "repository":
+        return typeof x.repoKey === "string";
+      case "file":
+        return typeof x.repoKey === "string" && typeof x.path === "string";
+      case "github-feature":
+        return typeof x.repoKey === "string" && typeof x.featureId === "string";
+      case "tool":
+        return typeof x.toolId === "string";
+      case "system":
+        return typeof x.systemId === "string";
+      default:
+        return false;
+    }
+  };
   const validOwner = (o: unknown) =>
     !!o &&
     typeof o === "object" &&
@@ -63,13 +87,24 @@ export function sanitizeDesktopSession(
         typeof (o as { repoKey?: unknown }).repoKey === "string" &&
         typeof (o as { repositoryWindowId?: unknown }).repositoryWindowId ===
           "string"));
-  const windows = session.windows.filter(
+  const initiallyValid = session.windows.filter(
     (w) =>
       applications.has(w.applicationId) &&
-      validState(w.state) &&
+      validPresentation(w.presentation) &&
+      typeof w.minimized === "boolean" &&
       validBounds(w.bounds) &&
       validOwner(w.owner) &&
       validResource(w.resource),
+  );
+  const repositoryIds = new Set(
+    initiallyValid
+      .filter((w) => w.resource.type === "repository")
+      .map((w) => w.id),
+  );
+  const windows = initiallyValid.filter(
+    (w) =>
+      w.owner.type === "desktop" ||
+      repositoryIds.has(w.owner.repositoryWindowId),
   );
   const ids = new Set(windows.map((w) => w.id));
   const repoIds = new Set(

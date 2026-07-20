@@ -16,7 +16,6 @@ import {
 } from "./geometry";
 import { loadSession, saveSession } from "./persistence";
 import { getApplication } from "./application-registry";
-import { resolveCloseTransaction } from "./lifecycle";
 import {
   childOwner,
   clampSession,
@@ -27,6 +26,7 @@ import {
   openWindowState,
   restoreMaximizedState,
   restoreWindowState,
+  closeWindowState,
 } from "./window-state";
 import type {
   DesktopIconState,
@@ -188,6 +188,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
   const [vp, setVp] = useState(DEFAULT_VIEWPORT);
   const hydrated = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolvingClose = useRef<string | null>(null);
   useEffect(() => {
     const v = viewport();
     setVp(v);
@@ -352,7 +353,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     toggleMinimizeWindow: (id) => {
       const w = session.windows.find((x) => x.id === id);
       if (!w) return;
-      if (w.state === "minimized") restoreWindow(id);
+      if (w.minimized) restoreWindow(id);
       else if (
         session.activeWindowId === id ||
         w.zIndex === Math.max(...session.windows.map((x) => x.zIndex))
@@ -363,7 +364,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     maximizeWindow,
     restoreMaximizedWindow,
     toggleMaximizeWindow: (id) =>
-      session.windows.find((w) => w.id === id)?.state === "maximized"
+      session.windows.find((w) => w.id === id)?.presentation === "maximized"
         ? restoreMaximizedWindow(id)
         : maximizeWindow(id),
     requestCloseWindow: async (id) => {
@@ -373,7 +374,12 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         (w) =>
           w.owner.type === "repository" && w.owner.repositoryWindowId === id,
       );
-      const partial = { target, children, reason: "user-request" as const };
+      const partial = {
+        transactionId: crypto.randomUUID(),
+        target,
+        children,
+        reason: "user-request" as const,
+      };
       const blockers = await demoLifecycle.inspectClose(partial);
       mutate((s) => ({
         ...s,
@@ -388,13 +394,27 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null }));
         return;
       }
-      const next = await resolveCloseTransaction(
-        session,
-        context,
-        resolution,
-        demoLifecycle,
-      );
-      setSession(next);
+      if (resolvingClose.current === context.transactionId) return;
+      resolvingClose.current = context.transactionId;
+      const result = await demoLifecycle.resolveClose(context, resolution);
+      resolvingClose.current = null;
+      setSession((current) => {
+        if (current.closeContext?.transactionId !== context.transactionId)
+          return current;
+        if (!result.success)
+          return {
+            ...current,
+            closeContext: {
+              ...current.closeContext,
+              error: result.error ?? "Close resolution failed",
+            },
+          };
+        return closeWindowState(
+          current,
+          context.target.id,
+          result.recycleBinEntries ?? [],
+        );
+      });
     },
     cancelCloseWindow: () =>
       mutate((s) => ({ ...s, pendingCloseId: null, closeContext: null })),

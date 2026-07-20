@@ -57,9 +57,7 @@ export function Taskbar() {
               <button
                 className={
                   group.items.some(
-                    (w) =>
-                      w.id === wm.session.activeWindowId &&
-                      w.state !== "minimized",
+                    (w) => w.id === wm.session.activeWindowId && !w.minimized,
                   )
                     ? "active"
                     : ""
@@ -91,11 +89,11 @@ export function Taskbar() {
                       <span>{icon(w.iconKey)}</span>
                       <b>{w.title}</b>
                       <small>
-                        {w.state === "minimized"
+                        {w.minimized
                           ? "minimized"
                           : w.id === wm.session.activeWindowId
                             ? "active"
-                            : w.state === "maximized"
+                            : w.presentation === "maximized"
                               ? "maximized"
                               : "background"}
                       </small>

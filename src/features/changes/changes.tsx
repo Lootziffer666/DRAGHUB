@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useActiveRepo, useStore } from "@/lib/store";
 import { dbPut, dbGet, dbDelete } from "@/lib/staging-db";
+import { retainDiscarded } from "@/lib/recycle-bin";
 import { events } from "@/lib/events";
 import {
   commitWorkingChanges,
@@ -41,6 +42,8 @@ type ChangesContextValue = {
   ) => void;
   discardChange: (id: string) => void;
   discardAll: () => void;
+  /** Re-stages a change previously retained in the Recycle Bin. */
+  restoreChange: (change: WorkingChange) => void;
   createCheckpoint: () => Promise<void>;
   changeForPath: (path: string) => WorkingChange | undefined;
   loadPendingContent: (path: string) => Promise<Uint8Array | null>;
@@ -300,22 +303,36 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
   );
 
   const discardChange = useCallback((id: string) => {
-    setChanges((prev) => {
-      const change = prev.find((c) => c.id === id);
-      if (change?.blobId) void dbDelete(change.blobId);
-      if (change) events.emit("change.discarded", { path: change.path });
-      return prev.filter((c) => c.id !== id);
-    });
+    // Side effects stay outside the updater — React may invoke updaters twice.
+    const change = changesRef.current.find((c) => c.id === id);
+    if (!change) return;
+    // Content-bearing changes go to the Recycle Bin (blob retained for a
+    // grace period) instead of being destroyed immediately.
+    if (change.blobId && repoKeyRef.current) {
+      retainDiscarded(repoKeyRef.current, change);
+    }
+    events.emit("change.discarded", { path: change.path });
+    setChanges((prev) => prev.filter((c) => c.id !== id));
   }, [setChanges]);
 
   const discardAll = useCallback(() => {
     for (const c of changesRef.current) {
-      if (c.blobId) void dbDelete(c.blobId);
+      if (c.blobId && repoKeyRef.current) retainDiscarded(repoKeyRef.current, c);
     }
     setChanges(() => []);
     setError(null);
     setStatus("idle");
   }, [setChanges]);
+
+  const restoreChange = useCallback(
+    (change: WorkingChange) => {
+      setChanges((prev) =>
+        prev.some((c) => c.id === change.id) ? prev : [...prev, change]
+      );
+      events.emit("change.staged", { kind: change.kind, path: change.path });
+    },
+    [setChanges]
+  );
 
   const createCheckpoint = useCallback(async () => {
     const current = changesRef.current;
@@ -387,6 +404,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       stageRename,
       discardChange,
       discardAll,
+      restoreChange,
       createCheckpoint,
       changeForPath,
       loadPendingContent,
@@ -403,6 +421,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       stageRename,
       discardChange,
       discardAll,
+      restoreChange,
       createCheckpoint,
       changeForPath,
       loadPendingContent,

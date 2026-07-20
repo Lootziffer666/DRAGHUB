@@ -403,3 +403,16 @@ committen noch über ihren eigenen Pfad statt über denselben Changeset-Mechanis
 in derselben Änderung mit anzufassen. `FileView`s Ordner-Tabelle (Hauptbereich)
 zeigt ebenfalls noch die rohe Remote-Liste statt der Overlay-Ansicht; die
 Explorer-Sidebar ist aktuell die verbindliche Quelle für den Änderungsstatus.
+
+**Status Papierkorb (umgesetzt 2026-07-20, Vertrag: Korrekturprotokoll §6 /
+Desktop-Shell-Spec §14):** Funktionaler Papierkorb als eigene Ansicht
+(`src/lib/recycle-bin.ts`, `src/features/recycle-bin/`): noch nicht
+eingecheckte Löschungen erscheinen als wiederherstellbare Einträge; verworfene
+inhaltstragende Working Changes (Add/Modify) wandern mit erhaltenem Blob in
+eine Repo-zugeordnete Aufbewahrung (7 Tage Frist) statt zerstört zu werden;
+Wiederherstellung an den Ursprungspfad, bei Pfadkonflikt wird ein neues Ziel
+verlangt; Leeren nur mit Zusammenfassung (Anzahl + Bytes) und ausdrücklicher
+Bestätigung; Git-Historie wird nie umgeschrieben (Hinweis in der UI). Offen:
+Varianten-Zuordnung ist derzeit Repo-genau (ein Branch pro Repo-Fenster);
+sobald Varianten/Branch-Wechsel existieren, muss der Papierkorb-Eintrag
+zusätzlich die Variante tragen.

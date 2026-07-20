@@ -108,7 +108,9 @@ export function DesktopShell() {
                       void wm.resolveCloseWindow({ action: "commit-and-close" })
                     }
                   >
-                    Commit / Checkpoint and close
+                    {context.target.applicationId === "file-editor"
+                      ? "Save as Working Change and close"
+                      : "Create checkpoint and close"}
                   </button>
                   <button
                     className="danger"

@@ -20,6 +20,9 @@ import {
   applyCloseResolutionFailure,
   applyCloseResolutionPending,
   canResolveClose,
+  deriveCloseDomainScope,
+  languageFromPath,
+  type CloseDomainScope,
 } from "./lifecycle";
 import {
   childOwner,
@@ -36,7 +39,9 @@ import {
 import type {
   DesktopIconState,
   DesktopSession,
+  DesktopWindowState,
   OpenWindowInput,
+  RecycleBinEntry,
   RubberBandState,
   WindowBounds,
   WindowId,
@@ -90,53 +95,73 @@ const base: DesktopSession = {
   restoredItems: [],
   recycleError: null,
 };
-const demoLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
+export const demoLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
   async inspectClose(context) {
-    const candidates = [context.target, ...context.children];
-    return candidates.flatMap((w) =>
-      w.applicationId === "tool-window" ||
-      (w.resource.type === "repository" &&
-        w.resource.repoKey.endsWith("/ANVIL"))
-        ? [
-            {
-              type: "unsaved-draft" as const,
-              windowId: w.id,
-              label: `Unsaved demo state in ${w.title}`,
-            },
-          ]
-        : [],
-    );
+    const scope = deriveCloseDomainScope(context);
+    switch (scope.mode) {
+      case "repository":
+        return scope.repoKey.endsWith("/ANVIL")
+          ? [
+              {
+                type: "unsaved-draft" as const,
+                windowId: context.target.id,
+                label: `Unsaved demo state in ${context.target.title}`,
+              },
+            ]
+          : [];
+      case "editor":
+        return [];
+      case "viewer":
+        return [];
+      case "application":
+        return [];
+    }
   },
   async resolveClose(context, resolution) {
     if (resolution.action === "cancel") return { success: false };
-    if (resolution.action === "discard-to-recycle-bin-and-close")
-      return {
-        success: true,
-        recycleBinEntries: [
-          {
-            id: crypto.randomUUID(),
-            kind: "draft",
-            sourceWindowId: context.target.id,
-            repoKey:
-              context.target.resource.type === "repository"
-                ? context.target.resource.repoKey
-                : undefined,
-            path: "docs/unsaved-demo.md",
-            label: `Unsaved ${context.target.title} demo draft`,
-            discardedAt: Date.now(),
-            payload: {
-              content: "# Recoverable demo draft\n",
-              language: "markdown",
-            },
-          },
-        ],
-      };
+    const scope = deriveCloseDomainScope(context);
+    if (resolution.action === "discard-to-recycle-bin-and-close") {
+      const entry = discardEntryForScope(context.target, scope);
+      if (entry) return { success: true, recycleBinEntries: [entry] };
+      return { success: true };
+    }
     return { success: true };
   },
   async restoreEntry() {
     return { success: true };
   },
 };
+
+function discardEntryForScope(
+  target: DesktopWindowState,
+  scope: CloseDomainScope,
+): RecycleBinEntry | null {
+  if (scope.mode === "editor") {
+    return {
+      id: crypto.randomUUID(),
+      kind: "draft",
+      sourceWindowId: target.id,
+      repoKey: scope.repoKey,
+      path: scope.path,
+      label: `Unsaved ${target.title} draft`,
+      discardedAt: Date.now(),
+      payload: { content: "", language: languageFromPath(scope.path) },
+    };
+  }
+  if (scope.mode === "repository") {
+    return {
+      id: crypto.randomUUID(),
+      kind: "draft",
+      sourceWindowId: target.id,
+      repoKey: scope.repoKey,
+      path: "docs/unsaved-demo.md",
+      label: `Unsaved ${target.title} demo draft`,
+      discardedAt: Date.now(),
+      payload: { content: "# Recoverable demo draft\n", language: "markdown" },
+    };
+  }
+  return null;
+}
 type API = {
   session: DesktopSession;
   viewport: DesktopViewport;

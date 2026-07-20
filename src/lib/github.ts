@@ -25,30 +25,6 @@ const API = "https://api.github.com";
 
 const TOKEN_KEY = "gh-browser-token";
 
-export type RateLimitStatus = { remaining: number; limit: number; resetAt: number };
-
-let lastRateLimit: RateLimitStatus | null = null;
-
-function recordRateLimit(res: Response): void {
-  const remaining = res.headers.get("x-ratelimit-remaining");
-  const limit = res.headers.get("x-ratelimit-limit");
-  const reset = res.headers.get("x-ratelimit-reset");
-  if (remaining !== null && limit !== null && reset !== null) {
-    lastRateLimit = {
-      remaining: Number(remaining),
-      limit: Number(limit),
-      resetAt: Number(reset) * 1000,
-    };
-  }
-}
-
-/** Most recently observed rate-limit snapshot from any GitHub API response
- * (updated by both ghFetch and ghRequest) — used by the Dock (M9) to make
- * the remaining budget visible instead of polling blindly into the limit. */
-export function getRateLimitStatus(): RateLimitStatus | null {
-  return lastRateLimit;
-}
-
 export function getGithubToken(): string | null {
   if (typeof localStorage === "undefined") return null;
   const t = localStorage.getItem(TOKEN_KEY);
@@ -79,7 +55,6 @@ async function ghFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   });
-  recordRateLimit(res);
 
   if (res.status === 403 || res.status === 429) {
     const remaining = res.headers.get("x-ratelimit-remaining");
@@ -123,7 +98,6 @@ export async function ghRequest(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, { ...init, headers });
-  recordRateLimit(res);
   return {
     ok: res.ok,
     status: res.status,
@@ -211,8 +185,12 @@ export async function fetchFileContent(
     `/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`
   );
 
+  if (data.size > 5 * 1024 * 1024) {
+    throw new Error("Large file preview is disabled. Use Raw/LFS download to fetch it on demand.");
+  }
+
   if (data.encoding === "base64") {
-    let cleaned = data.content.replace(/\s/g, "");
+    const cleaned = data.content.replace(/\s/g, "");
     const binary = atob(cleaned);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -263,39 +241,6 @@ export async function fetchTreeRecursive(
     );
   }
   return data.tree;
-}
-
-export type LastCommitInfo = {
-  sha: string;
-  date: string;
-  message: string;
-  authorLogin: string | null;
-};
-
-/** Most recent commit touching a single path — used for M4's vitality badge. */
-export async function fetchLastCommit(
-  owner: string,
-  repo: string,
-  path: string,
-  ref: string
-): Promise<LastCommitInfo | null> {
-  const data = await ghFetch<
-    Array<{
-      sha: string;
-      commit: { message: string; author: { date: string } | null };
-      author: { login: string } | null;
-    }>
-  >(
-    `/repos/${owner}/${repo}/commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(ref)}&per_page=1`
-  );
-  const first = data[0];
-  if (!first) return null;
-  return {
-    sha: first.sha,
-    date: first.commit.author?.date ?? "",
-    message: first.commit.message,
-    authorLogin: first.author?.login ?? null,
-  };
 }
 
 export function githubRawUrl(

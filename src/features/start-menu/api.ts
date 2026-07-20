@@ -1,0 +1,4 @@
+import { ghRequest } from "@/lib/github";
+export async function listReleases(owner:string,repo:string){const res=await ghRequest(`/repos/${owner}/${repo}/releases?per_page=10`);if(!res.ok)throw new Error(`Releases unavailable (${res.status})`);return await res.json<Array<{id:number;name:string|null;tag_name:string;html_url:string}>>()}
+export function codespacesUrl(owner:string,repo:string,branch:string){return `https://github.com/codespaces/new?hide_repo_select=true&ref=${encodeURIComponent(branch)}&repo=${encodeURIComponent(`${owner}/${repo}`)}`}
+export const wikiSpikeNote="GitHub Wikis are separate git repositories named owner/repo.wiki.git and are not exposed through the normal Contents API. A pure browser client can link to the wiki or document the clone URL, but full WYSIWYG editing requires a backend/proxy or a dedicated git transport spike.";

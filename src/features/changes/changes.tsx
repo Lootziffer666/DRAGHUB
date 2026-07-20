@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { dbPut, dbGet, dbDelete } from "@/lib/staging-db";
 import { events } from "@/lib/events";
 import {
@@ -31,7 +31,6 @@ type ChangesContextValue = {
   setMessage: (m: string) => void;
   stageAddFile: (path: string, data: Uint8Array, origin?: ChangeOrigin) => Promise<void>;
   stageAddFolder: (path: string, origin?: ChangeOrigin) => void;
-  stageEdit: (path: string, data: Uint8Array, origin?: ChangeOrigin) => Promise<void>;
   stageDelete: (path: string, entryKind: EntryKind, origin?: ChangeOrigin) => void;
   stageRename: (
     fromPath: string,
@@ -43,56 +42,29 @@ type ChangesContextValue = {
   discardAll: () => void;
   createCheckpoint: () => Promise<void>;
   changeForPath: (path: string) => WorkingChange | undefined;
-  loadPendingContent: (path: string) => Promise<Uint8Array | null>;
 };
 
 const ChangesContext = createContext<ChangesContextValue | null>(null);
 
-// Since M8, pending changes are bucketed per repository so that switching
-// the active repo (Dock quick-switch) never discards staged work. The old
-// single-list storage key ("gh-browser-changes-meta") is intentionally
-// abandoned rather than migrated — it couldn't say which repo it belonged to.
-const META_KEY = "gh-browser-changes-by-repo";
+const META_KEY = "gh-browser-changes-meta";
 
 export function ChangesProvider({ children }: { children: ReactNode }) {
   const { state, ensureDir, seedDir, invalidateDir } = useStore();
-  const meta = state.meta;
-  const repoKey = meta?.fullName ?? null;
+  const repo = useActiveRepo();
+  const meta = repo?.meta ?? null;
 
-  const [byRepo, setByRepo] = useState<Record<string, WorkingChange[]>>({});
+  const [changes, setChanges] = useState<WorkingChange[]>([]);
   const [status, setStatus] = useState<ChangesStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("Checkpoint via GitHub Browser");
 
-  const changes = useMemo(
-    () => (repoKey ? (byRepo[repoKey] ?? []) : []),
-    [byRepo, repoKey]
-  );
-
   const changesRef = useRef(changes);
   changesRef.current = changes;
-  const repoKeyRef = useRef(repoKey);
-  repoKeyRef.current = repoKey;
-
-  /** Applies `fn` to the active repo's pending-change list. */
-  const setChanges = useCallback(
-    (fn: (prev: WorkingChange[]) => WorkingChange[]) => {
-      const key = repoKeyRef.current;
-      if (!key) return;
-      setByRepo((prev) => ({ ...prev, [key]: fn(prev[key] ?? []) }));
-    },
-    []
-  );
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(META_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          setByRepo(parsed as Record<string, WorkingChange[]>);
-        }
-      }
+      if (raw) setChanges(JSON.parse(raw) as WorkingChange[]);
     } catch {
       /* ignore */
     }
@@ -100,17 +72,18 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(META_KEY, JSON.stringify(byRepo));
+      localStorage.setItem(META_KEY, JSON.stringify(changes));
     } catch {
       /* ignore */
     }
-  }, [byRepo]);
+  }, [changes]);
 
-  // Status/error are transient UI state for the active repo's panel.
+  // Changes are per-repository; a freshly opened repo starts with a clean slate.
   useEffect(() => {
+    setChanges([]);
     setStatus("idle");
     setError(null);
-  }, [repoKey]);
+  }, [meta?.fullName]);
 
   const stageAddFile = useCallback(
     async (path: string, data: Uint8Array, origin: ChangeOrigin = "manual") => {
@@ -129,7 +102,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setChanges((prev) => [...prev, change]);
       events.emit("change.staged", { kind: "add", path });
     },
-    [setChanges]
+    []
   );
 
   const stageAddFolder = useCallback(
@@ -147,67 +120,19 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       seedDir(path, []);
       events.emit("change.staged", { kind: "add", path });
     },
-    [seedDir, setChanges]
-  );
-
-  const stageEdit = useCallback(
-    async (path: string, data: Uint8Array, origin: ChangeOrigin = "edit") => {
-      const existing = changesRef.current.find(
-        (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
-      );
-      const id = newChangeId();
-      await dbPut(id, data);
-      if (existing) {
-        const oldBlobId = existing.blobId;
-        setChanges((prev) =>
-          prev.map((c) =>
-            c.id === existing.id ? { ...c, blobId: id, size: data.byteLength } : c
-          )
-        );
-        if (oldBlobId) await dbDelete(oldBlobId);
-      } else {
-        const change: WorkingChange = {
-          id,
-          kind: "modify",
-          entryKind: "file",
-          path,
-          origin,
-          size: data.byteLength,
-          blobId: id,
-          createdAt: Date.now(),
-        };
-        setChanges((prev) => [...prev, change]);
-      }
-      events.emit("change.staged", { kind: "modify", path });
-    },
-    [setChanges]
+    [seedDir]
   );
 
   const stageDelete = useCallback(
     (path: string, entryKind: EntryKind, origin: ChangeOrigin = "manual") => {
       setChanges((prev) => {
-        const addIdx = prev.findIndex(
-          (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
-        );
+        const addIdx = prev.findIndex((c) => c.kind === "add" && c.path === path);
         if (addIdx !== -1) {
-          const removed = prev[addIdx];
           void (async () => {
-            if (removed.blobId) await dbDelete(removed.blobId);
+            const blobId = prev[addIdx].blobId;
+            if (blobId) await dbDelete(blobId);
           })();
-          if (removed.kind === "add") {
-            return prev.filter((_, i) => i !== addIdx);
-          }
-          // A pending edit of an existing remote file: cancel the edit and
-          // stage a real delete instead (its blob is released above).
-          const del: WorkingChange = {
-            id: newChangeId(),
-            kind: "delete",
-            entryKind,
-            path,
-            origin,
-            createdAt: Date.now(),
-          };
-          return [...prev.filter((_, i) => i !== addIdx), del];
+          return prev.filter((_, i) => i !== addIdx);
         }
         const renameIdx = prev.findIndex((c) => c.kind === "rename" && c.path === path);
         if (renameIdx !== -1) {
@@ -236,7 +161,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       });
       events.emit("change.staged", { kind: "delete", path });
     },
-    [setChanges]
+    []
   );
 
   const stageRename = useCallback(
@@ -247,32 +172,6 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
           const updated = [...prev];
           updated[addIdx] = { ...updated[addIdx], path: toPath };
           return updated;
-        }
-        const modifyIdx = prev.findIndex((c) => c.kind === "modify" && c.path === fromPath);
-        if (modifyIdx !== -1) {
-          // The edited content can't be moved via a blob-sha reuse (that would
-          // discard the edit) — carry it to the new path as a plain upsert and
-          // remove the untouched original.
-          const mc = prev[modifyIdx];
-          const addAtNew: WorkingChange = {
-            id: newChangeId(),
-            kind: "add",
-            entryKind,
-            path: toPath,
-            origin,
-            size: mc.size,
-            blobId: mc.blobId,
-            createdAt: Date.now(),
-          };
-          const delAtOld: WorkingChange = {
-            id: newChangeId(),
-            kind: "delete",
-            entryKind,
-            path: fromPath,
-            origin,
-            createdAt: Date.now(),
-          };
-          return [...prev.filter((_, i) => i !== modifyIdx), addAtNew, delAtOld];
         }
         const renameIdx = prev.findIndex((c) => c.kind === "rename" && c.path === fromPath);
         if (renameIdx !== -1) {
@@ -295,7 +194,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       });
       events.emit("change.staged", { kind: "rename", path: toPath });
     },
-    [setChanges]
+    []
   );
 
   const discardChange = useCallback((id: string) => {
@@ -305,16 +204,16 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       if (change) events.emit("change.discarded", { path: change.path });
       return prev.filter((c) => c.id !== id);
     });
-  }, [setChanges]);
+  }, []);
 
   const discardAll = useCallback(() => {
     for (const c of changesRef.current) {
       if (c.blobId) void dbDelete(c.blobId);
     }
-    setChanges(() => []);
+    setChanges([]);
     setError(null);
     setStatus("idle");
-  }, [setChanges]);
+  }, []);
 
   const createCheckpoint = useCallback(async () => {
     const current = changesRef.current;
@@ -332,7 +231,7 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       for (const c of current) {
         if (c.blobId) await dbDelete(c.blobId);
       }
-      setChanges(() => []);
+      setChanges([]);
       setStatus("done");
       events.emit("checkpoint.created", {
         commitSha: result.commitSha,
@@ -343,8 +242,8 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       // Explorer reflects the new commit instead of the stale overlay.
       invalidateDir("");
       void ensureDir("");
-      for (const path of Object.keys(state.expanded)) {
-        if (!state.expanded[path] || path === "") continue;
+      for (const path of Object.keys(repo?.expanded ?? {})) {
+        if (!repo?.expanded[path] || path === "") continue;
         invalidateDir(path);
         void ensureDir(path);
       }
@@ -353,22 +252,11 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setError(result.error);
       events.emit("checkpoint.failed", { error: result.error });
     }
-  }, [meta, message, ensureDir, invalidateDir, state.expanded, setChanges]);
+  }, [meta, message, ensureDir, invalidateDir, repo?.expanded]);
 
   const changeForPath = useCallback(
     (path: string) => changes.find((c) => c.path === path),
     [changes]
-  );
-
-  const loadPendingContent = useCallback(
-    async (path: string) => {
-      const change = changesRef.current.find(
-        (c) => (c.kind === "add" || c.kind === "modify") && c.path === path
-      );
-      if (!change?.blobId) return null;
-      return dbGet(change.blobId);
-    },
-    []
   );
 
   const value = useMemo<ChangesContextValue>(
@@ -380,14 +268,12 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       setMessage,
       stageAddFile,
       stageAddFolder,
-      stageEdit,
       stageDelete,
       stageRename,
       discardChange,
       discardAll,
       createCheckpoint,
       changeForPath,
-      loadPendingContent,
     }),
     [
       changes,
@@ -396,14 +282,12 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
       message,
       stageAddFile,
       stageAddFolder,
-      stageEdit,
       stageDelete,
       stageRename,
       discardChange,
       discardAll,
       createCheckpoint,
       changeForPath,
-      loadPendingContent,
     ]
   );
 

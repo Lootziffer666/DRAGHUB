@@ -1,94 +1,57 @@
-export type LayoutPos = { x: number; y: number };
-export type LayoutMap = Record<string, LayoutPos>;
-
+export type ViewMode = "list" | "grid" | "city";
+export type GridPosition = { x: number; y: number };
 const DB_NAME = "gh-browser-layout";
-const STORE = "dirs";
+const STORE = "positions";
+const CELL = 112;
 
-/** Grid cell size in px — both the drag-snap unit and the tile spacing. */
-export const CELL = 96;
+export function snapToGrid(x: number, y: number): GridPosition {
+  return { x: Math.max(0, Math.round(x / CELL) * CELL), y: Math.max(0, Math.round(y / CELL) * CELL) };
+}
+
+export function layoutKey(repoKey: string, branch: string, path: string): string {
+  return `${repoKey}@${branch}:${path}`;
+}
+
+export async function getLayoutPosition(repoKey: string, branch: string, path: string): Promise<GridPosition | null> {
+  const db = await openDb();
+  return await new Promise((resolve, reject) => {
+    const req = db.transaction(STORE, "readonly").objectStore(STORE).get(layoutKey(repoKey, branch, path));
+    req.onsuccess = () => resolve((req.result as GridPosition | undefined) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function putLayoutPosition(repoKey: string, branch: string, path: string, pos: GridPosition): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const req = db.transaction(STORE, "readwrite").objectStore(STORE).put(pos, layoutKey(repoKey, branch, path));
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function exportLayout(repoKey: string, branch: string): Promise<Record<string, GridPosition>> {
+  const db = await openDb();
+  return await new Promise((resolve, reject) => {
+    const prefix = `${repoKey}@${branch}:`;
+    const result: Record<string, GridPosition> = {};
+    const req = db.transaction(STORE, "readonly").objectStore(STORE).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return resolve(result);
+      const key = String(cursor.key);
+      if (key.startsWith(prefix)) result[key.slice(prefix.length)] = cursor.value as GridPosition;
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      reject(new Error("IndexedDB is not available in this environment."));
-      return;
-    }
     const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
-    };
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
-}
-
-function keyFor(repoKey: string, branch: string, dirPath: string): string {
-  return `${repoKey}@${branch}:${dirPath}`;
-}
-
-/** Positions are keyed by (repo, branch, parent dir) so a Grid layout is
- * per-folder, not global — matches PLAN.md M5. */
-export async function loadLayout(
-  repoKey: string,
-  branch: string,
-  dirPath: string
-): Promise<LayoutMap> {
-  const db = await openDb();
-  const result = await new Promise<LayoutMap>((resolve, reject) => {
-    const tx = db.transaction(STORE, "readonly");
-    const req = tx.objectStore(STORE).get(keyFor(repoKey, branch, dirPath));
-    req.onsuccess = () => resolve((req.result as LayoutMap | undefined) ?? {});
-    req.onerror = () => reject(req.error);
-  });
-  db.close();
-  return result;
-}
-
-export async function saveLayout(
-  repoKey: string,
-  branch: string,
-  dirPath: string,
-  map: LayoutMap
-): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, "readwrite");
-    tx.objectStore(STORE).put(map, keyFor(repoKey, branch, dirPath));
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-export function snap(x: number, y: number): LayoutPos {
-  return {
-    x: Math.max(0, Math.round(x / CELL) * CELL),
-    y: Math.max(0, Math.round(y / CELL) * CELL),
-  };
-}
-
-/** Assigns a free grid cell to every name not already present in `map`,
- * scanning row-major so newly added files land in reading order. */
-export function autoPlace(map: LayoutMap, names: string[], columns: number): LayoutMap {
-  const occupied = new Set(Object.values(map).map((p) => `${p.x},${p.y}`));
-  const next = { ...map };
-  let col = 0;
-  let row = 0;
-  const advance = () => {
-    col++;
-    if (col >= columns) {
-      col = 0;
-      row++;
-    }
-  };
-  for (const name of names) {
-    if (next[name]) continue;
-    while (occupied.has(`${col * CELL},${row * CELL}`)) advance();
-    const pos = { x: col * CELL, y: row * CELL };
-    next[name] = pos;
-    occupied.add(`${pos.x},${pos.y}`);
-    advance();
-  }
-  return next;
 }

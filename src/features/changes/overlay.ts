@@ -5,12 +5,7 @@ import {
   type WorkingChange,
 } from "@/lib/github-ops";
 
-export type OverlayStatus =
-  | "unchanged"
-  | "added"
-  | "modified"
-  | "renamed-in"
-  | "pending-delete";
+export type OverlayStatus = "unchanged" | "added" | "renamed-in" | "pending-delete";
 
 export type OverlayEntry = GithubEntry & {
   status: OverlayStatus;
@@ -39,11 +34,6 @@ export function overlayDirEntries(
     const del = changes.find((c) => c.kind === "delete" && c.path === e.path);
     if (del) {
       result.push({ ...e, status: "pending-delete", changeId: del.id });
-      continue;
-    }
-    const mod = changes.find((c) => c.kind === "modify" && c.path === e.path);
-    if (mod) {
-      result.push({ ...e, size: mod.size ?? e.size, status: "modified", changeId: mod.id });
       continue;
     }
     if (hiddenSources.has(e.path)) continue; // moved away by a pending rename

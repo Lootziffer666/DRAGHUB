@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useActiveRepo, useStore } from "@/lib/store";
 import { useStaging } from "@/lib/staging";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
@@ -15,8 +15,9 @@ export function UploadPanel({
   onClose: () => void;
 }) {
   const { state } = useStore();
+  const repo = useActiveRepo();
   const staging = useStaging();
-  const meta = state.meta;
+  const meta = repo?.meta ?? null;
 
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);

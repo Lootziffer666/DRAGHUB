@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useStore } from "./store";
+import { useActiveRepo, useStore } from "./store";
 import { extractArchive, archiveKind, type ExtractedFile } from "./extract";
 import {
   commitFiles,
@@ -58,7 +58,8 @@ const StagingContext = createContext<StagingContextValue | null>(null);
 
 export function StagingProvider({ children }: { children: ReactNode }) {
   const { state } = useStore();
-  const meta = state.meta;
+  const repo = useActiveRepo();
+  const meta = repo?.meta ?? null;
 
   const [items, setItems] = useState<StagingItem[]>([]);
   const [options, setOptionsState] = useState<StagingOptions>({

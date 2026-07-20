@@ -450,7 +450,7 @@ async function buildGitAttributes(
   return Array.from(lines).sort().join("\n") + "\n";
 }
 
-export async function fetchGitAttributes(
+async function fetchGitAttributes(
   owner: string,
   repo: string,
   branch: string

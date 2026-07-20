@@ -28,9 +28,11 @@ const empty = (): DesktopSession => ({
   rubberBands: [],
   taskbarOrder: [],
   pendingCloseId: null,
-  mobileActiveWindowId: null,
+  activeWindowId: null,
   closeContext: null,
   recycleBin: [],
+  restoredItems: [],
+  recycleError: null,
 });
 const input: OpenWindowInput = {
   applicationId: "repository-explorer",
@@ -200,24 +202,32 @@ describe("window state", () => {
           itemOrder: [],
         },
       ],
-      mobileActiveWindowId: s.windows[1].id,
+      activeWindowId: s.windows[1].id,
     };
     const closed = closeWindowState(s, id);
     expect(closed.windows).toHaveLength(0);
     expect(closed.taskbarOrder).toHaveLength(0);
     expect(closed.rubberBands).toHaveLength(0);
-    expect(closed.mobileActiveWindowId).toBeNull();
+    expect(closed.activeWindowId).toBeNull();
     expect(closed.icons).toHaveLength(1);
   });
   test("discard creates recoverable entries", () => {
     const s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
-    expect(closeWindowState(s, s.windows[0].id, true).recycleBin).toHaveLength(
-      1,
-    );
+    const entry = {
+      id: "draft",
+      kind: "draft" as const,
+      sourceWindowId: s.windows[0].id,
+      label: "draft",
+      discardedAt: 1,
+      payload: { content: "recover" },
+    };
+    expect(closeWindowState(s, s.windows[0].id, [entry]).recycleBin).toEqual([
+      entry,
+    ]);
   });
   test("allowMultiple false focuses system window while true permits explicit duplicates", () => {
     const system = {
-      applicationId: "system-window",
+      applicationId: "settings",
       owner: { type: "desktop" as const },
       resource: { type: "system" as const, systemId: "settings" },
     };
@@ -233,6 +243,54 @@ describe("window state", () => {
     expect(
       s.windows.filter((w) => w.applicationId === "repository-explorer"),
     ).toHaveLength(2);
+  });
+  test("settings and recycle bin are independent singletons", () => {
+    const settings = {
+      applicationId: "settings",
+      owner: { type: "desktop" as const },
+      resource: { type: "system" as const, systemId: "settings" },
+    };
+    const bin = {
+      applicationId: "recycle-bin",
+      owner: { type: "desktop" as const },
+      resource: { type: "system" as const, systemId: "recycle-bin" },
+    };
+    let s = openWindowState(empty(), settings, DEFAULT_VIEWPORT);
+    s = openWindowState(s, bin, DEFAULT_VIEWPORT);
+    s = openWindowState(s, settings, DEFAULT_VIEWPORT);
+    s = openWindowState(s, bin, DEFAULT_VIEWPORT);
+    expect(s.windows.map((w) => w.applicationId)).toEqual([
+      "settings",
+      "recycle-bin",
+    ]);
+  });
+  test("identical child resources deduplicate but distinct files do not", () => {
+    let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    const owner = childOwner("Lootziffer666/ANVIL", s.windows[0].id);
+    const child = (path: string) => ({
+      applicationId: "image-viewer",
+      owner,
+      resource: { type: "file" as const, repoKey: "Lootziffer666/ANVIL", path },
+    });
+    s = openOrFocusWindowState(s, child("a.png"), DEFAULT_VIEWPORT);
+    s = openOrFocusWindowState(s, child("a.png"), DEFAULT_VIEWPORT);
+    s = openOrFocusWindowState(s, child("b.png"), DEFAULT_VIEWPORT);
+    expect(
+      s.windows.filter((w) => w.applicationId === "image-viewer"),
+    ).toHaveLength(2);
+  });
+  test("minimizing active transfers focus and minimizing last clears it", () => {
+    let s = openWindowState(empty(), input, DEFAULT_VIEWPORT);
+    s = openWindowState(
+      s,
+      { ...input, resource: { type: "repository", repoKey: "SHADED" } },
+      DEFAULT_VIEWPORT,
+    );
+    const active = s.windows[1].id;
+    s = minimizeWindowState(s, active);
+    expect(s.activeWindowId).toBe(s.windows[0].id);
+    s = minimizeWindowState(s, s.windows[0].id);
+    expect(s.activeWindowId).toBeNull();
   });
   test("all eight resize directions respect minimums", () => {
     for (const d of [
@@ -289,7 +347,7 @@ describe("persistence", () => {
         .pendingCloseId,
     ).toBeNull();
     expect(
-      migratePersistedSession({ version: 3, session: { bad: true } }, s),
+      migratePersistedSession({ version: 4, session: { bad: true } }, s),
     ).toBe(s);
   });
   test("sanitization drops corrupt windows and dead references", () => {
@@ -318,13 +376,13 @@ describe("persistence", () => {
           itemOrder: [],
         },
       ],
-      mobileActiveWindowId: "dead",
+      activeWindowId: "dead",
     };
     const clean = sanitizeDesktopSession(s, empty());
     expect(clean.windows).toHaveLength(1);
     expect(clean.taskbarOrder).toEqual([valid.id]);
     expect(clean.rubberBands).toHaveLength(0);
-    expect(clean.mobileActiveWindowId).toBeNull();
+    expect(clean.activeWindowId).toBeNull();
   });
 });
 describe("close transaction", () => {
@@ -370,5 +428,44 @@ describe("close transaction", () => {
         )
       ).windows,
     ).toHaveLength(0);
+  });
+  test("discard accepts adapter payload unchanged while commit creates none", async () => {
+    const s = openWindowState(empty(), input, DEFAULT_VIEWPORT),
+      target = s.windows[0],
+      context = {
+        target,
+        children: [],
+        blockers: [],
+        reason: "user-request" as const,
+      };
+    const entry = {
+      id: "adapter-entry",
+      kind: "draft" as const,
+      sourceWindowId: target.id,
+      label: "recover me",
+      discardedAt: 5,
+      payload: { content: "exact payload" },
+    };
+    const adapter = {
+      inspectClose: async () => [],
+      resolveClose: async (_c: unknown, r: { action: string }) => ({
+        success: true,
+        recycleBinEntries: r.action.includes("discard") ? [entry] : undefined,
+      }),
+    };
+    const discarded = await resolveCloseTransaction(
+      s,
+      context,
+      { action: "discard-to-recycle-bin-and-close" },
+      adapter,
+    );
+    expect(discarded.recycleBin).toEqual([entry]);
+    const committed = await resolveCloseTransaction(
+      s,
+      context,
+      { action: "commit-and-close" },
+      adapter,
+    );
+    expect(committed.recycleBin).toEqual([]);
   });
 });

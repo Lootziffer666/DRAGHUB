@@ -35,7 +35,7 @@ function DesktopIcon({ item }: { item: DesktopIconState }) {
       });
     else if (item.resource?.type === "system")
       wm.openOrFocusWindow({
-        applicationId: "system-window",
+        applicationId: item.kind === "recycle-bin" ? "recycle-bin" : "settings",
         owner: { type: "desktop" },
         resource: item.resource,
         title: item.title,

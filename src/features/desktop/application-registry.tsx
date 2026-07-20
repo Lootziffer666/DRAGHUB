@@ -3,7 +3,8 @@ import { MockRepositoryWindow } from "./demo/MockRepositoryWindow";
 import { MockImageViewer } from "./demo/MockImageViewer";
 import { MockGithubFeatureWindow } from "./demo/MockGithubFeatureWindow";
 import { MockToolWindow } from "./demo/MockToolWindow";
-import { MockSystemWindow } from "./demo/MockSystemWindow";
+import { MockSettingsWindow } from "./demo/MockSettingsWindow";
+import { MockRecycleBinWindow } from "./demo/MockRecycleBinWindow";
 const definitions: WindowApplicationDefinition[] = [
   {
     id: "repository-explorer",
@@ -46,14 +47,24 @@ const definitions: WindowApplicationDefinition[] = [
     render: (p) => <MockToolWindow {...p} />,
   },
   {
-    id: "system-window",
+    id: "settings",
     kind: "system",
     title: "System",
     iconKey: "settings",
     defaultSize: { width: 520, height: 390 },
     minimumSize: { width: 360, height: 260 },
     allowMultiple: false,
-    render: (p) => <MockSystemWindow {...p} />,
+    render: (p) => <MockSettingsWindow {...p} />,
+  },
+  {
+    id: "recycle-bin",
+    kind: "system",
+    title: "Recycle Bin",
+    iconKey: "bin",
+    defaultSize: { width: 560, height: 420 },
+    minimumSize: { width: 380, height: 280 },
+    allowMultiple: false,
+    render: (p) => <MockRecycleBinWindow {...p} />,
   },
 ];
 export const applicationRegistry = new Map(definitions.map((d) => [d.id, d]));

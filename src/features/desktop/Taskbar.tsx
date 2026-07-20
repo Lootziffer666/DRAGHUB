@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useEffect } from "react";
 import { groupTaskbar } from "./window-state";
 import { icon } from "./WindowFrame";
 import { useWindowManager } from "./WindowManagerProvider";
@@ -13,6 +14,10 @@ export function Taskbar() {
     );
   });
   const groups = groupTaskbar(orderedWindows);
+  useEffect(() => {
+    if (openGroup && !groups.some((group) => group.key === openGroup))
+      setOpenGroup(null);
+  }, [groups, openGroup]);
   return (
     <footer className="desktop-taskbar">
       <button
@@ -53,7 +58,7 @@ export function Taskbar() {
                 className={
                   group.items.some(
                     (w) =>
-                      w.id === wm.session.mobileActiveWindowId &&
+                      w.id === wm.session.activeWindowId &&
                       w.state !== "minimized",
                   )
                     ? "active"
@@ -85,7 +90,15 @@ export function Taskbar() {
                     >
                       <span>{icon(w.iconKey)}</span>
                       <b>{w.title}</b>
-                      <small>{w.state}</small>
+                      <small>
+                        {w.state === "minimized"
+                          ? "minimized"
+                          : w.id === wm.session.activeWindowId
+                            ? "active"
+                            : w.state === "maximized"
+                              ? "maximized"
+                              : "background"}
+                      </small>
                     </button>
                   ))}
                 </div>

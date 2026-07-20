@@ -37,6 +37,7 @@ import type {
   WindowId,
   WindowCloseResolution,
   WindowLifecycleAdapter,
+  RecycleBinLifecycleAdapter,
 } from "./types";
 const repo = (name: string): DesktopIconState => ({
   id: name.toLowerCase(),
@@ -78,11 +79,13 @@ const base: DesktopSession = {
   rubberBands: [],
   taskbarOrder: [],
   pendingCloseId: null,
-  mobileActiveWindowId: null,
+  activeWindowId: null,
   closeContext: null,
   recycleBin: [],
+  restoredItems: [],
+  recycleError: null,
 };
-const demoLifecycle: WindowLifecycleAdapter = {
+const demoLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
   async inspectClose(context) {
     const candidates = [context.target, ...context.children];
     return candidates.flatMap((w) =>
@@ -99,8 +102,33 @@ const demoLifecycle: WindowLifecycleAdapter = {
         : [],
     );
   },
-  async resolveClose(_context, resolution) {
+  async resolveClose(context, resolution) {
     if (resolution.action === "cancel") return { success: false };
+    if (resolution.action === "discard-to-recycle-bin-and-close")
+      return {
+        success: true,
+        recycleBinEntries: [
+          {
+            id: crypto.randomUUID(),
+            kind: "draft",
+            sourceWindowId: context.target.id,
+            repoKey:
+              context.target.resource.type === "repository"
+                ? context.target.resource.repoKey
+                : undefined,
+            path: "docs/unsaved-demo.md",
+            label: `Unsaved ${context.target.title} demo draft`,
+            discardedAt: Date.now(),
+            payload: {
+              content: "# Recoverable demo draft\n",
+              language: "markdown",
+            },
+          },
+        ],
+      };
+    return { success: true };
+  },
+  async restoreEntry() {
     return { success: true };
   },
 };
@@ -141,6 +169,8 @@ type API = {
   ) => void;
   flushPersistence: () => void;
   restoreRecycleEntry: (id: string) => void;
+  deleteRecycleEntry: (id: string) => void;
+  emptyRecycleBin: () => void;
 };
 const C = createContext<API | null>(null);
 function viewport(): DesktopViewport {
@@ -223,7 +253,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         loaded,
         {
           id: "global-settings",
-          applicationId: "system-window",
+          applicationId: "settings",
           owner: { type: "desktop" },
           resource: { type: "system", systemId: "settings" },
           title: "Settings — Demo",
@@ -324,7 +354,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       if (!w) return;
       if (w.state === "minimized") restoreWindow(id);
       else if (
-        session.mobileActiveWindowId === id ||
+        session.activeWindowId === id ||
         w.zIndex === Math.max(...session.windows.map((x) => x.zIndex))
       )
         minimizeWindow(id);
@@ -399,7 +429,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     openRepositoryChild: (parentId, applicationId, resource, title) => {
       const parent = session.windows.find((w) => w.id === parentId);
       if (!parent || parent.resource.type !== "repository") return;
-      openWindow({
+      openOrFocusWindow({
         applicationId,
         owner: childOwner(parent.resource.repoKey, parent.id),
         resource,
@@ -407,11 +437,30 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
       });
     },
     flushPersistence: () => saveSession(session),
-    restoreRecycleEntry: (id) =>
+    restoreRecycleEntry: async (id) => {
+      const entry = session.recycleBin.find((e) => e.id === id);
+      if (!entry) return;
+      const result = await demoLifecycle.restoreEntry(entry);
+      mutate((s) =>
+        result.success
+          ? {
+              ...s,
+              recycleBin: s.recycleBin.filter((e) => e.id !== id),
+              restoredItems: [
+                ...s.restoredItems,
+                { id: entry.id, label: entry.label, restoredAt: Date.now() },
+              ],
+              recycleError: null,
+            }
+          : { ...s, recycleError: result.error ?? "Restore failed" },
+      );
+    },
+    deleteRecycleEntry: (id) =>
       mutate((s) => ({
         ...s,
-        recycleBin: s.recycleBin.filter((entry) => entry.id !== id),
+        recycleBin: s.recycleBin.filter((e) => e.id !== id),
       })),
+    emptyRecycleBin: () => mutate((s) => ({ ...s, recycleBin: [] })),
   };
   return <C.Provider value={api}>{children}</C.Provider>;
 }

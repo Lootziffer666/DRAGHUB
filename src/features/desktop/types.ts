@@ -102,9 +102,11 @@ export type DesktopSession = {
   rubberBands: RubberBandState[];
   taskbarOrder: string[];
   pendingCloseId: null | WindowId;
-  mobileActiveWindowId: null | WindowId;
+  activeWindowId: null | WindowId;
   closeContext: WindowCloseContext | null;
   recycleBin: RecycleBinEntry[];
+  restoredItems: RestoredDemoItem[];
+  recycleError: string | null;
 };
 export type WindowCloseReason =
   | "user-request"
@@ -127,15 +129,40 @@ export type WindowCloseContext = {
   reason: WindowCloseReason;
   error?: string;
 };
-export type RecycleBinEntry = {
+export type RecycleBinEntry =
+  | {
+      id: string;
+      kind: "draft";
+      sourceWindowId: WindowId;
+      repoKey?: RepoKey;
+      path?: string;
+      label: string;
+      discardedAt: number;
+      payload: { content: string; language?: string };
+    }
+  | {
+      id: string;
+      kind: "working-change";
+      sourceWindowId: WindowId;
+      repoKey: RepoKey;
+      path: string;
+      label: string;
+      discardedAt: number;
+      payload: {
+        operation: "add" | "modify" | "delete" | "rename";
+        content?: string;
+        previousPath?: string;
+      };
+    };
+export type RestoredDemoItem = {
   id: string;
-  sourceWindowId: WindowId;
-  repoKey?: RepoKey;
-  type: "draft" | "working-change";
-  path?: string;
   label: string;
-  content?: string;
-  discardedAt: number;
+  restoredAt: number;
+};
+export type CloseResolutionResult = {
+  success: boolean;
+  error?: string;
+  recycleBinEntries?: RecycleBinEntry[];
 };
 export interface WindowLifecycleAdapter {
   inspectClose(
@@ -144,5 +171,10 @@ export interface WindowLifecycleAdapter {
   resolveClose(
     context: WindowCloseContext,
     resolution: WindowCloseResolution,
+  ): Promise<CloseResolutionResult>;
+}
+export interface RecycleBinLifecycleAdapter {
+  restoreEntry(
+    entry: RecycleBinEntry,
   ): Promise<{ success: boolean; error?: string }>;
 }

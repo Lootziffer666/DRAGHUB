@@ -24,9 +24,7 @@ export function WindowFrame({
     direction: ResizeDirection;
     original: DesktopWindowState["bounds"];
   } | null>(null);
-  const active =
-    wm.session.mobileActiveWindowId === window.id ||
-    window.zIndex === Math.max(...wm.session.windows.map((w) => w.zIndex));
+  const active = wm.session.activeWindowId === window.id;
   const pointerMove = (e: PointerEvent) => {
     if (drag.current)
       wm.moveWindow(

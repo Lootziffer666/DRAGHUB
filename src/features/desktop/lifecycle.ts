@@ -25,6 +25,6 @@ export async function resolveCloseTransaction(
   return closeWindowState(
     session,
     context.target.id,
-    resolution.action === "discard-to-recycle-bin-and-close",
+    result.recycleBinEntries ?? [],
   );
 }

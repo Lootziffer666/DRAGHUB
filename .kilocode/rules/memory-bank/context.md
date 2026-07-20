@@ -15,6 +15,10 @@ codebase but are intentionally not connected to the new window layer yet.
 
 ## Recently Completed
 
+- [x] **Desktop lifecycle responsibility fixes (2026-07-20)**:
+  - Settings and Recycle Bin are independent singleton apps; lifecycle adapters exclusively produce and restore typed retention payloads.
+  - Added deterministic `activeWindowId` transfer, child-window resource deduplication, restore/permanent-delete/empty-bin flows, and schema-v4 validation for recycle and focus state.
+
 - [x] **Desktop window lifecycle hardening (2026-07-20)**:
   - Minimized and mobile-hidden applications remain mounted; visual state changes no longer reset mock repository/viewer state.
   - Repository taskbar groups now include all owned child windows, while asynchronous close inspection/resolution atomically cleans parent/child references and can retain discarded demo drafts in the local Recycle Bin without touching shortcuts or repositories.

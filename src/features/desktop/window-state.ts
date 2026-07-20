@@ -16,7 +16,7 @@ export function focusWindowState(
     windows: s.windows.map((w) =>
       w.id === id ? { ...w, zIndex: top, lastFocusedAt: Date.now() } : w,
     ),
-    mobileActiveWindowId: id,
+    activeWindowId: id,
   };
 }
 export function openWindowState(
@@ -61,7 +61,7 @@ export function openWindowState(
     ...s,
     windows: [...s.windows, w],
     taskbarOrder: [...s.taskbarOrder, w.id],
-    mobileActiveWindowId: w.id,
+    activeWindowId: w.id,
   };
 }
 function sameResource(a: DesktopWindowState, input: OpenWindowInput) {
@@ -90,13 +90,22 @@ export function openOrFocusWindowState(
   );
 }
 export function minimizeWindowState(s: DesktopSession, id: string) {
+  const windows = s.windows.map((w) =>
+    w.id === id ? { ...w, state: "minimized" as const } : w,
+  );
+  const next =
+    s.activeWindowId === id
+      ? [...windows]
+          .filter((w) => w.state !== "minimized")
+          .sort((a, b) => b.zIndex - a.zIndex)[0]
+      : undefined;
   return {
     ...s,
-    windows: s.windows.map((w) =>
-      w.id === id ? { ...w, state: "minimized" } : w,
+    windows: windows.map((w) =>
+      w.id === next?.id ? { ...w, lastFocusedAt: Date.now() } : w,
     ),
-    mobileActiveWindowId:
-      s.mobileActiveWindowId === id ? null : s.mobileActiveWindowId,
+    activeWindowId:
+      s.activeWindowId === id ? (next?.id ?? null) : s.activeWindowId,
   } as DesktopSession;
 }
 export function restoreWindowState(s: DesktopSession, id: string) {
@@ -177,7 +186,7 @@ export function groupTaskbar(windows: DesktopWindowState[]) {
 export function closeWindowState(
   s: DesktopSession,
   id: string,
-  recycle = false,
+  recycleBinEntries: DesktopSession["recycleBin"] = [],
 ): DesktopSession {
   const target = s.windows.find((w) => w.id === id);
   if (!target) return s;
@@ -190,25 +199,6 @@ export function closeWindowState(
       )
       .map((w) => w.id),
   ]);
-  const entries = recycle
-    ? [
-        ...s.recycleBin,
-        ...[...closingIds].map((sourceWindowId) => ({
-          id: crypto.randomUUID(),
-          sourceWindowId,
-          repoKey:
-            target.resource.type === "repository"
-              ? target.resource.repoKey
-              : target.owner.type === "repository"
-                ? target.owner.repoKey
-                : undefined,
-          type: "draft" as const,
-          label: `Recoverable demo changes from ${target.title}`,
-          content: "Demo draft content",
-          discardedAt: Date.now(),
-        })),
-      ]
-    : s.recycleBin;
   return {
     ...s,
     windows: s.windows.filter((w) => !closingIds.has(w.id)),
@@ -216,21 +206,25 @@ export function closeWindowState(
     rubberBands: s.rubberBands.filter(
       (r) => !closingIds.has(r.repositoryWindowId),
     ),
-    mobileActiveWindowId:
-      s.mobileActiveWindowId && closingIds.has(s.mobileActiveWindowId)
-        ? null
-        : s.mobileActiveWindowId,
+    activeWindowId: nextActiveId(s, closingIds),
     pendingCloseId: null,
     closeContext: null,
-    recycleBin: entries,
+    recycleBin: [...s.recycleBin, ...recycleBinEntries],
   };
+}
+function nextActiveId(s: DesktopSession, excluded = new Set<string>()) {
+  return (
+    [...s.windows]
+      .filter((w) => !excluded.has(w.id) && w.state !== "minimized")
+      .sort((a, b) => b.zIndex - a.zIndex)[0]?.id ?? null
+  );
 }
 export function childOwner(repoKey: string, repositoryWindowId: string) {
   return { type: "repository" as const, repoKey, repositoryWindowId };
 }
 export function mobileVisibleWindow(s: DesktopSession) {
   const active = s.windows.find(
-    (w) => w.id === s.mobileActiveWindowId && w.state !== "minimized",
+    (w) => w.id === s.activeWindowId && w.state !== "minimized",
   );
   return (
     active ??

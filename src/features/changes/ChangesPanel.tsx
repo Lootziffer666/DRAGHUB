@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useActiveRepo, useStore } from "@/lib/store";
+import { useActiveRepo } from "@/lib/store";
 import { useChanges } from "./changes";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
@@ -30,7 +30,32 @@ function kindLabel(kind: ChangeKind): string {
 }
 
 export function ChangesPanel({ onClose }: { onClose: () => void }) {
-  const { state } = useStore();
+  const repo = useActiveRepo();
+  const meta = repo?.meta ?? null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+        <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-3">
+          <GitCommit width={18} height={18} className="text-blue-400" />
+          <h2 className="text-sm font-semibold text-neutral-100">
+            Working changes — {meta ? meta.fullName : "repository"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          >
+            <X width={16} height={16} />
+          </button>
+        </div>
+        <ChangesPanelBody />
+      </div>
+    </div>
+  );
+}
+
+/** The working-changes list + checkpoint controls, reusable both inside the
+ * modal panel and as the content of a desktop "Changes" child window. */
+export function ChangesPanelBody() {
   const repo = useActiveRepo();
   const changes = useChanges();
   const meta = repo?.meta ?? null;
@@ -47,21 +72,7 @@ export function ChangesPanel({ onClose }: { onClose: () => void }) {
     !!meta && changes.changes.length > 0 && token.trim().length > 0 && !committing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
-        <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-3">
-          <GitCommit width={18} height={18} className="text-blue-400" />
-          <h2 className="text-sm font-semibold text-neutral-100">
-            Working changes — {meta ? meta.fullName : "repository"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-          >
-            <X width={16} height={16} />
-          </button>
-        </div>
-
+    <>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {!token.trim() && (
             <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3">
@@ -189,7 +200,6 @@ export function ChangesPanel({ onClose }: { onClose: () => void }) {
             {changes.changes.length > 0 ? `(${changes.changes.length})` : ""}
           </button>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

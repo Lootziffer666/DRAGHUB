@@ -8,11 +8,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useActiveRepo, useStore } from "@/lib/store";
 import { dbPut, dbGet, dbDelete } from "@/lib/staging-db";
 import { retainDiscarded } from "@/lib/recycle-bin";
+import { changesFor, subscribeChanges, updateBucket } from "./store";
 import { events } from "@/lib/events";
 import {
   commitWorkingChanges,
@@ -51,26 +53,25 @@ type ChangesContextValue = {
 
 const ChangesContext = createContext<ChangesContextValue | null>(null);
 
-// Since M8, pending changes are bucketed per repository so that switching
-// the active repo (Dock quick-switch) never discards staged work. The old
-// single-list storage key ("gh-browser-changes-meta") is intentionally
-// abandoned rather than migrated — it couldn't say which repo it belonged to.
-const META_KEY = "gh-browser-changes-by-repo";
-
+// Pending changes live in the module-level per-repo bucket store
+// (`./store`). Each repository window mounts its own ChangesProvider bound to
+// the window's scoped repository; all instances (and non-React consumers like
+// the desktop lifecycle adapter) share the same buckets, so staging in a
+// child window and its parent window stay consistent.
 export function ChangesProvider({ children }: { children: ReactNode }) {
   const { ensureDir, seedDir, invalidateDir } = useStore();
   const activeRepo = useActiveRepo();
   const meta = activeRepo?.meta ?? null;
   const repoKey = meta?.fullName ?? null;
 
-  const [byRepo, setByRepo] = useState<Record<string, WorkingChange[]>>({});
   const [status, setStatus] = useState<ChangesStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("Checkpoint via GitHub Browser");
 
-  const changes = useMemo(
-    () => (repoKey ? (byRepo[repoKey] ?? []) : []),
-    [byRepo, repoKey]
+  const changes = useSyncExternalStore(
+    subscribeChanges,
+    () => changesFor(repoKey),
+    () => changesFor(null)
   );
 
   const changesRef = useRef(changes);
@@ -78,37 +79,15 @@ export function ChangesProvider({ children }: { children: ReactNode }) {
   const repoKeyRef = useRef(repoKey);
   repoKeyRef.current = repoKey;
 
-  /** Applies `fn` to the active repo's pending-change list. */
+  /** Applies `fn` to this provider's repository bucket. */
   const setChanges = useCallback(
     (fn: (prev: WorkingChange[]) => WorkingChange[]) => {
       const key = repoKeyRef.current;
       if (!key) return;
-      setByRepo((prev) => ({ ...prev, [key]: fn(prev[key] ?? []) }));
+      updateBucket(key, fn);
     },
     []
   );
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(META_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          setByRepo(parsed as Record<string, WorkingChange[]>);
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(META_KEY, JSON.stringify(byRepo));
-    } catch {
-      /* ignore */
-    }
-  }, [byRepo]);
 
   // Status/error are transient UI state for the active repo's panel.
   useEffect(() => {

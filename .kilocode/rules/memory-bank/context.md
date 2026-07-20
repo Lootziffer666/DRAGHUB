@@ -9,11 +9,61 @@
 
 ## Current State
 
-**Status**: ✅ Isolated desktop UX foundation built and tested. The visible shell
-currently uses mock applications only; existing GitHub features remain in the
-codebase but are intentionally not connected to the new window layer yet.
+**Status**: ✅ The PR #8 desktop kernel now runs the real DRAGHUB GitHub
+features: repository windows browse/edit real repositories with per-window
+state, child windows (viewer/editor/PRs/issues/actions/triage/security/
+releases/changes) bind to typed resources, and the close/Recycle-Bin
+lifecycle inspects real dirty drafts and pending changes. PR #9 tracks this
+integration. Deferred: shares (ADR), Theia/ANVIL-Core, daedalOS UX extras.
 
 ## Recently Completed
+
+- [x] **Second integration slice (2026-07-20)**: Triage, Security, Releases and
+  repo-Settings became real `github-feature` child windows
+  (`desktop-apps/feature-views.tsx`, reusing the existing triage/control-panel/
+  start-menu API layers); rubber band gained Triage/Releases items (persisted
+  orders merge new items instead of hiding them); CODEOWNERS staging from the
+  Security window updates the parent window's Changes badge through the shared
+  bucket store. Playwright-verified (pw25.js) with zero console errors.
+  PR #9: https://github.com/Lootziffer666/DRAGHUB/pull/9
+
+- [x] **First post-PR8 integration pass (2026-07-20, per `docs/POST_PR8_REFERENCE_INTEGRATION.md`)**:
+  - Mock desktop applications replaced through the Application Registry with the
+    real DRAGHUB capabilities (`src/features/desktop-apps/`): RepositoryExplorerApp
+    (AddressBar/Explorer/Tabs/FileView/Changes under a window-scoped `RepoScope`),
+    FileViewer/FileEditor child apps (CodeMirror + editor sessions + staging),
+    GithubFeatureApp (pull-requests/issues/actions/changes; honest deferred panel
+    otherwise), real RecycleBinApp (kernel close-drafts + staged deletions +
+    domain-retained discards) and SettingsApp (PAT + desktop reset); Scratchpad
+    tool is a real local notepad.
+  - `src/lib/store.tsx`: every repository-scoped action now carries an explicit
+    `repoKey`; `RepoScope` context fixes the repository for a window subtree, so
+    existing components work unchanged per window (no global active-repo reads
+    from desktop apps — the brief's mandatory rule).
+  - `src/features/changes/store.ts`: pending changes moved to a module-level
+    per-repo bucket store (localStorage-backed, subscribable); ChangesProvider is
+    now a thin per-window binding; `ops.ts` adds provider-free stage/checkpoint/
+    discard for the lifecycle adapter.
+  - `src/features/desktop-apps/lifecycle-adapter.ts`: real close inspection
+    (dirty drafts per window ownership, pending-change counts) and resolution
+    (commit-and-close via the existing commit engine; discard → kernel draft
+    entries + domain recycle retention); WindowManagerProvider takes the adapter
+    as an injectable prop (demo lifecycle removed with the demo apps).
+  - Kernel bootstrapping made real: no demo windows/drives; system icons + recent
+    repositories as drives; repository windows auto-create desktop shortcuts;
+    taskbar search opens the real SearchPanel, whose results call
+    `openOrFocusWindow` (restore/focus/no duplicates); taskbar shows total
+    pending changes. Persistence v5 extended additively with the `file-editor`
+    application id.
+  - Superseded/removed: `src/features/recycle-bin/` modal module (absorbed into
+    RecycleBinApp), old `features/dock` strip unmounted (kernel taskbar owns
+    this), demo components deleted.
+  - Tests: `src/features/desktop-apps/desktop-integration.test.ts` (bucket
+    isolation, inspect/resolve/restore paths, cross-repo leak check) — 35 bun
+    tests green; Playwright e2e (scratchpad pw24.js) verified the full §13-style
+    slice against a mocked GitHub API with zero console errors.
+  - Docs: `docs/DESKTOP_INTEGRATION_INVENTORY.md` (inventory, per-window state
+    design, lifecycle description, daedalOS adopted/deferred/rejected).
 
 - [x] **Final close-resolution recovery fix (2026-07-20)**:
   - Adapter failures and exceptions return the matching transaction from pending to idle without changing inspection results, blockers, windows, or concurrent desktop edits; old errors are cleared on retry and transaction guards remain enforced.

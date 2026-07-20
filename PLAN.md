@@ -404,9 +404,25 @@ in derselben Änderung mit anzufassen. `FileView`s Ordner-Tabelle (Hauptbereich)
 zeigt ebenfalls noch die rohe Remote-Liste statt der Overlay-Ansicht; die
 Explorer-Sidebar ist aktuell die verbindliche Quelle für den Änderungsstatus.
 
+**Status Desktop-Integration (umgesetzt 2026-07-20, Vertrag:
+`docs/POST_PR8_REFERENCE_INTEGRATION.md`):** Erster Fable-Integrationspass
+abgeschlossen — die Mock-Anwendungen des PR-#8-Desktop-Kernels sind über die
+Application Registry durch die echten DRAGHUB-Fähigkeiten ersetzt
+(`src/features/desktop-apps/`): echter Repository Explorer
+(AddressBar/Explorer/Tabs/FileView/Changes unter fensterbezogenem
+`RepoScope`), Datei-Viewer- und CodeMirror-Editor-Kindfenster, GitHub-Feature-
+Kindfenster (PRs/Issues/Actions/Changes), echter System-Papierkorb und
+Settings, Suche öffnet/fokussiert Repository-Fenster, Lifecycle-Adapter
+verbindet Fenster-Schließen mit Dirty-Drafts/Pending-Changes (Commit oder
+Papierkorb). Inventar und Per-Window-State-Design:
+`docs/DESKTOP_INTEGRATION_INVENTORY.md`. Zurückgestellt: Triage,
+Control-Panel- und Start-Menü-Fenster, Shares (ADR), Theia/ANVIL-Core.
+
 **Status Papierkorb (umgesetzt 2026-07-20, Vertrag: Korrekturprotokoll §6 /
 Desktop-Shell-Spec §14):** Funktionaler Papierkorb als eigene Ansicht
-(`src/lib/recycle-bin.ts`, `src/features/recycle-bin/`): noch nicht
+(`src/lib/recycle-bin.ts`; seit dem Desktop-Integrationspass als
+System-Fenster `src/features/desktop-apps/RecycleBinApp.tsx`, das frühere
+Modal-Modul `src/features/recycle-bin/` ist darin aufgegangen): noch nicht
 eingecheckte Löschungen erscheinen als wiederherstellbare Einträge; verworfene
 inhaltstragende Working Changes (Add/Modify) wandern mit erhaltenem Blob in
 eine Repo-zugeordnete Aufbewahrung (7 Tage Frist) statt zerstört zu werden;

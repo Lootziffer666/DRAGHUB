@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useActiveRepo, useStore } from "@/lib/store";
+import { useEffect, useRef, useState } from "react";
+import { useStore } from "@/lib/store";
 import { formatBytes } from "@/lib/github";
 import {
   ExternalLink,
@@ -25,13 +25,14 @@ type Mode = "repos" | "related" | "releases";
 
 export function SearchPanel({
   onClose,
+  relatedRepoKey,
   onSelectRepo,
 }: {
   onClose: () => void;
+  relatedRepoKey: string | null;
   onSelectRepo?: (fullName: string) => void;
 }) {
   const { state, openRepo } = useStore();
-  const repo = useActiveRepo();
   const [mode, setMode] = useState<Mode>("repos");
   const [query, setQuery] = useState("");
   const [repos, setRepos] = useState<SearchRepo[]>([]);
@@ -45,7 +46,16 @@ export function SearchPanel({
     inputRef.current?.focus();
   }, []);
 
-  const meta = repo?.meta ?? null;
+  const relatedMeta =
+    relatedRepoKey && relatedRepoKey.includes("/")
+      ? (() => {
+          const idx = relatedRepoKey.indexOf("/");
+          return {
+            owner: relatedRepoKey.slice(0, idx),
+            repo: relatedRepoKey.slice(idx + 1),
+          };
+        })()
+      : null;
 
   // Debounced text search for repos / releases modes
   useEffect(() => {
@@ -87,12 +97,14 @@ export function SearchPanel({
   }
 
   async function runRelated() {
-    if (!meta) return;
+    if (!relatedMeta) return;
     setLoading(true);
     setError(null);
     setRelated([]);
     try {
-      setRelated(await searchRelatedRepos(meta.owner, meta.repo, 20));
+      setRelated(
+        await searchRelatedRepos(relatedMeta.owner, relatedMeta.repo, 20),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Search failed.");
     } finally {
@@ -102,7 +114,7 @@ export function SearchPanel({
 
   // Auto-run related when switching into that mode with a repo open
   useEffect(() => {
-    if (mode === "related" && meta) void runRelated();
+    if (mode === "related" && relatedMeta) void runRelated();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
@@ -113,8 +125,11 @@ export function SearchPanel({
   ];
 
   function selectRepo(fullName: string) {
-    if (onSelectRepo) onSelectRepo(fullName);
-    else void openRepo(fullName);
+    if (onSelectRepo) {
+      onSelectRepo(fullName);
+    } else {
+      void openRepo(fullName);
+    }
     onClose();
   }
 
@@ -164,7 +179,7 @@ export function SearchPanel({
               {m.label}
             </button>
           ))}
-          {mode === "related" && meta && (
+          {mode === "related" && relatedMeta && (
             <button
               onClick={() => void runRelated()}
               className="ml-auto rounded-md px-2.5 py-1 text-[13px] text-blue-400 hover:bg-neutral-800"
@@ -181,9 +196,9 @@ export function SearchPanel({
             </div>
           )}
 
-          {mode === "related" && !meta && (
+          {mode === "related" && !relatedMeta && (
             <div className="p-8 text-center text-sm text-neutral-500">
-              Open a repository first to find related projects.
+              Focus a repository, file, or GitHub-feature window to use Related.
             </div>
           )}
 

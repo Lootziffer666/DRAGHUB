@@ -4,7 +4,7 @@ import { useMemo, useRef, type ReactNode } from "react";
 import { DesktopShell, WindowManagerProvider, useWindowManager } from "@/features/desktop";
 import { StoreProvider, useStore } from "@/lib/store";
 import { StagingProvider } from "@/lib/staging";
-import { SearchProvider } from "@/features/search";
+import { SearchProvider, repoKeyFromWindow } from "@/features/search";
 import { createDesktopLifecycleAdapter } from "@/features/desktop-apps/lifecycle-adapter";
 
 /**
@@ -60,8 +60,13 @@ function DesktopWithDomain() {
 
 function DesktopSearchBinding({ children }: { children: ReactNode }) {
   const wm = useWindowManager();
+  const active = wm.session.windows.find(
+    (w) => w.id === wm.session.activeWindowId,
+  );
+  const relatedRepoKey = repoKeyFromWindow(active);
   return (
     <SearchProvider
+      relatedRepoKey={relatedRepoKey}
       onSelectRepo={(fullName) =>
         wm.openOrFocusWindow({
           applicationId: "repository-explorer",

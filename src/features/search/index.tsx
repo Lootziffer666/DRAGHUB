@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Search } from "@/components/icons";
 import { SearchPanel } from "./SearchPanel";
+import type { DesktopWindowState } from "@/features/desktop/types";
 
 type SearchContextValue = {
   open: () => void;
@@ -20,14 +21,27 @@ type SearchContextValue = {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
+export function repoKeyFromWindow(
+  w: DesktopWindowState | undefined,
+): string | null {
+  if (!w) return null;
+  if (w.resource.type === "repository") return w.resource.repoKey;
+  if (w.resource.type === "file") return w.resource.repoKey;
+  if (w.resource.type === "github-feature") return w.resource.repoKey;
+  if (w.owner.type === "repository") return w.owner.repoKey;
+  return null;
+}
+
 export function SearchProvider({
   children,
   onSelectRepo,
+  relatedRepoKey = null,
 }: {
   children: ReactNode;
   /** Overrides what selecting a repository result does — the desktop shell
    * opens/focuses a repository window instead of the global store. */
   onSelectRepo?: (fullName: string) => void;
+  relatedRepoKey?: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -49,7 +63,13 @@ export function SearchProvider({
   return (
     <SearchContext.Provider value={{ open, close, toggle, isOpen }}>
       {children}
-      {isOpen && <SearchPanel onClose={close} onSelectRepo={onSelectRepo} />}
+      {isOpen && (
+        <SearchPanel
+          onClose={close}
+          relatedRepoKey={relatedRepoKey}
+          onSelectRepo={onSelectRepo}
+        />
+      )}
     </SearchContext.Provider>
   );
 }

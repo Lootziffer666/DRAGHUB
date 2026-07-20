@@ -36,34 +36,10 @@ import {
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
 
-/**
- * Wraps URL.createObjectURL / URL.revokeObjectURL so revocation is testable with
- * a mocked global URL. Revokes the previously held object URL when a new blob is
- * attached, and exposes a `revoke()` for unmount cleanup.
- */
-export function createImageUrlManager() {
-  const url = (typeof URL !== "undefined" ? URL : globalThis.URL) as {
-    createObjectURL: (blob: Blob) => string;
-    revokeObjectURL: (url: string) => void;
-  };
-  let current: string | null = null;
-  return {
-    create(blob: Blob): string {
-      if (current) url.revokeObjectURL(current);
-      current = url.createObjectURL(blob);
-      return current;
-    },
-    revoke() {
-      if (current) {
-        url.revokeObjectURL(current);
-        current = null;
-      }
-    },
-    get current() {
-      return current;
-    },
-  };
-}
+import { createImageUrlManager } from "@/lib/image-url";
+
+// Re-exported from the pure helper module so existing imports keep working.
+export { createImageUrlManager } from "@/lib/image-url";
 
 /**
  * Authenticated image viewer. Fetches the binary via fetchRepositoryBlob (which

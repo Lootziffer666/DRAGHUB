@@ -1,5 +1,37 @@
 import type { RecycleBinEntry } from "@/features/desktop/types";
-import type { RetainedChange } from "@/lib/recycle-bin";
+import { emptyBin as defaultEmptyBin, type RetainedChange } from "@/lib/recycle-bin";
+
+/**
+ * Minimal session contract needed to empty the KERNEL recycle-bin entries
+ * (discarded drafts from closed windows, held in `wm.session.recycleBin`).
+ * The domain-retention entries are cleared by `emptyBin` per repository.
+ */
+export type EmptyRecycleBinSession = {
+  emptyRecycleBin: () => void;
+};
+
+/**
+ * Unified Recycle Bin empty. Clears BOTH the KERNEL entries (via
+ * `session.emptyRecycleBin()`) and the DOMAIN-retention entries (via `emptyBin`
+ * per repository that has retained changes). `emptyBin` is injectable so the
+ * behavior is unit-testable without touching IndexedDB. Staged deletions live
+ * in the working-changes bucket and are intentionally NEVER touched here.
+ */
+export async function emptyRecycleBinAll(params: {
+  session: EmptyRecycleBinSession;
+  kernelEntries: RecycleBinEntry[];
+  domainEntries: RetainedChange[];
+  emptyBin?: (repoKey: string) => Promise<number>;
+}): Promise<void> {
+  const { session, kernelEntries, domainEntries } = params;
+  const emptyBin = params.emptyBin ?? defaultEmptyBin;
+
+  if (kernelEntries.length > 0) session.emptyRecycleBin();
+  const retainedRepos = [...new Set(domainEntries.map((r) => r.repoKey))];
+  for (const rk of retainedRepos) {
+    await emptyBin(rk);
+  }
+}
 
 export type RecycleBinSummary = {
   kernelCount: number;

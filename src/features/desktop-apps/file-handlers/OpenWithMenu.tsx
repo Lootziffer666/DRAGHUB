@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getRepositoryBlob } from "@/lib/github";
-import { ChevronDown, Spinner } from "@/components/icons";
+import { ChevronDownRegular as ChevronDown, Spinner } from "@/features/icons";
 import { handlersForSurface } from "./registry";
 import type { FileHandlerDefinition, FileResource } from "./types";
 
@@ -69,16 +69,16 @@ export function OpenWithMenu({
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         title="Open with…"
-        className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
+        className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
       >
         {downloading ? (
-          <Spinner width={13} height={13} className="text-blue-400" />
+          <Spinner width={13} height={13} className="text-blue-700 dark:text-blue-400" />
         ) : null}
         Open with
-        <ChevronDown width={12} height={12} className="text-neutral-500" />
+        <ChevronDown width={12} height={12} className="text-[var(--dh-text-secondary)]" />
       </button>
       {open && (
-        <div className="absolute left-0 z-40 mt-1 min-w-40 overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl">
+        <div className="absolute left-0 z-40 mt-1 min-w-40 overflow-hidden rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] py-1 shadow-xl">
           {handlers.map((h) => (
             <button
               key={h.id}
@@ -86,7 +86,7 @@ export function OpenWithMenu({
                 e.preventDefault();
                 void select(h);
               }}
-              className="flex w-full items-center px-3 py-1.5 text-left text-xs text-neutral-200 hover:bg-neutral-800"
+              className="flex w-full items-center px-3 py-1.5 text-left text-xs text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
             >
               {h.title}
             </button>

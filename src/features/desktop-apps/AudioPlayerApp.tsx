@@ -67,26 +67,26 @@ export function AudioPlayerApp({ resource }: WindowContentProps) {
   if (!repo || !meta) {
     return (
       <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">Waiting for repository {requestedKey}…</p>
+        <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+        <p className="text-sm text-[var(--dh-text-secondary)]">Waiting for repository {requestedKey}…</p>
       </Center>
     );
   }
 
   return (
     <Center>
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-900 text-neutral-500">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--dh-surface-raised)] text-[var(--dh-text-secondary)]">
         <Music width={26} height={26} />
       </div>
-      <p className="max-w-full truncate text-sm text-neutral-200" title={path}>
+      <p className="max-w-full truncate text-sm text-[var(--dh-text)]" title={path}>
         {path.split("/").pop()}
       </p>
-      <p className="text-[11px] text-neutral-500">
+      <p className="text-[11px] text-[var(--dh-text-secondary)]">
         {meta.branch}
         {view.size !== null ? ` · ${formatBytes(view.size)}` : ""}
       </p>
-      {view.loading && <Spinner width={20} height={20} className="text-blue-400" />}
-      {view.error && <p className="max-w-md text-sm text-red-300">{view.error}</p>}
+      {view.loading && <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />}
+      {view.error && <p className="max-w-md text-sm text-red-600 dark:text-red-300">{view.error}</p>}
       {view.url && <audio controls src={view.url} className="w-full max-w-sm" />}
     </Center>
   );
@@ -94,7 +94,7 @@ export function AudioPlayerApp({ resource }: WindowContentProps) {
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--dh-surface)] p-6 text-center">
       {children}
     </div>
   );

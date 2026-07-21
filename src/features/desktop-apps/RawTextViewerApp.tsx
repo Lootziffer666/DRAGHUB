@@ -53,8 +53,8 @@ export function RawTextViewerApp({ resource }: WindowContentProps) {
   if (!repo || !meta) {
     return (
       <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">Waiting for repository {requestedKey}…</p>
+        <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+        <p className="text-sm text-[var(--dh-text-secondary)]">Waiting for repository {requestedKey}…</p>
       </Center>
     );
   }
@@ -62,7 +62,7 @@ export function RawTextViewerApp({ resource }: WindowContentProps) {
   if (error) {
     return (
       <Center>
-        <p className="max-w-md text-sm text-red-300">{error}</p>
+        <p className="max-w-md text-sm text-red-600 dark:text-red-300">{error}</p>
       </Center>
     );
   }
@@ -70,19 +70,19 @@ export function RawTextViewerApp({ resource }: WindowContentProps) {
   if (text === null) {
     return (
       <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">Loading {path}…</p>
+        <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+        <p className="text-sm text-[var(--dh-text-secondary)]">Loading {path}…</p>
       </Center>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950">
-      <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5">
-        <span className="min-w-0 truncate text-xs text-neutral-200" title={path}>
+    <div className="flex h-full flex-col bg-[var(--dh-surface)]">
+      <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] px-3 py-1.5">
+        <span className="min-w-0 truncate text-xs text-[var(--dh-text)]" title={path}>
           {path}
         </span>
-        <span className="shrink-0 text-[11px] text-neutral-500">
+        <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">
           {meta.branch}
           {size !== null ? ` · ${formatBytes(size)}` : ""} · raw
         </span>
@@ -96,7 +96,7 @@ export function RawTextViewerApp({ resource }: WindowContentProps) {
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--dh-surface)] p-6 text-center">
       {children}
     </div>
   );

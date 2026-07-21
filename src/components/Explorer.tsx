@@ -610,7 +610,7 @@ function TreeNode({
         onPointerLeave={clearLongPress}
         className={[
           "group flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)]/60",
-          selected ? "bg-blue-600/20" : "",
+          selected ? "bg-[var(--dh-accent)]/20" : "",
           active ? "bg-[var(--dh-surface-hover)]" : "",
           node.status === "pending-delete" ? "opacity-50 line-through" : "",
         ].join(" ")}

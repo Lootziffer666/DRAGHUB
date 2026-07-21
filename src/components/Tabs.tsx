@@ -166,7 +166,7 @@ function TabButton({
         <X width={12} height={12} />
       </button>
       {active && (
-        <span className="absolute inset-x-0 -bottom-px h-0.5 bg-blue-500" />
+        <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--dh-lime-brand)]" />
       )}
     </div>
   );

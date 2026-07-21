@@ -98,7 +98,7 @@ export function UploadPanel({
               </button>
               <button
                 onClick={saveToken}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                className="rounded-md bg-[var(--dh-accent)] px-3 py-1.5 text-xs font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
               >
                 Save
               </button>
@@ -125,7 +125,7 @@ export function UploadPanel({
             className={[
               "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition",
               dragOver
-                ? "border-blue-500 bg-blue-500/5"
+                ? "border-[var(--dh-accent)] bg-[var(--dh-accent)]/5"
                 : "border-[var(--dh-window-border)] hover:border-[var(--dh-window-border-active)]",
             ].join(" ")}
           >

@@ -146,7 +146,7 @@ export function ContextMenu({
                   : isActive
                     ? item.danger
                       ? "bg-red-500/90 text-white"
-                      : "bg-blue-600 text-white"
+                      : "bg-[var(--dh-accent)] text-[var(--dh-accent-foreground)]"
                     : item.danger
                       ? "text-red-600 dark:text-red-400 hover:bg-red-500/15"
                       : "text-[var(--dh-text)] hover:bg-[var(--dh-surface-selected)]/60",

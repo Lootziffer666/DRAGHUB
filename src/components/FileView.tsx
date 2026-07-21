@@ -408,10 +408,10 @@ function FolderView({
   if (viewMode === "grid") {
     return (
       <div className="flex-1 overflow-auto p-3">
-        <div className="mb-3 flex justify-end gap-1 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-blue-600 px-2 py-1 text-white">Grid</button></div>
+        <div className="mb-3 flex justify-end gap-1 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)]">Grid</button></div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
           {entries.map((e) => { const selected = selection.includes(e.path); return (
-            <button key={e.path} draggable onDragStart={(ev) => { const payload: GhNodeDrag = { path: e.path, kind: e.type }; ev.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload)); }} onClick={(ev) => onSelect(e, entries, modifiers(ev))} onDoubleClick={() => onOpenPath(e.path, e.type)} onContextMenu={(ev) => onContextMenu(ev, e)} className={["flex h-28 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center hover:bg-[var(--dh-surface-hover)]", selected ? "border-blue-500 bg-blue-600/20" : "border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)]"].join(" ")}>
+            <button key={e.path} draggable onDragStart={(ev) => { const payload: GhNodeDrag = { path: e.path, kind: e.type }; ev.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload)); }} onClick={(ev) => onSelect(e, entries, modifiers(ev))} onDoubleClick={() => onOpenPath(e.path, e.type)} onContextMenu={(ev) => onContextMenu(ev, e)} className={["flex h-28 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center hover:bg-[var(--dh-surface-hover)]", selected ? "border-[var(--dh-accent)] bg-[var(--dh-accent)]/20" : "border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)]"].join(" ")}>
               {e.type === "dir" ? <FolderOpen width={28} height={28} className="text-amber-700 dark:text-amber-400" /> : fileIcon(e.name)}
               <span className="line-clamp-2 text-xs text-[var(--dh-text)]">{e.name}</span>
               <span className="text-[10px] text-[var(--dh-text-secondary)]">{e.type === "dir" ? "Folder" : formatBytes(e.size)}</span>
@@ -423,7 +423,7 @@ function FolderView({
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="sticky top-0 z-20 flex justify-end gap-1 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-2 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-blue-600 px-2 py-1 text-white">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">Grid</button></div>
+      <div className="sticky top-0 z-20 flex justify-end gap-1 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-2 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)]">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">Grid</button></div>
       <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr className="sticky top-0 z-10 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] text-left text-[11px] uppercase tracking-wider text-[var(--dh-text-secondary)]">
@@ -475,7 +475,7 @@ function FolderView({
                 onPointerLeave={clearLP}
                 className={[
                   "cursor-pointer border-b border-[var(--dh-window-border)]/50 hover:bg-[var(--dh-surface-hover)]/50",
-                  selected ? "bg-blue-600/20" : "",
+                  selected ? "bg-[var(--dh-accent)]/20" : "",
                 ].join(" ")}
               >
                 <td className="px-3 py-1.5">
@@ -696,7 +696,7 @@ function FileContentView({
         <div className="border-b border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm text-blue-700 dark:text-blue-200">
           Git LFS pointer detected · {formatBytes(lfsPointer.size)} · {lfsProgress ?? "not downloaded"}
           <button
-            className="ml-3 rounded bg-blue-600 px-2 py-1 text-xs text-white"
+            className="ml-3 rounded bg-[var(--dh-accent)] px-2 py-1 text-xs text-[var(--dh-accent-foreground)]"
             onClick={async () => {
               const blob = await downloadLfsObject(meta.owner, meta.repo, lfsPointer, (loaded, total) => setLfsProgress(`${formatBytes(loaded)} / ${formatBytes(total)}`));
               const url = URL.createObjectURL(blob);
@@ -733,7 +733,7 @@ function FileContentView({
             title="Save (Ctrl/Cmd+S)"
             className={[
               isMarkdown ? "" : "ml-auto",
-              "rounded bg-blue-600 px-2 py-1 text-white disabled:opacity-40",
+              "rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)] disabled:opacity-40",
             ].join(" ")}
           >
             Save <kbd className="ml-1 rounded bg-blue-800 px-1 text-[10px]">⌘S</kbd>
@@ -760,7 +760,7 @@ function FileContentView({
             </p>
             <button
               onClick={() => setSizeGuardAccepted(true)}
-              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+              className="rounded-md bg-[var(--dh-accent)] px-4 py-1.5 text-sm font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
             >
               Edit anyway
             </button>

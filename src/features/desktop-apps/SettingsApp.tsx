@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Radio, RadioGroup, type RadioGroupOnChangeData } from "@fluentui/react-components";
 import {
   getGithubToken,
   setGithubToken,
   clearGithubToken,
 } from "@/lib/github";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
+import { useDraghubTheme, type ThemeMode } from "@/features/theme";
 
 /** Desktop Settings — GitHub access token and desktop-session maintenance. */
 export function SettingsApp() {
   const wm = useWindowManager();
+  const { mode, setMode } = useDraghubTheme();
   const [token, setToken] = useState("");
   const [show, setShow] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -32,6 +35,24 @@ export function SettingsApp() {
 
   return (
     <div className="h-full overflow-auto bg-[var(--dh-surface)] p-4 text-[var(--dh-text)]">
+      <section className="mb-6">
+        <h3 className="mb-1 text-sm font-semibold">Appearance</h3>
+        <p className="mb-2 text-xs text-[var(--dh-text-secondary)]">
+          Choose the DRAGHUB color theme. Your choice is saved in this browser
+          and applied on the next visit.
+        </p>
+        <RadioGroup
+          layout="horizontal"
+          value={mode}
+          onChange={(_e, data: RadioGroupOnChangeData) =>
+            setMode(data.value as ThemeMode)
+          }
+        >
+          <Radio value="light" label="Light" />
+          <Radio value="dark" label="Dark" />
+        </RadioGroup>
+      </section>
+
       <section className="mb-6">
         <h3 className="mb-1 text-sm font-semibold">GitHub access</h3>
         <p className="mb-2 text-xs text-[var(--dh-text-secondary)]">
@@ -55,7 +76,7 @@ export function SettingsApp() {
           </button>
           <button
             onClick={save}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+            className="rounded-md bg-[var(--dh-accent)] px-3 py-1.5 text-xs font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
           >
             Save
           </button>

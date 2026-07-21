@@ -213,7 +213,7 @@ function FileWindowApp({
           <div className="flex items-center gap-1.5">
             <button
               onClick={save}
-              className="rounded bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-blue-500"
+              className="rounded bg-[var(--dh-accent)] px-2 py-0.5 text-[11px] font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
               title="Save as Working Change (Ctrl/Cmd+S)"
             >
               Save

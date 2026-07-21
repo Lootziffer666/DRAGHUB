@@ -8,6 +8,7 @@ export {
   extensionOf,
 } from "./registry";
 export { registerDefaultFileHandlers } from "./default-handlers";
+export { OpenWithMenu } from "./OpenWithMenu";
 
 import { registerDefaultFileHandlers } from "./default-handlers";
 

@@ -6,20 +6,28 @@ import { StoreProvider, useStore } from "@/lib/store";
 import { StagingProvider } from "@/lib/staging";
 import { SearchProvider, repoKeyFromWindow } from "@/features/search";
 import { createDesktopLifecycleAdapter } from "@/features/desktop-apps/lifecycle-adapter";
+import { DraghubThemeProvider } from "@/features/theme";
 
 /**
  * DRAGHUB desktop entry point. The PR #8 window manager stays the shell;
  * the store/staging providers supply the real GitHub domain underneath it,
  * the lifecycle adapter connects window closing to dirty drafts / pending
  * changes, and search opens or focuses repository windows.
+ *
+ * DraghubThemeProvider is the single top-level FluentProvider for the whole
+ * app. It owns only theme mode — switching it re-renders but never remounts
+ * the store/staging/window-manager tree beneath it, so open windows, tabs,
+ * editor drafts and desktop session state all survive a theme change.
  */
 export default function Page() {
   return (
-    <StoreProvider>
-      <StagingProvider>
-        <DesktopWithDomain />
-      </StagingProvider>
-    </StoreProvider>
+    <DraghubThemeProvider>
+      <StoreProvider>
+        <StagingProvider>
+          <DesktopWithDomain />
+        </StagingProvider>
+      </StoreProvider>
+    </DraghubThemeProvider>
   );
 }
 

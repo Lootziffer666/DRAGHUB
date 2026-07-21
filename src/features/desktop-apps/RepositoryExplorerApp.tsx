@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RepoScope, useActiveRepo, useStore } from "@/lib/store";
+import { RepoScope, useActiveRepo, useRepoRequest, useStore } from "@/lib/store";
 import { parseRepoInput } from "@/lib/github";
 import { ChangesProvider, useChanges } from "@/features/changes";
 import { UIProvider } from "@/components/ui-context";

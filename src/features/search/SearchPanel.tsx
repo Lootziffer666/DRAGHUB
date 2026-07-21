@@ -27,10 +27,12 @@ export function SearchPanel({
   onClose,
   relatedRepoKey,
   onSelectRepo,
+  relatedRepoKey,
 }: {
   onClose: () => void;
   relatedRepoKey: string | null;
   onSelectRepo?: (fullName: string) => void;
+  relatedRepoKey: string | null;
 }) {
   const { state, openRepo } = useStore();
   const [mode, setMode] = useState<Mode>("repos");
@@ -112,7 +114,7 @@ export function SearchPanel({
     }
   }
 
-  // Auto-run related when switching into that mode with a repo open
+  // Auto-run related when switching into that mode with a focused-window repo
   useEffect(() => {
     if (mode === "related" && relatedMeta) void runRelated();
     // eslint-disable-next-line react-hooks/exhaustive-deps

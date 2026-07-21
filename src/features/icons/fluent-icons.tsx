@@ -98,6 +98,11 @@ export {
   ChevronUpDownRegular,
   RecordRegular,
   SpinnerIosRegular,
+  PeopleRegular,
+  KeyRegular,
+  GlobeRegular,
+  ToggleLeftRegular,
+  ArchiveRegular,
 } from "@fluentui/react-icons";
 
 export type { FluentIcon } from "@fluentui/react-icons";

@@ -6,6 +6,11 @@
 > tool "ANVIL Core" planned as `tools/anvil-core` in this same repo
 > (Phase 3, spec only). Update this file's "Recently Completed" section as
 > each milestone lands.
+>
+> **Cross-project graph:** DRAGHUB's entry in the shared ANVIL System Graph
+> (Supabase project `ogcnibykutahwgddmbap`, `eu-central-1`) is maintained as
+> versioned migrations in `supabase/anvil-graph/` — see that directory's
+> `README.md` before writing to that database directly.
 
 ## Current State
 
@@ -19,6 +24,69 @@ gaps left by the first pass — see below. Deferred: shares (ADR),
 Theia/ANVIL-Core, daedalOS UX extras.
 
 ## Recently Completed
+
+- [x] **Playwright as a real dependency + ANVIL System Graph anchoring (2026-07-21)**:
+  - `@playwright/test` is now a committed devDependency (no more ad hoc
+    `bunx playwright-core` reinstalls). `playwright.config.ts` resolves the
+    sandbox's pre-installed Chromium through the stable
+    `$PLAYWRIGHT_BROWSERS_PATH/chromium` symlink. `e2e/fixtures/github-mock.ts`
+    mocks the GitHub REST API (real github.com is blocked from this
+    sandbox); `e2e/desktop-shell.spec.ts` and `e2e/open-with.spec.ts` (6
+    tests) formalize what was previously a throwaway verification script.
+    `bun run test:e2e` runs the suite; `bun run test` now runs `bun test src`
+    explicitly so Bun's own test runner doesn't also try to execute the
+    Playwright specs (both match `*.spec.*`/`*.test.*` by default).
+  - DRAGHUB's entry in the shared ANVIL System Graph (Supabase project
+    `ogcnibykutahwgddmbap`, `eu-central-1` — see `supabase/anvil-graph/`)
+    was a thin stub covering only the not-yet-built share-mount contract.
+    Refreshed `tools`/`repositories` rows to the real, built architecture;
+    moved the `daedalOS` adoption assessment to `adopted` and `mitchIvin-xp`
+    (portfolio/Repository-Gallery mode) to `planned`; recorded two
+    architecture decisions (close-lifecycle scope via a single pure
+    `deriveCloseScope`, and the file handler registry replacing ad hoc
+    extension checks); logged it all as one `change_set` with evidence
+    citing merged PR #18. Future updates: one small migration per change,
+    per `supabase/anvil-graph/README.md`.
+
+- [x] **File handler registry + Open With (2026-07-21)**: first step of the
+  DaedalOS UX extensions — a real `FileHandlerDefinition` registry
+  (`src/features/desktop-apps/file-handlers/`) instead of accumulating
+  `if (extension === ...)` branches in the file window components.
+  - `registry.ts`: `registerFileHandler`/`handlersFor`/`handlersForSurface`/
+    `defaultFileHandler`, ranked by priority with registration order as a
+    stable tiebreaker; an empty `extensions` array is a wildcard narrowed by
+    `canHandle`.
+  - `default-handlers.ts` registers what DRAGHUB already supports: Code
+    Editor, Image Viewer, Markdown Preview, Raw Text, Audio Player, and a
+    Download fallback — each excludes extensions a more specific handler
+    already claims (a `.png` never offers Code Editor; a `.zip` offers only
+    Download until an archive viewer exists).
+  - Shared binary resource adapter (`getRepositoryBlob`/
+    `getRepositoryArrayBuffer`/`getRepositoryText` in `src/lib/github.ts`,
+    built on the existing authenticated `fetchRepositoryBlob`) so image,
+    audio and future archive support share one GitHub downloader.
+  - New real applications: `AudioPlayerApp` (`audio-player`) plays the
+    fetched blob through an Object URL and a native `<audio>` element;
+    `RawTextViewerApp` (`raw-text-viewer`) shows a file's literal source
+    with no Markdown rendering, as a window distinct from the tab editor
+    and from Markdown Preview.
+  - Fixed a related gap while wiring this up: `FileWindowApp.tsx`'s
+    separate viewer/editor child window still requested
+    `raw.githubusercontent.com` directly for images (unauthenticated — the
+    PR9 fix only covered the inline tab preview). It now reuses the same
+    authenticated `ImageViewer`.
+  - `RepositoryExplorerApp`'s toolbar "Viewer window"/"Editor window"
+    buttons (previously offered unconditionally for every file, including
+    opening an image in the CodeMirror editor) are replaced by a registry-
+    driven `OpenWithMenu` listing only the handlers applicable to the
+    active tab.
+  - Verified interactively against a mocked GitHub API (real GitHub access
+    is blocked by this sandbox's network policy): per-extension Open With
+    menus match the registry exactly, the Image Viewer renders a real
+    authenticated blob image, the Audio Player renders a working
+    `<audio src="blob:...">`, zero console errors.
+  - Deferred next per the agreed order: ZIP/archive viewer, full Tree View,
+    Repository Gallery, Local Tool Broker for native Windows programs.
 
 - [x] **Post-PR9 integration fixes (2026-07-21)**: five isolation gaps in the
   first integration pass closed, each with regression tests:
@@ -277,3 +345,5 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard                                       |
 | 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange`                            |
 | 2026-07-21 | Post-PR9 integration fixes: focused-window related search, authenticated private-repo image loading, unified Recycle Bin empty (kernel + retained), per-repoKey loading/error isolation, exact editor/repository window-close scope — see "Recently Completed" |
+| 2026-07-21 | File handler registry + Open With: real `FileHandlerDefinition` registry, shared binary resource adapter, Audio Player and Raw Text applications, registry-driven Open With menu replacing hardcoded viewer/editor buttons — see "Recently Completed"          |
+| 2026-07-21 | Playwright committed as a real devDependency with e2e/ specs; ANVIL System Graph (Supabase) DRAGHUB entry refreshed to real architecture, maintenance anchored in `supabase/anvil-graph/` — see "Recently Completed"                                             |

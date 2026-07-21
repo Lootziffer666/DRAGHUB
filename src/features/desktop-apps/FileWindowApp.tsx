@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
-import {
-  fetchFileContent,
-  githubRawUrl,
-  formatBytes,
-} from "@/lib/github";
+import { fetchFileContent, formatBytes } from "@/lib/github";
+import { ImageViewer } from "@/components/FileView";
 import { dbGet } from "@/lib/staging-db";
 import { changesFor, subscribeChanges } from "@/features/changes/store";
 import { stageEditDirect } from "@/features/changes/ops";
@@ -146,12 +143,7 @@ function FileWindowApp({
       <div className="flex h-full flex-col bg-[var(--dh-surface)]">
         <Header path={path} note={meta.branch} />
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 [background-image:linear-gradient(45deg,#171717_25%,transparent_25%),linear-gradient(-45deg,#171717_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#171717_75%),linear-gradient(-45deg,transparent_75%,#171717_75%)] [background-size:20px_20px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={githubRawUrl(meta.owner, meta.repo, meta.branch, path)}
-            alt={path}
-            className="max-h-full max-w-full object-contain"
-          />
+          <ImageViewer owner={meta.owner} repo={meta.repo} branch={meta.branch} path={path} />
         </div>
       </div>
     );
@@ -277,7 +269,7 @@ function Header({
   );
 }
 
-function CodeLines({ content }: { content: string }) {
+export function CodeLines({ content }: { content: string }) {
   const lines = useMemo(() => tokenizeLines(content), [content]);
   return (
     <table className="w-full border-collapse font-mono text-[12.5px] leading-relaxed">

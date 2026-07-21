@@ -26,6 +26,13 @@ export type Tab = {
   label: string;
   repoKey: string;
   branch: string;
+  /** When set, this tab is pinned to a historical commit rather than the
+   * branch tip — content is read-only until branched off into a new
+   * variant (M3 acceptance criterion). */
+  ref?: string;
+  /** Human-readable label for the pinned commit (e.g. "abc1234 · Jul 20").
+   * Cosmetic only, set once alongside `ref`. */
+  refLabel?: string;
   entries?: GithubEntry[];
   entriesState: "idle" | "loading" | "loaded" | "error";
   entriesError?: string;
@@ -87,7 +94,8 @@ type Action =
   | { type: "SET_EXPANDED"; repoKey: string; path: string; value: boolean }
   | { type: "SET_SELECTION"; repoKey: string; paths: string[] }
   | { type: "SET_BRANCH"; repoKey: string; branch: string }
-  | { type: "SET_VIEW_MODE"; repoKey: string; viewMode: ViewMode };
+  | { type: "SET_VIEW_MODE"; repoKey: string; viewMode: ViewMode }
+  | { type: "TAB_BRANCHED_OFF"; repoKey: string; id: string; branch: string };
 
 function emptyRepo(meta: RepoMeta): RepoState {
   return {
@@ -263,6 +271,15 @@ export function reducer(state: State, action: Action): State {
       return updateRepo(state, action.repoKey, (r) => ({ ...emptyRepo({ ...r.meta, branch: action.branch }), viewMode: r.viewMode }));
     case "SET_VIEW_MODE":
       return updateRepo(state, action.repoKey, (r) => ({ ...r, viewMode: action.viewMode }));
+    case "TAB_BRANCHED_OFF":
+      // The new branch starts at the sha the tab was pinned to, so its
+      // content already matches — no refetch needed, just drop the pin.
+      return updateRepo(state, action.repoKey, (r) => ({
+        ...r,
+        tabs: r.tabs.map((t) =>
+          t.id === action.id ? { ...t, branch: action.branch, ref: undefined, refLabel: undefined } : t
+        ),
+      }));
     default:
       return state;
   }
@@ -273,12 +290,14 @@ export function reducer(state: State, action: Action): State {
 type ScopedActions = {
   setBranch: (branch: string) => void;
   openPath: (path: string, kind: "file" | "dir", opts?: { newTab?: boolean }) => void;
+  openFileAtRef: (path: string, ref: string, refLabel: string) => void;
+  markTabBranchedOff: (id: string, branch: string) => void;
   openInNewTab: (path: string, kind: "file" | "dir") => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   moveTab: (from: number, to: number) => void;
   ensureDir: (path: string) => Promise<GithubEntry[]>;
-  ensureFile: (id: string, path: string) => Promise<void>;
+  ensureFile: (id: string, path: string, refOverride?: string) => Promise<void>;
   loadFolderTab: (id: string, path: string) => Promise<void>;
   toggleExpand: (path: string, value?: boolean) => void;
   setSelection: (paths: string[]) => void;
@@ -405,15 +424,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const ensureFile = async (id: string, path: string) => {
+    // `refOverride` lets a caller that just created the tab (in the same
+    // dispatch/ensureFile call, before React has re-rendered) pass its ref
+    // directly instead of re-reading it from `repo.tabs` — that lookup can
+    // still see the pre-ADD_TAB state and silently fall back to the branch
+    // tip, which would defeat historical-ref pinning at the exact moment it
+    // matters most (opening a file at an older commit).
+    const ensureFile = async (id: string, path: string, refOverride?: string) => {
       const target = resolve();
       if (!target) return;
       const { repoKey, repo } = target;
       const tab = repo.tabs.find((t) => t.id === id);
       if (tab?.contentState === "loaded") return;
+      const ref = refOverride ?? tab?.ref ?? repo.meta.branch;
       dispatch({ type: "FILE_LOADING", repoKey, id });
       try {
-        const { content, size } = await fetchFileContent(repo.meta.owner, repo.meta.repo, path, repo.meta.branch);
+        const { content, size } = await fetchFileContent(repo.meta.owner, repo.meta.repo, path, ref);
         dispatch({ type: "FILE_LOADED", repoKey, id, content, size, language: languageFor(path) });
       } catch (err) {
         dispatch({ type: "FILE_ERROR", repoKey, id, error: err instanceof Error ? err.message : "Failed to load file." });
@@ -443,11 +469,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       else void ensureDir(path).then((entries) => dispatch({ type: "DIR_ATTACH", repoKey, id: tab.id, entries }));
     };
 
+    // Always opens a new tab — a historical-ref view of a file is a distinct
+    // thing from the live branch-tip tab for the same path, so unlike
+    // openPath() it never reuses an existing tab for that path.
+    const openFileAtRef = (path: string, ref: string, refLabel: string) => {
+      const target = resolve();
+      if (!target) return;
+      const { repoKey, repo } = target;
+      const tab = emptyTab({
+        kind: "file",
+        path,
+        label: tabLabel(path),
+        repoKey,
+        branch: repo.meta.branch,
+        ref,
+        refLabel,
+      });
+      dispatch({ type: "ADD_TAB", repoKey, tab, activate: true });
+      void ensureFile(tab.id, path, ref);
+    };
+
+    const markTabBranchedOff = (id: string, branch: string) => {
+      const target = resolve();
+      if (target) dispatch({ type: "TAB_BRANCHED_OFF", repoKey: target.repoKey, id, branch });
+    };
+
     const actions: ScopedActions = {
       ensureDir,
       ensureFile,
       loadFolderTab,
       openPath,
+      openFileAtRef,
+      markTabBranchedOff,
       openInNewTab: (path, kind) => openPath(path, kind, { newTab: true }),
       setBranch: (branch) => {
         const target = resolve();

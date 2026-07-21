@@ -334,6 +334,41 @@ export async function fetchBranches(
   return data.map((b) => b.name);
 }
 
+export type FileHistoryEntry = {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+};
+
+/**
+ * Recent commits that touched a single file, newest first. Backs the "open
+ * this file as of an older commit" flow (M3 acceptance criterion: editing a
+ * historical ref offers branching off a new variant instead of erroring).
+ */
+export async function fetchFileHistory(
+  owner: string,
+  repo: string,
+  path: string,
+  branch: string,
+  perPage = 20
+): Promise<FileHistoryEntry[]> {
+  const data = await ghFetch<
+    Array<{
+      sha: string;
+      commit: { message: string; author: { name: string; date: string } | null };
+    }>
+  >(
+    `/repos/${owner}/${repo}/commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(branch)}&per_page=${perPage}`
+  );
+  return data.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message.split("\n")[0],
+    author: c.commit.author?.name ?? "unknown",
+    date: c.commit.author?.date ?? "",
+  }));
+}
+
 export type TreeEntry = {
   path: string;
   mode: string;

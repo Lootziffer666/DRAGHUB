@@ -1,5 +1,13 @@
 "use client";
 import { useRef, type PointerEvent } from "react";
+import { Tooltip } from "@fluentui/react-components";
+import {
+  ArrowMinimizeRegular,
+  DismissRegular,
+  MaximizeRegular,
+  SubtractRegular,
+} from "@/features/icons";
+import { appIconFor } from "@/features/icons";
 import type { ResizeDirection } from "./geometry";
 import { getApplication } from "./application-registry";
 import { useWindowManager } from "./WindowManagerProvider";
@@ -72,32 +80,50 @@ export function WindowFrame({
         onDoubleClick={() => wm.toggleMaximizeWindow(window.id)}
       >
         <span className={`app-symbol ${window.iconKey}`}>
-          {icon(window.iconKey)}
+          <WindowIcon iconKey={window.iconKey} />
         </span>
         <div>
           <strong>{window.title}</strong>
           <small>{app.title}</small>
         </div>
-        <nav>
-          <button
-            aria-label={`Minimize ${window.title}`}
-            onClick={() => wm.minimizeWindow(window.id)}
+        <nav className="window-controls">
+          <Tooltip content={`Minimize ${window.title}`} relationship="label">
+            <button
+              type="button"
+              className="window-control"
+              aria-label={`Minimize ${window.title}`}
+              onClick={() => wm.minimizeWindow(window.id)}
+            >
+              <SubtractRegular />
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
+            relationship="label"
           >
-            ―
-          </button>
-          <button
-            aria-label={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
-            onClick={() => wm.toggleMaximizeWindow(window.id)}
-          >
-            □
-          </button>
-          <button
-            aria-label={`Close ${window.title}`}
-            className="danger"
-            onClick={() => wm.requestCloseWindow(window.id)}
-          >
-            ×
-          </button>
+            <button
+              type="button"
+              className="window-control"
+              aria-label={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
+              onClick={() => wm.toggleMaximizeWindow(window.id)}
+            >
+              {window.presentation === "maximized" ? (
+                <ArrowMinimizeRegular />
+              ) : (
+                <MaximizeRegular />
+              )}
+            </button>
+          </Tooltip>
+          <Tooltip content={`Close ${window.title}`} relationship="label">
+            <button
+              type="button"
+              className="window-control window-control-close"
+              aria-label={`Close ${window.title}`}
+              onClick={() => wm.requestCloseWindow(window.id)}
+            >
+              <DismissRegular />
+            </button>
+          </Tooltip>
         </nav>
       </header>
       <div className="desktop-window-content">
@@ -145,17 +171,7 @@ export function WindowFrame({
     </section>
   );
 }
-export function icon(key: string) {
-  return (
-    (
-      {
-        repo: "◆",
-        image: "▧",
-        github: "⑂",
-        tool: "⌘",
-        settings: "⚙",
-        bin: "♲",
-      } as Record<string, string>
-    )[key] ?? "◇"
-  );
+function WindowIcon({ iconKey }: { iconKey: string }) {
+  const Icon = appIconFor(iconKey);
+  return <Icon />;
 }

@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { Button } from "@fluentui/react-components";
+import { DraghubMark } from "@/features/icons";
+import { deriveCloseScope } from "@/features/desktop-apps/lifecycle-adapter";
 import { DesktopCanvas } from "./DesktopCanvas";
 import { Taskbar } from "./Taskbar";
 import { useWindowManager } from "./WindowManagerProvider";
@@ -10,6 +13,11 @@ export function DesktopShell() {
   const closing = wm.session.windows.find(
     (w) => w.id === wm.session.pendingCloseId,
   );
+  const closeScope = closing ? deriveCloseScope(closing) : null;
+  const commitLabel =
+    closeScope?.mode === "editor"
+      ? "Save as Working Change and close"
+      : "Create checkpoint and close";
   const children =
     closing &&
     wm.session.windows.filter(
@@ -33,7 +41,10 @@ export function DesktopShell() {
     <div className="draghub-desktop">
       <header className="desktop-systembar">
         <strong>
-          <span>◈</span> DRAGHUB
+          <span>
+            <DraghubMark />
+          </span>{" "}
+          DRAGHUB
         </strong>
         <nav>VIRTUAL GITHUB DESKTOP</nav>
         <div>
@@ -89,29 +100,38 @@ export function DesktopShell() {
             </small>
             {context.error && <p className="close-error">{context.error}</p>}
             <footer>
-              <button
+              <Button
+                appearance="secondary"
                 disabled={context.resolutionStatus === "pending"}
                 onClick={wm.cancelCloseWindow}
               >
                 Cancel
-              </button>
+              </Button>
               {context.inspectionStatus === "failed" ? (
-                <button onClick={() => void wm.retryCloseInspection()}>
+                <Button
+                  appearance="primary"
+                  onClick={() => void wm.retryCloseInspection()}
+                >
                   Retry Inspection
-                </button>
+                </Button>
               ) : context.inspectionStatus === "ready" &&
                 context.resolutionStatus === "idle" &&
                 context.blockers.length ? (
                 <>
-                  <button
+                  <Button
+                    appearance="primary"
                     onClick={() =>
                       void wm.resolveCloseWindow({ action: "commit-and-close" })
                     }
                   >
-                    Commit / Checkpoint and close
-                  </button>
-                  <button
-                    className="danger"
+                    {commitLabel}
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    style={{
+                      backgroundColor: "var(--dh-danger)",
+                      color: "#ffffff",
+                    }}
                     onClick={() =>
                       void wm.resolveCloseWindow({
                         action: "discard-to-recycle-bin-and-close",
@@ -119,18 +139,18 @@ export function DesktopShell() {
                     }
                   >
                     Discard to Recycle Bin and close
-                  </button>
+                  </Button>
                 </>
               ) : context.inspectionStatus === "ready" &&
                 context.resolutionStatus === "idle" ? (
-                <button
-                  className="danger"
+                <Button
+                  appearance="primary"
                   onClick={() =>
                     void wm.resolveCloseWindow({ action: "close-clean" })
                   }
                 >
                   Close window
-                </button>
+                </Button>
               ) : null}
             </footer>
           </div>

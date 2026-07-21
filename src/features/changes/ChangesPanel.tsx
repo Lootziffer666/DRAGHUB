@@ -6,20 +6,20 @@ import { useChanges } from "./changes";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
 import {
-  FilePlus,
-  GitCommit,
+  DocumentAddRegular as FilePlus,
+  RecordRegular as GitCommit,
   Spinner,
-  Trash,
-  Edit,
-  X,
-} from "@/components/icons";
+  DeleteRegular as Trash,
+  EditRegular as Edit,
+  DismissRegular as X,
+} from "@/features/icons";
 import type { ChangeKind } from "@/lib/github-ops";
 
 function kindIcon(kind: ChangeKind) {
-  if (kind === "add") return <FilePlus width={14} height={14} className="shrink-0 text-emerald-400" />;
-  if (kind === "modify") return <Edit width={14} height={14} className="shrink-0 text-amber-400" />;
-  if (kind === "delete") return <Trash width={14} height={14} className="shrink-0 text-red-400" />;
-  return <Edit width={14} height={14} className="shrink-0 text-blue-400" />;
+  if (kind === "add") return <FilePlus width={14} height={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />;
+  if (kind === "modify") return <Edit width={14} height={14} className="shrink-0 text-amber-700 dark:text-amber-400" />;
+  if (kind === "delete") return <Trash width={14} height={14} className="shrink-0 text-red-600 dark:text-red-400" />;
+  return <Edit width={14} height={14} className="shrink-0 text-blue-700 dark:text-blue-400" />;
 }
 
 function kindLabel(kind: ChangeKind): string {
@@ -33,16 +33,16 @@ export function ChangesPanel({ onClose }: { onClose: () => void }) {
   const repo = useActiveRepo();
   const meta = repo?.meta ?? null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
-        <div className="flex items-center gap-2 border-b border-neutral-800 px-4 py-3">
-          <GitCommit width={18} height={18} className="text-blue-400" />
-          <h2 className="text-sm font-semibold text-neutral-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[color-mix(in_srgb,var(--dh-surface-raised)_85%,transparent)] shadow-2xl backdrop-blur-2xl backdrop-saturate-150">
+        <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] px-4 py-3">
+          <GitCommit width={18} height={18} className="text-blue-700 dark:text-blue-400" />
+          <h2 className="text-sm font-semibold text-[var(--dh-text)]">
             Working changes — {meta ? meta.fullName : "repository"}
           </h2>
           <button
             onClick={onClose}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <X width={16} height={16} />
           </button>
@@ -75,8 +75,8 @@ export function ChangesPanelBody() {
     <>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {!token.trim() && (
-            <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-3">
-              <label className="mb-1 block text-xs font-medium text-neutral-400">
+            <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
+              <label className="mb-1 block text-xs font-medium text-[var(--dh-text-secondary)]">
                 GitHub token (PAT, needs repo scope)
               </label>
               <div className="flex items-center gap-2">
@@ -85,17 +85,17 @@ export function ChangesPanelBody() {
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="ghp_…"
-                  className="flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-blue-600"
+                  className="flex-1 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm text-[var(--dh-text)] outline-none focus:border-[var(--dh-focus-ring)]"
                 />
                 <button
                   onClick={() => setShowToken((v) => !v)}
-                  className="rounded-md border border-neutral-700 px-2 py-1.5 text-xs text-neutral-300 hover:border-neutral-600"
+                  className="rounded-md border border-[var(--dh-window-border)] px-2 py-1.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
                 >
                   {showToken ? "Hide" : "Show"}
                 </button>
                 <button
                   onClick={() => setGithubToken(token)}
-                  className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                  className="rounded-md bg-[var(--dh-accent)] px-3 py-1.5 text-xs font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
                 >
                   Save
                 </button>
@@ -103,40 +103,40 @@ export function ChangesPanelBody() {
             </div>
           )}
 
-          <div className="text-xs text-neutral-500">
-            Comparing against <span className="text-neutral-300">{meta?.branch}</span> —
+          <div className="text-xs text-[var(--dh-text-secondary)]">
+            Comparing against <span className="text-[var(--dh-text-secondary)]">{meta?.branch}</span> —
             each row is an uncommitted delta. Create a checkpoint to commit all of
             them in one go.
           </div>
 
           {changes.error && (
-            <div className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+            <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-600 dark:text-red-300">
               {changes.error}
             </div>
           )}
 
           {changes.changes.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-neutral-800 px-4 py-8 text-center text-sm text-neutral-600">
+            <div className="rounded-lg border border-dashed border-[var(--dh-window-border)] px-4 py-8 text-center text-sm text-[var(--dh-text-disabled)]">
               No pending changes. Use the Explorer&apos;s context menu (New file,
               New folder, Rename, Delete) or drag an item onto a folder to move
               it.
             </div>
           ) : (
-            <div className="rounded-lg border border-neutral-800">
+            <div className="rounded-lg border border-[var(--dh-window-border)]">
               <ul className="max-h-72 overflow-y-auto">
                 {changes.changes.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center gap-2 border-b border-neutral-800/60 px-3 py-1.5 last:border-0"
+                    className="flex items-center gap-2 border-b border-[var(--dh-window-border)]/60 px-3 py-1.5 last:border-0"
                   >
                     {kindIcon(c.kind)}
-                    <span className="w-16 shrink-0 text-xs text-neutral-500">
+                    <span className="w-16 shrink-0 text-xs text-[var(--dh-text-secondary)]">
                       {kindLabel(c.kind)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-neutral-200" title={c.path}>
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--dh-text)]" title={c.path}>
                       {c.kind === "rename" ? (
                         <>
-                          <span className="text-neutral-500">{c.fromPath}</span>
+                          <span className="text-[var(--dh-text-secondary)]">{c.fromPath}</span>
                           {" → "}
                           {c.path}
                         </>
@@ -147,14 +147,14 @@ export function ChangesPanelBody() {
                     {typeof c.size === "number" &&
                       (c.kind === "add" || c.kind === "modify") &&
                       c.entryKind === "file" && (
-                      <span className="shrink-0 text-xs text-neutral-500">
+                      <span className="shrink-0 text-xs text-[var(--dh-text-secondary)]">
                         {formatBytes(c.size)}
                       </span>
                     )}
                     <button
                       onClick={() => changes.discardChange(c.id)}
                       title="Discard"
-                      className="shrink-0 text-neutral-500 hover:text-red-400"
+                      className="shrink-0 text-[var(--dh-text-secondary)] hover:text-red-600 dark:hover:text-red-400"
                     >
                       <X width={14} height={14} />
                     </button>
@@ -165,28 +165,28 @@ export function ChangesPanelBody() {
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">
+            <label className="mb-1 block text-xs font-medium text-[var(--dh-text-secondary)]">
               Checkpoint message
             </label>
             <input
               value={changes.message}
               onChange={(e) => changes.setMessage(e.target.value)}
-              className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 outline-none focus:border-blue-600"
+              className="w-full rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm text-[var(--dh-text)] outline-none focus:border-[var(--dh-focus-ring)]"
             />
           </div>
 
           {changes.status === "done" && (
-            <div className="rounded-lg border border-green-900/50 bg-green-950/30 px-3 py-2 text-sm text-green-300">
+            <div className="rounded-lg border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm text-green-700 dark:text-green-300">
               Checkpoint created.
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-neutral-800 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-[var(--dh-window-border)] px-4 py-3">
           <button
             onClick={() => changes.discardAll()}
             disabled={changes.changes.length === 0 || committing}
-            className="rounded-md px-3 py-1.5 text-sm text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100 disabled:opacity-40"
+            className="rounded-md px-3 py-1.5 text-sm text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)] disabled:opacity-40"
           >
             Discard all
           </button>

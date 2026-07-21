@@ -19,7 +19,11 @@ import { emptyRecycleBinAll, recycleBinSummary } from "@/features/recycle-bin/re
 import type { WorkingChange } from "@/lib/github-ops";
 import { formatBytes } from "@/lib/github";
 import { events } from "@/lib/events";
-import { Trash, Undo, FileIcon } from "@/components/icons";
+import {
+  DeleteRegular as Trash,
+  ArrowUndoRegular as Undo,
+  DocumentRegular as FileIcon,
+} from "@/features/icons";
 
 function daysLeft(discardedAt: number): number {
   return Math.max(0, Math.ceil((discardedAt + GRACE_PERIOD_MS - Date.now()) / 86_400_000));
@@ -107,38 +111,38 @@ export function RecycleBinApp() {
   const [busyEntry, setBusyEntry] = useState<string | null>(null);
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950 text-neutral-200">
+    <div className="flex h-full flex-col bg-[var(--dh-surface)] text-[var(--dh-text)]">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-[var(--dh-text-secondary)]">
           Recoverable local states. Git history is append-only — nothing here
           rewrites or erases checkpoints, and closing a window never deletes a
           repository or its desktop shortcut.
         </p>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-200">
+          <h3 className="mb-2 text-sm font-semibold text-[var(--dh-text)]">
             Discarded on window close{" "}
-            <span className="text-neutral-500">({kernelEntries.length})</span>
+            <span className="text-[var(--dh-text-secondary)]">({kernelEntries.length})</span>
           </h3>
           {wm.session.recycleError && (
-            <p className="mb-2 rounded border border-red-900 bg-red-950/40 p-2 text-xs text-red-300">
+            <p className="mb-2 rounded border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-2 text-xs text-red-600 dark:text-red-300">
               {wm.session.recycleError}
             </p>
           )}
           {kernelEntries.length === 0 ? (
-            <p className="text-sm text-neutral-600">No drafts from closed windows.</p>
+            <p className="text-sm text-[var(--dh-text-disabled)]">No drafts from closed windows.</p>
           ) : (
-            <ul className="rounded-lg border border-neutral-800">
+            <ul className="rounded-lg border border-[var(--dh-window-border)]">
               {kernelEntries.map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-center gap-2 border-b border-neutral-800/60 px-3 py-1.5 text-sm last:border-0"
+                  className="flex items-center gap-2 border-b border-[var(--dh-window-border)]/60 px-3 py-1.5 text-sm last:border-0"
                 >
-                  <FileIcon width={13} height={13} className="shrink-0 text-amber-400" />
+                  <FileIcon width={13} height={13} className="shrink-0 text-amber-700 dark:text-amber-400" />
                   <span className="min-w-0 flex-1 truncate" title={e.label}>
                     {e.label}
                   </span>
-                  <span className="shrink-0 text-[11px] text-neutral-500">
+                  <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">
                     {e.repoKey ?? "—"}
                   </span>
                   <button
@@ -149,7 +153,7 @@ export function RecycleBinApp() {
                         setBusyEntry(null)
                       );
                     }}
-                    className="flex shrink-0 items-center gap-1 rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
+                    className="flex shrink-0 items-center gap-1 rounded border border-[var(--dh-window-border)] px-2 py-0.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)] disabled:opacity-40"
                   >
                     <Undo width={12} height={12} /> Restore draft
                   </button>
@@ -158,7 +162,7 @@ export function RecycleBinApp() {
                       if (window.confirm(`Permanently delete "${e.label}"?`))
                         wm.deleteRecycleEntry(e.id);
                     }}
-                    className="shrink-0 rounded border border-red-900 px-2 py-0.5 text-xs text-red-400 hover:bg-red-950/40"
+                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     Delete
                   </button>
@@ -166,38 +170,38 @@ export function RecycleBinApp() {
               ))}
             </ul>
           )}
-          <p className="mt-1 text-[11px] text-neutral-600">
+          <p className="mt-1 text-[11px] text-[var(--dh-text-disabled)]">
             Restoring re-creates the unsaved draft in its file&apos;s editor session.
           </p>
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-200">
+          <h3 className="mb-2 text-sm font-semibold text-[var(--dh-text)]">
             Staged deletions{" "}
-            <span className="text-neutral-500">
+            <span className="text-[var(--dh-text-secondary)]">
               ({deletionsByRepo.reduce((s, r) => s + r.deletions.length, 0)})
             </span>
           </h3>
           {deletionsByRepo.length === 0 ? (
-            <p className="text-sm text-neutral-600">No files staged for deletion.</p>
+            <p className="text-sm text-[var(--dh-text-disabled)]">No files staged for deletion.</p>
           ) : (
             deletionsByRepo.map(({ repoKey, deletions }) => (
-              <ul key={repoKey} className="mb-2 rounded-lg border border-neutral-800">
+              <ul key={repoKey} className="mb-2 rounded-lg border border-[var(--dh-window-border)]">
                 {deletions.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center gap-2 border-b border-neutral-800/60 px-3 py-1.5 text-sm last:border-0"
+                    className="flex items-center gap-2 border-b border-[var(--dh-window-border)]/60 px-3 py-1.5 text-sm last:border-0"
                   >
-                    <Trash width={13} height={13} className="shrink-0 text-red-400" />
+                    <Trash width={13} height={13} className="shrink-0 text-red-600 dark:text-red-400" />
                     <span className="min-w-0 flex-1 truncate" title={c.path}>
                       {c.path}
                     </span>
-                    <span className="shrink-0 text-[11px] text-neutral-500">
+                    <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">
                       {repoKey} · {c.entryKind === "dir" ? "folder" : "file"}
                     </span>
                     <button
                       onClick={() => restoreDeletion(repoKey, c)}
-                      className="flex shrink-0 items-center gap-1 rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:border-neutral-500"
+                      className="flex shrink-0 items-center gap-1 rounded border border-[var(--dh-window-border)] px-2 py-0.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
                     >
                       <Undo width={12} height={12} /> Restore
                     </button>
@@ -206,31 +210,31 @@ export function RecycleBinApp() {
               </ul>
             ))
           )}
-          <p className="mt-1 text-[11px] text-neutral-600">
+          <p className="mt-1 text-[11px] text-[var(--dh-text-disabled)]">
             A checkpoint makes deletions part of history; restoring afterwards
             creates a new change layer instead of rewriting the past.
           </p>
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-neutral-200">
+          <h3 className="mb-2 text-sm font-semibold text-[var(--dh-text)]">
             Discarded drafts{" "}
-            <span className="text-neutral-500">({retained.length})</span>
+            <span className="text-[var(--dh-text-secondary)]">({retained.length})</span>
           </h3>
           {retained.length === 0 ? (
-            <p className="text-sm text-neutral-600">No discarded drafts retained.</p>
+            <p className="text-sm text-[var(--dh-text-disabled)]">No discarded drafts retained.</p>
           ) : (
-            <ul className="rounded-lg border border-neutral-800">
+            <ul className="rounded-lg border border-[var(--dh-window-border)]">
               {retained.map((r) => (
                 <li
                   key={r.change.id}
-                  className="flex items-center gap-2 border-b border-neutral-800/60 px-3 py-1.5 text-sm last:border-0"
+                  className="flex items-center gap-2 border-b border-[var(--dh-window-border)]/60 px-3 py-1.5 text-sm last:border-0"
                 >
-                  <FileIcon width={13} height={13} className="shrink-0 text-sky-400" />
+                  <FileIcon width={13} height={13} className="shrink-0 text-sky-700 dark:text-sky-400" />
                   <span className="min-w-0 flex-1 truncate" title={r.change.path}>
                     {r.change.path}
                   </span>
-                  <span className="shrink-0 text-[11px] text-neutral-500">
+                  <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">
                     {r.repoKey}
                     {typeof r.change.size === "number"
                       ? ` · ${formatBytes(r.change.size)}`
@@ -239,7 +243,7 @@ export function RecycleBinApp() {
                   </span>
                   <button
                     onClick={() => void restoreRetained(r)}
-                    className="flex shrink-0 items-center gap-1 rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:border-neutral-500"
+                    className="flex shrink-0 items-center gap-1 rounded border border-[var(--dh-window-border)] px-2 py-0.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
                   >
                     <Undo width={12} height={12} /> Restore
                   </button>
@@ -252,7 +256,7 @@ export function RecycleBinApp() {
                       )
                         void removeRetained(r.change.id, true);
                     }}
-                    className="shrink-0 rounded border border-red-900 px-2 py-0.5 text-xs text-red-400 hover:bg-red-950/40"
+                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     Delete
                   </button>
@@ -263,11 +267,11 @@ export function RecycleBinApp() {
         </section>
       </div>
 
-      <div className="flex items-center justify-end border-t border-neutral-800 px-4 py-3">
+      <div className="flex items-center justify-end border-t border-[var(--dh-window-border)] px-4 py-3">
         <button
           onClick={() => void onEmpty()}
           disabled={summary.kernelCount === 0 && summary.domainCount === 0}
-          className="rounded-md border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-40"
+          className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40"
         >
           Empty Recycle Bin…
         </button>

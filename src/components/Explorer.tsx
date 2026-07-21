@@ -14,32 +14,32 @@ import {
 import { promptNewName, promptRename, nameCollides } from "@/features/changes/actions";
 import { joinPath, parentOfPath, baseNameOfPath } from "@/lib/github-ops";
 import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Download,
-  Edit,
-  ExternalLink,
-  FileIcon,
-  FilePlus,
-  FileImage,
-  FileText,
-  Folder,
-  FolderOpen,
-  FolderPlus,
-  Refresh,
+  ChevronDownRegular as ChevronDown,
+  ChevronRightRegular as ChevronRight,
+  CopyRegular as Copy,
+  ArrowDownloadRegular as Download,
+  EditRegular as Edit,
+  OpenRegular as ExternalLink,
+  DocumentRegular as FileIcon,
+  DocumentAddRegular as FilePlus,
+  ImageRegular as FileImage,
+  DocumentTextRegular as FileText,
+  FolderRegular as Folder,
+  FolderOpenRegular as FolderOpen,
+  FolderAddRegular as FolderPlus,
+  ArrowClockwiseRegular as Refresh,
   Spinner,
-  Trash,
-  Undo,
-} from "./icons";
+  DeleteRegular as Trash,
+  ArrowUndoRegular as Undo,
+} from "@/features/icons";
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp"].includes(ext))
-    return <FileImage width={15} height={15} className="shrink-0 text-pink-400" />;
+    return <FileImage width={15} height={15} className="shrink-0 text-pink-700 dark:text-pink-400" />;
   if (["md", "txt", "mdx", "rst"].includes(ext))
-    return <FileText width={15} height={15} className="shrink-0 text-neutral-400" />;
-  return <FileIcon width={15} height={15} className="shrink-0 text-sky-400" />;
+    return <FileText width={15} height={15} className="shrink-0 text-[var(--dh-text-secondary)]" />;
+  return <FileIcon width={15} height={15} className="shrink-0 text-sky-700 dark:text-sky-400" />;
 }
 
 export function Explorer() {
@@ -349,23 +349,23 @@ export function Explorer() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+    <div className="flex h-full flex-col bg-[var(--dh-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--dh-window-border)] px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--dh-text-secondary)]">
           Explorer
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => void createFile("")}
             title="New file at root"
-            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <FilePlus width={14} height={14} />
           </button>
           <button
             onClick={() => createFolder("")}
             title="New folder at root"
-            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <FolderPlus width={14} height={14} />
           </button>
@@ -375,7 +375,7 @@ export function Explorer() {
               void ensureDir("");
             }}
             title="Refresh root"
-            className="flex h-6 w-6 items-center justify-center rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <Refresh width={14} height={14} />
           </button>
@@ -404,13 +404,13 @@ export function Explorer() {
         }}
       >
         {rootState === "loading" && rootEntries.length === 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 text-neutral-500">
-            <Spinner width={14} height={14} className="text-blue-400" />
+          <div className="flex items-center gap-2 px-3 py-2 text-[var(--dh-text-secondary)]">
+            <Spinner width={14} height={14} className="text-blue-700 dark:text-blue-400" />
             Loading…
           </div>
         )}
         {rootState === "error" && (
-          <div className="px-3 py-2 text-red-400">Failed to load folder.</div>
+          <div className="px-3 py-2 text-red-600 dark:text-red-400">Failed to load folder.</div>
         )}
         {rootEntries.map((node) => (
           <TreeNode
@@ -526,19 +526,19 @@ function TreeNode({
 
   const statusBadge =
     node.status === "added" ? (
-      <span className="ml-1 shrink-0 rounded bg-emerald-500/20 px-1 text-[10px] font-medium text-emerald-400">
+      <span className="ml-1 shrink-0 rounded bg-emerald-500/20 px-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
         new
       </span>
     ) : node.status === "modified" ? (
-      <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1 text-[10px] font-medium text-amber-400">
+      <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
         modified
       </span>
     ) : node.status === "renamed-in" ? (
-      <span className="ml-1 shrink-0 rounded bg-blue-500/20 px-1 text-[10px] font-medium text-blue-400">
+      <span className="ml-1 shrink-0 rounded bg-blue-500/20 px-1 text-[10px] font-medium text-blue-700 dark:text-blue-400">
         renamed
       </span>
     ) : node.status === "pending-delete" ? (
-      <span className="ml-1 shrink-0 rounded bg-red-500/20 px-1 text-[10px] font-medium text-red-400">
+      <span className="ml-1 shrink-0 rounded bg-red-500/20 px-1 text-[10px] font-medium text-red-600 dark:text-red-400">
         deleting
       </span>
     ) : null;
@@ -609,9 +609,9 @@ function TreeNode({
         onPointerUp={clearLongPress}
         onPointerLeave={clearLongPress}
         className={[
-          "group flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-neutral-300 hover:bg-neutral-800/60",
-          selected ? "bg-blue-600/20" : "",
-          active ? "bg-neutral-800" : "",
+          "group flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)]/60",
+          selected ? "bg-[var(--dh-accent)]/20" : "",
+          active ? "bg-[var(--dh-surface-hover)]" : "",
           node.status === "pending-delete" ? "opacity-50 line-through" : "",
         ].join(" ")}
         style={{ paddingLeft: 8 + depth * 14 }}
@@ -623,7 +623,7 @@ function TreeNode({
               onToggle(readPath);
             }}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="flex h-4 w-4 shrink-0 items-center justify-center text-neutral-500 hover:text-neutral-200"
+            className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--dh-text-secondary)] hover:text-[var(--dh-text)]"
           >
             {expanded ? (
               <ChevronDown width={14} height={14} />
@@ -637,9 +637,9 @@ function TreeNode({
 
         {node.type === "dir" ? (
           expanded ? (
-            <FolderOpen width={15} height={15} className="shrink-0 text-amber-400" />
+            <FolderOpen width={15} height={15} className="shrink-0 text-amber-700 dark:text-amber-400" />
           ) : (
-            <Folder width={15} height={15} className="shrink-0 text-amber-400" />
+            <Folder width={15} height={15} className="shrink-0 text-amber-700 dark:text-amber-400" />
           )
         ) : (
           fileIcon(node.name)
@@ -648,7 +648,7 @@ function TreeNode({
         <span
           className={[
             "truncate",
-            active ? "text-neutral-100" : "",
+            active ? "text-[var(--dh-text)]" : "",
             node.type === "dir" ? "font-medium" : "",
           ].join(" ")}
         >
@@ -657,7 +657,7 @@ function TreeNode({
         {statusBadge}
 
         {node.type === "dir" && expanded && childState === "loading" && (
-          <Spinner width={12} height={12} className="ml-auto text-blue-400" />
+          <Spinner width={12} height={12} className="ml-auto text-blue-700 dark:text-blue-400" />
         )}
       </div>
 
@@ -665,16 +665,16 @@ function TreeNode({
         <div>
           {childState === "loading" && children.length === 0 && (
             <div
-              className="flex items-center gap-2 py-1 text-neutral-500"
+              className="flex items-center gap-2 py-1 text-[var(--dh-text-secondary)]"
               style={{ paddingLeft: 8 + (depth + 1) * 14 }}
             >
-              <Spinner width={12} height={12} className="text-blue-400" />
+              <Spinner width={12} height={12} className="text-blue-700 dark:text-blue-400" />
               Loading…
             </div>
           )}
           {childState === "error" && (
             <div
-              className="py-1 text-red-400"
+              className="py-1 text-red-600 dark:text-red-400"
               style={{ paddingLeft: 8 + (depth + 1) * 14 }}
             >
               Failed to load.

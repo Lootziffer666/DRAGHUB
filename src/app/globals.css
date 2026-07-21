@@ -1,11 +1,113 @@
 @import "tailwindcss";
 
+/*
+ * Ties Tailwind's `dark:` variant to our explicit, persisted theme
+ * attribute instead of `prefers-color-scheme` — the mode is a user choice
+ * (DraghubThemeProvider/theme-storage), not an OS setting.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * DRAGHUB semantic design tokens.
+ * Light is the default/reference design (:root). [data-theme="dark"] overrides
+ * the same token set for the tonal dark mode. --dh-lime-brand is intentionally
+ * NOT re-themed — it is the fixed DRAGHUB brand lime used only for the brand
+ * mark and "active" indicators, which stay bright in both modes.
+ */
+:root {
+  color-scheme: light;
+
+  --dh-lime-brand: #b7f34a;
+
+  --dh-desktop-background: radial-gradient(
+      circle at 76% 18%,
+      #e4ecf9,
+      transparent 33%
+    ),
+    linear-gradient(145deg, #eef2f7, #e7ecf3 58%, #eef2f7);
+  --dh-desktop-pattern: rgba(15, 23, 42, 0.05);
+
+  --dh-surface: #ffffff;
+  --dh-surface-raised: #f6f8fb;
+  --dh-surface-hover: #eef1f6;
+  --dh-surface-selected: #e4f0cd;
+
+  --dh-window-border: #d8dde4;
+  --dh-window-border-active: #aab3c1;
+
+  --dh-text: #1b2430;
+  --dh-text-secondary: #5b6675;
+  --dh-text-disabled: #97a0ac;
+
+  --dh-accent: #5c7a1e;
+  --dh-accent-foreground: #ffffff;
+  --dh-danger: #b3261e;
+  --dh-focus-ring: #5c7a1e;
+
+  --dh-shadow-window: 0 18px 46px rgba(30, 41, 59, 0.14);
+  --dh-shadow-taskbar: 0 10px 28px rgba(30, 41, 59, 0.12);
+
+  --dh-checker-light: #eef1f6;
+  --dh-checker-dark: #dde3ea;
+
+  --dh-scrim: rgba(20, 27, 38, 0.45);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --dh-desktop-background: radial-gradient(
+      circle at 76% 18%,
+      #182943,
+      transparent 33%
+    ),
+    linear-gradient(145deg, #07090d, #0c1320 58%, #07090d);
+  --dh-desktop-pattern: rgba(255, 255, 255, 0.03);
+
+  --dh-surface: #0d1219;
+  --dh-surface-raised: #10151d;
+  --dh-surface-hover: #202936;
+  --dh-surface-selected: #24304499;
+
+  --dh-window-border: #384252;
+  --dh-window-border-active: #718097;
+
+  --dh-text: #edf2f8;
+  --dh-text-secondary: #8792a2;
+  --dh-text-disabled: #657081;
+
+  --dh-accent: #b7f34a;
+  --dh-accent-foreground: #0b0f14;
+  --dh-danger: #b83d45;
+  --dh-focus-ring: #b7f34a;
+
+  --dh-shadow-window: 0 22px 65px rgba(0, 0, 0, 0.8);
+  --dh-shadow-taskbar: 0 15px 45px rgba(0, 0, 0, 0.75);
+
+  --dh-checker-light: #1a2029;
+  --dh-checker-dark: #10151d;
+
+  --dh-scrim: rgba(2, 4, 8, 0.66);
+}
+
+/* Transparency checkerboard behind the image viewer, so PNG/SVG alpha
+ * channels are visible against a neutral backdrop in both themes. */
+.dh-image-checker {
+  background-image: linear-gradient(45deg, var(--dh-checker-dark) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--dh-checker-dark) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--dh-checker-dark) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--dh-checker-dark) 75%);
+  background-color: var(--dh-checker-light);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
 html,
 body {
   height: 100%;
   margin: 0;
-  background: #0a0a0a;
-  color: #e5e5e5;
+  background: var(--dh-surface);
+  color: var(--dh-text);
 }
 
 * {
@@ -21,13 +123,13 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--dh-window-border);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--dh-text-disabled);
   background-clip: content-box;
 }
 
@@ -42,8 +144,626 @@ body {
   user-select: none;
 }
 
-:root{--lime:#b7f34a;--bg:#080b10;--panel:#10151d;--line:#323b49;--muted:#8f9aab}button,input,textarea{font:inherit}button:focus-visible,textarea:focus-visible{outline:2px solid var(--lime);outline-offset:2px}.draghub-desktop{position:relative;width:100vw;height:100vh;overflow:hidden;background:radial-gradient(circle at 76% 18%,#182943,transparent 33%),linear-gradient(145deg,#07090d,#0c1320 58%,#07090d);font-family:"Segoe UI",Aptos,Calibri,system-ui,sans-serif;color:#edf2f8}.draghub-desktop:before{content:"";position:absolute;inset:46px 0 78px;opacity:.2;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:40px 40px}.desktop-systembar{position:absolute;z-index:10000;inset:0 0 auto;height:46px;display:flex;align-items:center;padding:0 17px;border-bottom:1px solid #ffffff17;background:#080b10e8;backdrop-filter:blur(18px);font-size:11px;letter-spacing:.08em}.desktop-systembar>strong{display:flex;align-items:center;gap:8px;letter-spacing:.14em}.desktop-systembar>strong span{color:var(--lime);font-size:19px}.desktop-systembar nav{margin-left:26px;color:#828d9d}.desktop-systembar>div{margin-left:auto;display:flex;align-items:center;gap:10px;color:#7e8999}.desktop-systembar>div b,.demo-pill{border:1px solid #73962f;border-radius:3px;padding:3px 6px;color:var(--lime);font-size:8px;letter-spacing:.13em}.desktop-canvas{position:absolute;inset:46px 0 78px;overflow:hidden;touch-action:none}.desktop-icon-layer{position:absolute;inset:0}.desktop-shortcut{position:absolute;width:92px;min-height:88px;display:flex;flex-direction:column;align-items:center;gap:5px;border:1px solid transparent;border-radius:8px;background:transparent;color:#eef3f8;touch-action:none}.desktop-shortcut:hover,.desktop-shortcut.selected{border-color:#64748b;background:#24304499}.desktop-shortcut>span{width:52px;height:48px;display:grid;place-items:center;border:1px solid #415065;border-radius:9px;background:linear-gradient(145deg,#273347,#101722);box-shadow:0 8px 18px #0008;color:var(--lime);font-size:27px}.desktop-shortcut b{font-size:12px}.desktop-shortcut small{color:#8792a2;font-size:7px;letter-spacing:.1em}.selection-box{position:fixed;border:1px solid #b7f34a;background:#b7f34a1c;pointer-events:none}.desktop-window{position:absolute;display:flex;flex-direction:column;min-width:280px;min-height:180px;overflow:hidden;border:1px solid #384252;border-radius:9px;background:#0d1219;box-shadow:0 22px 65px #000c}.desktop-window.active{border-color:#718097;box-shadow:0 28px 80px #000e,0 0 0 1px #ffffff0b}.desktop-window.maximized{left:0!important;top:0!important;width:100%!important;height:100%!important;border-radius:0}.desktop-window>header{height:48px;flex:none;display:flex;align-items:center;padding:0 8px 0 12px;border-bottom:1px solid #2a323e;background:linear-gradient(#1a202a,#111720);user-select:none;touch-action:none}.app-symbol{width:25px;height:25px;display:grid;place-items:center;margin-right:9px;border:1px solid #3d4858;border-radius:5px;background:#232b37;color:var(--lime)}.desktop-window>header>div{display:flex;min-width:0;flex-direction:column}.desktop-window>header strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.desktop-window>header small{color:#778293;font-size:8px;text-transform:uppercase;letter-spacing:.1em}.desktop-window>header nav{display:flex;margin-left:auto;gap:3px}.desktop-window>header nav button{width:34px;height:31px;border:0;border-radius:4px;background:transparent;color:#9ba5b4}.desktop-window>header nav button:hover{background:#2b3441;color:white}.desktop-window>header nav .danger:hover,.danger{background:#b83d45!important;color:white!important}.desktop-window-content{min-height:0;flex:1;overflow:hidden}.window-resizer{position:absolute;right:0;bottom:0;width:20px;height:20px;border:0;background:linear-gradient(135deg,transparent 50%,#788497 51%,transparent 56%,#788497 60%,transparent 65%);cursor:nwse-resize;touch-action:none}.desktop-taskbar{position:absolute;z-index:10002;inset:auto 12px 10px;height:60px;display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid #3a4453;border-radius:10px;background:#0d1219ef;box-shadow:0 15px 45px #000c;backdrop-filter:blur(20px)}.desktop-taskbar>button{height:46px;border:1px solid #394454;border-radius:7px;background:#19212c;color:#dce4ed}.launcher{width:46px;color:var(--lime)!important;font-size:21px}.search-launch{min-width:155px;padding:0 13px;text-align:left;color:#8995a6!important}.task-groups{display:flex;min-width:0;flex:1;gap:5px;overflow-x:auto}.task-group{position:relative}.task-group>button{position:relative;min-width:48px;max-width:150px;height:45px;display:flex;align-items:center;gap:7px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:#a9b2c0}.task-group>button:hover,.task-group>button.active{border-color:#3d4858;background:#202936;color:white}.task-group>button.active:after{content:"";position:absolute;inset:auto 9px 1px;height:2px;background:var(--lime)}.task-group em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-style:normal}.task-group i{display:grid;place-items:center;width:16px;height:16px;border-radius:8px;background:#435064;font-size:9px;font-style:normal}.task-group-menu{position:fixed;bottom:73px;display:grid;width:240px;padding:5px;border:1px solid #465264;border-radius:7px;background:#111821;box-shadow:0 15px 40px #000}.task-group-menu button{display:grid;grid-template-columns:25px 1fr auto;align-items:center;gap:7px;padding:9px;border:0;border-radius:4px;background:transparent;color:#dce4ed;text-align:left}.task-group-menu button:hover{background:#273140}.task-group-menu small{color:#818c9c}.task-jobs{display:flex;flex-direction:column;padding:0 10px;border-left:1px solid #323b48;color:#7f8b9c;font-size:8px}.task-jobs b{color:#c2cad5;font-size:10px}.task-status{padding:7px;border:1px solid #3c4857;border-radius:4px;color:#8c97a6;font-size:8px}.rubber-band{height:42px;display:flex;align-items:center;gap:4px;padding:5px 8px;border-bottom:1px solid #303845;background:#151c26;overflow-x:auto}.rubber-band button{height:29px;padding:0 9px;border:1px solid transparent;border-radius:4px;background:transparent;color:#9ba7b7;font-size:10px;white-space:nowrap}.rubber-band button:hover{border-color:#465365;background:#222c39;color:white}.rubber-band .rubber-toggle{color:var(--lime);font-size:16px}.rubber-band.collapsed{height:24px}.mock-repo{height:100%;display:flex;flex-direction:column}.repo-toolbar{height:40px;display:flex;align-items:center;gap:9px;padding:0 10px;border-bottom:1px solid #28313d;color:#8591a2;font-size:10px}.repo-toolbar strong{color:white}.repo-toolbar button{margin-left:auto;border:1px solid #394555;border-radius:4px;background:#19212b;padding:5px 8px;color:#bcc5d1}.repo-tabs{height:34px;display:flex;gap:2px;padding:4px 7px 0;background:#0b1017}.repo-tabs button{border:0;border-radius:4px 4px 0 0;background:#1b232e;padding:0 10px;color:#9aa5b5;font-size:9px}.repo-tabs button.active{color:white}.repo-demo-body{display:flex;min-height:0;flex:1}.repo-demo-body aside{width:145px;display:flex;flex-direction:column;gap:3px;padding:12px;border-right:1px solid #2c3440;background:#101720}.repo-demo-body aside b{margin-bottom:8px;color:#d6dee9;font-size:11px}.repo-demo-body aside button{border:0;background:none;padding:5px;text-align:left;color:#7f8b9c;font-size:9px}.mock-files{min-width:0;flex:1;overflow:auto;padding:12px}.mock-files.list{display:flex;flex-direction:column}.mock-files.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));align-content:start;gap:8px}.mock-files button{display:grid;grid-template-columns:30px 1fr auto;align-items:center;min-height:42px;border:1px solid transparent;border-radius:5px;background:transparent;color:#cbd4df;text-align:left}.mock-files.grid button{grid-template-columns:1fr;justify-items:center;padding:14px}.mock-files button:hover,.mock-files button.selected{border-color:#3c4a5d;background:#202a37}.mock-files button span{color:var(--lime)}.mock-files button b{font-size:10px}.mock-files button small{color:#758194;font-size:8px}.mock-repo>footer{height:23px;padding:5px 9px;border-top:1px solid #28313d;color:#748092;font-size:8px}.image-viewer{height:100%;display:flex;flex-direction:column;background:#090d12}.viewer-tools{height:39px;display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid #29323d}.viewer-tools button,.image-viewer footer button,.mock-panel button{border:1px solid #3a4656;border-radius:4px;background:#1a222d;padding:6px 9px;color:#c3ccd7;font-size:9px}.viewer-tools span{margin-left:auto;color:#8c98a8;font-size:9px}.image-stage{min-height:0;flex:1;display:grid;place-items:center;overflow:hidden;cursor:grab;background-image:linear-gradient(45deg,#151b23 25%,transparent 25%),linear-gradient(-45deg,#151b23 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#151b23 75%),linear-gradient(-45deg,transparent 75%,#151b23 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}.mock-art{width:250px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid #9bd33d;background:radial-gradient(circle,#25364b,#101722);box-shadow:0 16px 40px #000;transform-origin:center}.mock-art span{color:var(--lime);font-size:50px}.mock-art strong{letter-spacing:.3em}.mock-art small{margin-top:7px;color:#8290a2;font-size:7px;letter-spacing:.15em}.image-viewer footer{height:52px;display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-top:1px solid #29323d}.image-viewer footer div{display:flex;flex-direction:column;align-items:center;font-size:9px}.image-viewer footer span{color:#7e8999}.mock-panel{height:100%;overflow:auto;padding:24px;background:radial-gradient(circle at 100% 0,#1c2b3d,transparent 40%),#10161e}.mock-panel h2{margin:14px 0 4px;text-transform:capitalize}.mock-panel p{color:#8c98a9;font-size:11px}.mock-row{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:10px;margin-top:8px;padding:11px;border:1px solid #303b49;border-radius:6px;background:#151c25}.mock-row i{width:7px;height:7px;border-radius:50%;background:#8792a2}.mock-row i.pulse{background:var(--lime)}.mock-row span{display:flex;flex-direction:column;font-size:10px}.mock-row small{color:#778395}.mock-row>strong{color:#8490a0;font-size:8px}.mock-panel textarea{width:100%;height:110px;margin:10px 0;padding:10px;border:1px solid #3b4655;border-radius:5px;background:#080d13;color:#dce5ef;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.mock-panel .unsaved{display:block;margin-top:12px;color:#ffbc6b;font-size:9px}.close-overlay{position:absolute;z-index:20000;inset:0;display:grid;place-items:center;background:#020408a8;backdrop-filter:blur(4px)}.close-overlay>div{width:min(430px,calc(100% - 30px));padding:24px;border:1px solid #4a5666;border-radius:9px;background:#141b24;box-shadow:0 24px 70px #000}.close-overlay .warning{float:left;display:grid;place-items:center;width:35px;height:35px;margin-right:12px;border-radius:50%;background:#ffb34a;color:#111;font-weight:bold}.close-overlay h2{font-size:16px}.close-overlay p,.close-overlay small{color:#909cad;font-size:11px}.close-overlay footer{display:flex;justify-content:flex-end;gap:7px;margin-top:22px}.close-overlay button{border:1px solid #445062;border-radius:5px;background:#202936;padding:8px 12px;color:white}.desktop-menu{position:fixed;z-index:30000;padding:5px;border:1px solid #445062;background:#151c25}
-@media(max-width:719px){.desktop-systembar nav,.desktop-systembar>div span{display:none}.desktop-canvas{inset:46px 0 72px}.desktop-shortcut{position:absolute}.desktop-window,.desktop-window.maximized{inset:0!important;width:100%!important;height:100%!important;border:0;border-radius:0}.window-resizer{display:none}.desktop-taskbar{inset:auto 0 0;height:72px;border-radius:0}.search-launch{min-width:45px;width:45px}.search-launch span,.task-jobs,.task-status{display:none}.task-group em{max-width:70px}.repo-demo-body aside{display:none}}
-.desktop-menu{display:grid;min-width:190px;border-radius:6px;box-shadow:0 15px 35px #000}.desktop-menu strong{padding:7px;color:#828e9e;font-size:8px;letter-spacing:.12em}.desktop-menu button{border:0;border-radius:3px;background:transparent;padding:8px;color:#d5dde7;text-align:left;font-size:10px}.desktop-menu button:hover{background:#283342}.desktop-menu button:disabled{color:#657081}
-.desktop-window.is-minimized,.desktop-window.mobile-hidden{display:none}.window-resizer{position:absolute;border:0;background:transparent;z-index:5}.resize-n,.resize-s{left:8px;right:8px;width:auto;height:8px;cursor:ns-resize}.resize-n{top:0}.resize-s{bottom:0}.resize-e,.resize-w{top:8px;bottom:8px;width:8px;height:auto;cursor:ew-resize}.resize-e{right:0}.resize-w{left:0}.resize-ne,.resize-nw,.resize-se,.resize-sw{width:14px;height:14px}.resize-ne{right:0;top:0;cursor:nesw-resize}.resize-nw{left:0;top:0;cursor:nwse-resize}.resize-se{right:0;bottom:0;cursor:nwse-resize}.resize-sw{left:0;bottom:0;cursor:nesw-resize}
-@media(min-width:720px){.desktop-window.mobile-hidden{display:flex}}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--dh-focus-ring);
+  outline-offset: 2px;
+}
+
+.draghub-desktop {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  /* The DRAGHUB wallpaper, like a real OS wallpaper, is intentionally
+   * constant across light/dark mode and shown at full color — no dimming
+   * scrim — only the chrome floating on top of it (systembar, windows,
+   * taskbar) retheme, and desktop icon labels use a fixed light color +
+   * shadow for legibility instead of darkening the whole backdrop.
+   * background-color is the fallback if the image fails to load;
+   * --dh-desktop-background stays defined (unused here) as part of the
+   * documented token contract. */
+  background: url("/branding/wallpaper.png") center/cover no-repeat fixed;
+  background-color: var(--dh-surface);
+  font-family: "Segoe UI", Aptos, Calibri, system-ui, sans-serif;
+  color: var(--dh-text);
+}
+.draghub-desktop:before {
+  content: "";
+  position: absolute;
+  inset: 46px 0 78px;
+  background-image: linear-gradient(var(--dh-desktop-pattern) 1px, transparent 1px),
+    linear-gradient(90deg, var(--dh-desktop-pattern) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.desktop-systembar {
+  position: absolute;
+  z-index: 10000;
+  inset: 0 0 auto;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 17px;
+  border-bottom: 1px solid var(--dh-window-border);
+  /* Fluent Acrylic: a translucent surface + blur/saturate so the wallpaper
+   * actually shows through (an opaque background here would make the blur
+   * filter below a no-op). */
+  background: color-mix(in srgb, var(--dh-surface-raised) 68%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.desktop-systembar > strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.14em;
+}
+.desktop-systembar > strong span {
+  color: var(--dh-lime-brand);
+  font-size: 19px;
+}
+.desktop-systembar nav {
+  margin-left: 26px;
+  color: var(--dh-text-secondary);
+}
+.desktop-systembar > div {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dh-text-secondary);
+}
+.desktop-systembar > div b {
+  border: 1px solid var(--dh-accent);
+  border-radius: 3px;
+  padding: 3px 6px;
+  color: var(--dh-accent);
+  font-size: 8px;
+  letter-spacing: 0.13em;
+}
+.desktop-canvas {
+  position: absolute;
+  inset: 46px 0 78px;
+  overflow: hidden;
+  touch-action: none;
+}
+.desktop-icon-layer {
+  position: absolute;
+  inset: 0;
+}
+.desktop-shortcut {
+  position: absolute;
+  width: 92px;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  /* Like every desktop icon label on a real OS, this sits directly on the
+   * (theme-independent) wallpaper rather than a themed surface, so it stays
+   * a fixed light color with a shadow instead of following --dh-text. */
+  color: #f2f6fa;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  touch-action: none;
+}
+.desktop-shortcut:hover,
+.desktop-shortcut.selected {
+  border-color: var(--dh-window-border-active);
+  background: var(--dh-surface-hover);
+  /* Once a themed surface sits behind the label (instead of the bare
+   * wallpaper), switch off the fixed light/shadow styling and follow the
+   * theme like everything else on that surface. */
+  color: var(--dh-text);
+  text-shadow: none;
+}
+.desktop-shortcut:hover small,
+.desktop-shortcut.selected small {
+  color: var(--dh-text-secondary);
+}
+.desktop-shortcut > span {
+  width: 52px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--dh-surface-raised) 55%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: var(--dh-shadow-window);
+  color: var(--dh-accent);
+  font-size: 27px;
+}
+.desktop-shortcut b {
+  font-size: 12px;
+}
+.desktop-shortcut small {
+  color: #d7e0ea;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+.selection-box {
+  position: fixed;
+  border: 1px solid var(--dh-accent);
+  background: color-mix(in srgb, var(--dh-accent) 11%, transparent);
+  pointer-events: none;
+}
+.desktop-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 9px;
+  /* Fluent Mica: a barely-perceptible translucency + blur on the window
+   * frame itself. Most app content (Settings, Recycle Bin, CodeMirror, ...)
+   * paints its own fully opaque background over this, so Mica only shows
+   * through gaps/padding — enough to read as "real" glass without ever
+   * risking text legibility inside a window. */
+  background: color-mix(in srgb, var(--dh-surface) 94%, transparent);
+  backdrop-filter: blur(40px);
+  box-shadow: var(--dh-shadow-window);
+}
+.desktop-window.active {
+  border-color: var(--dh-window-border-active);
+  box-shadow: var(--dh-shadow-window), 0 0 0 1px var(--dh-window-border-active);
+}
+.desktop-window.maximized {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+}
+.desktop-window > header {
+  height: 48px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--dh-window-border);
+  background: color-mix(in srgb, var(--dh-surface-raised) 70%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  user-select: none;
+  touch-action: none;
+}
+.app-symbol {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  margin-right: 9px;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--dh-surface-hover) 65%, transparent);
+  color: var(--dh-accent);
+  font-size: 14px;
+}
+.desktop-window > header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.desktop-window > header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.desktop-window > header small {
+  color: var(--dh-text-secondary);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.desktop-window > header nav {
+  display: flex;
+  margin-left: auto;
+  gap: 3px;
+}
+.window-controls .window-control {
+  width: 34px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dh-text-secondary);
+  font-size: 15px;
+}
+.window-controls .window-control:hover,
+.window-controls .window-control:focus-visible {
+  background: var(--dh-surface-hover);
+  color: var(--dh-text);
+}
+.window-controls .window-control-close:hover,
+.window-controls .window-control-close:focus-visible,
+.window-controls .window-control-close:active {
+  background: var(--dh-danger);
+  color: #ffffff;
+}
+.desktop-window-content {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.desktop-taskbar {
+  position: absolute;
+  z-index: 10002;
+  inset: auto 12px 10px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dh-surface-raised) 68%, transparent);
+  box-shadow: var(--dh-shadow-taskbar);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+.desktop-taskbar > button {
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 7px;
+  background: var(--dh-surface);
+  color: var(--dh-text);
+}
+.desktop-taskbar > .launcher {
+  width: 46px;
+  color: var(--dh-lime-brand);
+  font-size: 21px;
+}
+.desktop-taskbar > .search-launch {
+  min-width: 155px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  color: var(--dh-text-secondary);
+}
+.task-groups {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+  overflow-x: auto;
+}
+.task-group {
+  position: relative;
+}
+.task-group > button {
+  position: relative;
+  min-width: 48px;
+  max-width: 150px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dh-text-secondary);
+}
+.task-group > button:hover,
+.task-group > button.active {
+  border-color: var(--dh-window-border);
+  background: var(--dh-surface-hover);
+  color: var(--dh-text);
+}
+.task-group > button.active:after {
+  content: "";
+  position: absolute;
+  inset: auto 9px 1px;
+  height: 2px;
+  background: var(--dh-lime-brand);
+}
+.task-group em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-style: normal;
+}
+.task-group i {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--dh-window-border-active);
+  color: var(--dh-text);
+  font-size: 9px;
+  font-style: normal;
+}
+.task-group-menu {
+  position: fixed;
+  bottom: 73px;
+  display: grid;
+  width: 240px;
+  padding: 5px;
+  border: 1px solid var(--dh-window-border-active);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--dh-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: var(--dh-shadow-window);
+}
+.task-group-menu button {
+  display: grid;
+  grid-template-columns: 25px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dh-text);
+  text-align: left;
+}
+.task-group-menu button:hover {
+  background: var(--dh-surface-hover);
+}
+.task-group-menu small {
+  color: var(--dh-text-secondary);
+}
+.task-jobs {
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px;
+  border-left: 1px solid var(--dh-window-border);
+  color: var(--dh-text-secondary);
+  font-size: 8px;
+}
+.task-jobs b {
+  color: var(--dh-text);
+  font-size: 10px;
+}
+.task-status {
+  padding: 7px;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 4px;
+  color: var(--dh-text-secondary);
+  font-size: 8px;
+}
+.rubber-band {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--dh-window-border);
+  background: var(--dh-surface-raised);
+  overflow-x: auto;
+}
+.rubber-band button {
+  height: 29px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dh-text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.rubber-band button:hover {
+  border-color: var(--dh-window-border-active);
+  background: var(--dh-surface-hover);
+  color: var(--dh-text);
+}
+.rubber-band .rubber-toggle {
+  color: var(--dh-accent);
+  font-size: 16px;
+}
+.rubber-band.collapsed {
+  height: 24px;
+}
+.close-overlay {
+  position: absolute;
+  z-index: 20000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--dh-scrim);
+  backdrop-filter: blur(4px);
+}
+.close-overlay > div {
+  width: min(430px, calc(100% - 30px));
+  padding: 24px;
+  border: 1px solid var(--dh-window-border-active);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--dh-surface) 85%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: var(--dh-shadow-window);
+}
+.close-overlay .warning {
+  float: left;
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  margin-right: 12px;
+  border-radius: 50%;
+  background: #ffb34a;
+  color: #111;
+  font-weight: bold;
+}
+.close-overlay h2 {
+  font-size: 16px;
+  color: var(--dh-text);
+}
+.close-overlay p,
+.close-overlay small {
+  color: var(--dh-text-secondary);
+  font-size: 11px;
+}
+.close-overlay footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 22px;
+}
+.desktop-menu {
+  position: fixed;
+  z-index: 30000;
+  display: grid;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--dh-window-border-active);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--dh-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: var(--dh-shadow-window);
+}
+.desktop-menu strong {
+  padding: 7px;
+  color: var(--dh-text-secondary);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+.desktop-menu button {
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 8px;
+  color: var(--dh-text);
+  text-align: left;
+  font-size: 10px;
+}
+.desktop-menu button:hover {
+  background: var(--dh-surface-hover);
+}
+.desktop-menu button:disabled {
+  color: var(--dh-text-disabled);
+}
+
+@media (max-width: 719px) {
+  .desktop-systembar nav,
+  .desktop-systembar > div span {
+    display: none;
+  }
+  .desktop-canvas {
+    inset: 46px 0 72px;
+  }
+  .desktop-shortcut {
+    position: absolute;
+  }
+  .desktop-window,
+  .desktop-window.maximized {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0;
+    border-radius: 0;
+  }
+  .window-resizer {
+    display: none;
+  }
+  .desktop-taskbar {
+    inset: auto 0 0;
+    height: 72px;
+    border-radius: 0;
+  }
+  .search-launch {
+    min-width: 45px;
+    width: 45px;
+  }
+  .search-launch span,
+  .task-jobs,
+  .task-status {
+    display: none;
+  }
+  .task-group em {
+    max-width: 70px;
+  }
+}
+
+.desktop-window.is-minimized,
+.desktop-window.mobile-hidden {
+  display: none;
+}
+.window-resizer {
+  position: absolute;
+  border: 0;
+  background: transparent;
+  z-index: 5;
+}
+.resize-n,
+.resize-s {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  height: 8px;
+  cursor: ns-resize;
+}
+.resize-n {
+  top: 0;
+}
+.resize-s {
+  bottom: 0;
+}
+.resize-e,
+.resize-w {
+  top: 8px;
+  bottom: 8px;
+  width: 8px;
+  height: auto;
+  cursor: ew-resize;
+}
+.resize-e {
+  right: 0;
+}
+.resize-w {
+  left: 0;
+}
+.resize-ne,
+.resize-nw,
+.resize-se,
+.resize-sw {
+  width: 14px;
+  height: 14px;
+}
+.resize-ne {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+.resize-nw {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.resize-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.resize-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+
+@media (min-width: 720px) {
+  .desktop-window.mobile-hidden {
+    display: flex;
+  }
+}

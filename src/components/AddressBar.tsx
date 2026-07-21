@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useActiveRepo, useRepoRequest, useStore } from "@/lib/store";
 import { fetchBranches } from "@/lib/github";
 import {
-  ChevronDown,
-  ExternalLink,
-  GitBranch,
-  Home,
-  Search,
+  ChevronDownRegular as ChevronDown,
+  OpenRegular as ExternalLink,
+  BranchForkRegular as GitBranch,
+  HomeRegular as Home,
+  SearchRegular as Search,
   Spinner,
-  Star,
-  Upload,
-  X,
-} from "./icons";
+  StarRegular as Star,
+  ArrowUploadRegular as Upload,
+  DismissRegular as X,
+} from "@/features/icons";
 import { UploadPanel } from "./UploadPanel";
 
 export function AddressBar({
@@ -71,18 +71,18 @@ export function AddressBar({
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 py-2">
+    <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2">
       <button
         onClick={onGoHome}
         title="Home"
-        className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
       >
         <Home width={18} height={18} />
       </button>
 
       <div className="relative flex-1">
-        <div className="flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 focus-within:border-blue-600">
-          <Search width={15} height={15} className="text-neutral-500" />
+        <div className="flex items-center gap-2 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-1.5 focus-within:border-[var(--dh-focus-ring)]">
+          <Search width={15} height={15} className="text-[var(--dh-text-secondary)]" />
           <input
             ref={inputRef}
             value={value}
@@ -96,23 +96,24 @@ export function AddressBar({
             placeholder={
               meta ? `${meta.fullName}` : "Open a repository — e.g. facebook/react"
             }
-            className="flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-600"
+            className="flex-1 bg-transparent text-sm text-[var(--dh-text)] outline-none placeholder:text-[var(--dh-text-disabled)]"
             spellCheck={false}
           />
           {request.loading && (
-            <Spinner width={15} height={15} className="text-blue-400" />
+            <Spinner width={15} height={15} className="text-blue-700 dark:text-blue-400" />
           )}
           {value && (
             <button
               onClick={() => setValue("")}
-              className="text-neutral-500 hover:text-neutral-200"
+              aria-label="Clear address"
+              className="text-[var(--dh-text-secondary)] hover:text-[var(--dh-text)]"
             >
               <X width={14} height={14} />
             </button>
           )}
         </div>
         {showRecent && recent.length > 0 && !meta && (
-          <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-md border border-neutral-700 bg-neutral-900 shadow-xl">
+          <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] shadow-xl">
             {recent.map((r) => (
               <button
                 key={r}
@@ -122,9 +123,9 @@ export function AddressBar({
                   open(r);
                   setShowRecent(false);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
               >
-                <GitBranch width={14} height={14} className="text-neutral-500" />
+                <GitBranch width={14} height={14} className="text-[var(--dh-text-secondary)]" />
                 {r}
               </button>
             ))}
@@ -138,14 +139,14 @@ export function AddressBar({
             <button
               onClick={() => setBranchOpen((v) => !v)}
               onBlur={() => setTimeout(() => setBranchOpen(false), 150)}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1.5 text-sm text-neutral-200 hover:border-neutral-600"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1.5 text-sm text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
             >
-              <GitBranch width={14} height={14} className="text-blue-400" />
+              <GitBranch width={14} height={14} className="text-blue-700 dark:text-blue-400" />
               <span className="max-w-[140px] truncate">{meta.branch}</span>
-              <ChevronDown width={14} height={14} className="text-neutral-500" />
+              <ChevronDown width={14} height={14} className="text-[var(--dh-text-secondary)]" />
             </button>
             {branchOpen && (
-              <div className="absolute right-0 z-40 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl">
+              <div className="absolute right-0 z-40 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] py-1 shadow-xl">
                 {branches.map((b) => (
                   <button
                     key={b}
@@ -155,10 +156,10 @@ export function AddressBar({
                       setBranchOpen(false);
                     }}
                     className={[
-                      "flex w-full items-center px-3 py-1.5 text-left text-sm hover:bg-neutral-800",
+                      "flex w-full items-center px-3 py-1.5 text-left text-sm hover:bg-[var(--dh-surface-hover)]",
                       b === meta.branch
-                        ? "text-blue-400"
-                        : "text-neutral-200",
+                        ? "text-blue-700 dark:text-blue-400"
+                        : "text-[var(--dh-text)]",
                     ].join(" ")}
                   >
                     {b}
@@ -173,7 +174,7 @@ export function AddressBar({
             target="_blank"
             rel="noreferrer"
             title="Open on GitHub"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 text-sm text-neutral-200 hover:border-neutral-600"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 text-sm text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
           >
             <ExternalLink width={14} height={14} />
             GitHub
@@ -182,7 +183,7 @@ export function AddressBar({
           <button
             onClick={() => setUploadOpen(true)}
             title="Upload files"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 text-sm text-neutral-200 hover:border-blue-600 hover:text-blue-300"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 text-sm text-[var(--dh-text)] hover:border-blue-600 hover:text-blue-700 dark:hover:text-blue-300"
           >
             <Upload width={14} height={14} />
             Upload
@@ -191,7 +192,7 @@ export function AddressBar({
           <button
             onClick={onCloseRepo ?? closeRepo}
             title="Close repository"
-            className="flex h-8 items-center justify-center rounded-md px-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            className="flex h-8 items-center justify-center rounded-md px-2 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <X width={16} height={16} />
           </button>
@@ -199,7 +200,7 @@ export function AddressBar({
       )}
 
       {meta && (
-        <div className="hidden items-center gap-3 border-l border-neutral-800 pl-3 text-xs text-neutral-400 lg:flex">
+        <div className="hidden items-center gap-3 border-l border-[var(--dh-window-border)] pl-3 text-xs text-[var(--dh-text-secondary)] lg:flex">
           {meta.language && (
             <span className="flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
@@ -207,7 +208,7 @@ export function AddressBar({
             </span>
           )}
           <span className="flex items-center gap-1">
-            <Star width={13} height={13} className="text-amber-400" />
+            <Star width={13} height={13} className="text-amber-700 dark:text-amber-400" />
             {meta.stars.toLocaleString()}
           </span>
           <span className="max-w-[180px] truncate" title={meta.description ?? ""}>

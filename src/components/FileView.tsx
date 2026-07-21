@@ -6,17 +6,17 @@ import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
 import {
-  ChevronRight,
-  Copy,
-  Download,
-  ExternalLink,
-  FileIcon,
-  FileImage,
-  FileText,
-  FolderOpen,
-  Refresh,
+  ChevronRightRegular as ChevronRight,
+  CopyRegular as Copy,
+  ArrowDownloadRegular as Download,
+  OpenRegular as ExternalLink,
+  DocumentRegular as FileIcon,
+  ImageRegular as FileImage,
+  DocumentTextRegular as FileText,
+  FolderOpenRegular as FolderOpen,
+  ArrowClockwiseRegular as Refresh,
   Spinner,
-} from "./icons";
+} from "@/features/icons";
 import { fetchRepositoryBlob, formatBytes, type GithubEntry } from "@/lib/github";
 import { createImageUrlManager } from "@/lib/image-url";
 import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
@@ -92,20 +92,20 @@ export function ImageViewer({
   if (view.loading) {
     return (
       <div className="flex justify-center p-6">
-        <Spinner width={18} height={18} className="text-blue-400" />
+        <Spinner width={18} height={18} className="text-blue-700 dark:text-blue-400" />
       </div>
     );
   }
   if (view.error) {
-    return <p className="p-4 text-red-400">{view.error}</p>;
+    return <p className="p-4 text-red-600 dark:text-red-400">{view.error}</p>;
   }
   return (
-    <div className="flex justify-center p-6">
+    <div className="dh-image-checker flex justify-center rounded-lg p-6">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={view.url ?? ""}
         alt={path.split("/").pop()}
-        className="max-h-full max-w-full rounded-lg border border-neutral-800"
+        className="max-h-full max-w-full rounded-lg border border-[var(--dh-window-border)]"
       />
     </div>
   );
@@ -114,21 +114,21 @@ export function ImageViewer({
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (IMAGE_EXT.includes(ext))
-    return <FileImage width={16} height={16} className="shrink-0 text-pink-400" />;
+    return <FileImage width={16} height={16} className="shrink-0 text-pink-700 dark:text-pink-400" />;
   if (["md", "txt", "mdx", "rst"].includes(ext))
-    return <FileText width={16} height={16} className="shrink-0 text-neutral-400" />;
-  return <FileIcon width={16} height={16} className="shrink-0 text-sky-400" />;
+    return <FileText width={16} height={16} className="shrink-0 text-[var(--dh-text-secondary)]" />;
+  return <FileIcon width={16} height={16} className="shrink-0 text-sky-700 dark:text-sky-400" />;
 }
 
 const TOKEN_CLASS: Record<string, string> = {
-  comment: "text-neutral-500 italic",
-  string: "text-emerald-400",
-  number: "text-amber-300",
-  keyword: "text-violet-400",
-  ident: "text-neutral-200",
-  ws: "text-neutral-200",
-  punct: "text-neutral-400",
-  plain: "text-neutral-200",
+  comment: "text-[var(--dh-text-secondary)] italic",
+  string: "text-emerald-700 dark:text-emerald-400",
+  number: "text-amber-700 dark:text-amber-300",
+  keyword: "text-violet-700 dark:text-violet-400",
+  ident: "text-[var(--dh-text)]",
+  ws: "text-[var(--dh-text)]",
+  punct: "text-[var(--dh-text-secondary)]",
+  plain: "text-[var(--dh-text)]",
 };
 
 export function FileView() {
@@ -166,7 +166,7 @@ export function FileView() {
 
   if (!activeTab) {
     return (
-      <div className="flex h-full items-center justify-center text-neutral-600">
+      <div className="flex h-full items-center justify-center text-[var(--dh-text-disabled)]">
         No tab open. Pick a file or folder from the Explorer.
       </div>
     );
@@ -279,20 +279,20 @@ export function FileView() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-neutral-900">
-      <div className="flex items-center gap-1 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-[13px]">
+    <div className="flex h-full flex-col bg-[var(--dh-surface-raised)]">
+      <div className="flex items-center gap-1 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-2 text-[13px]">
         {breadcrumbs.map((b, i) => (
           <span key={b.path} className="flex items-center gap-1">
             {i > 0 && (
-              <ChevronRight width={14} height={14} className="text-neutral-600" />
+              <ChevronRight width={14} height={14} className="text-[var(--dh-text-disabled)]" />
             )}
             <button
               onClick={() => openPath(b.path, "dir")}
               className={[
-                "rounded px-1.5 py-0.5 hover:bg-neutral-800",
+                "rounded px-1.5 py-0.5 hover:bg-[var(--dh-surface-hover)]",
                 i === breadcrumbs.length - 1
-                  ? "font-semibold text-neutral-100"
-                  : "text-blue-400",
+                  ? "font-semibold text-[var(--dh-text)]"
+                  : "text-blue-700 dark:text-blue-400",
               ].join(" ")}
             >
               {b.name}
@@ -395,26 +395,26 @@ function FolderView({
 
   if (tab.entriesState === "loading" && entries.length === 0) {
     return (
-      <div className="flex items-center gap-2 p-4 text-neutral-500">
-        <Spinner width={15} height={15} className="text-blue-400" />
+      <div className="flex items-center gap-2 p-4 text-[var(--dh-text-secondary)]">
+        <Spinner width={15} height={15} className="text-blue-700 dark:text-blue-400" />
         Loading…
       </div>
     );
   }
   if (tab.entriesState === "error") {
-    return <div className="p-4 text-red-400">Failed to load folder.</div>;
+    return <div className="p-4 text-red-600 dark:text-red-400">Failed to load folder.</div>;
   }
 
   if (viewMode === "grid") {
     return (
       <div className="flex-1 overflow-auto p-3">
-        <div className="mb-3 flex justify-end gap-1 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-blue-600 px-2 py-1 text-white">Grid</button></div>
+        <div className="mb-3 flex justify-end gap-1 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)]">Grid</button></div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
           {entries.map((e) => { const selected = selection.includes(e.path); return (
-            <button key={e.path} draggable onDragStart={(ev) => { const payload: GhNodeDrag = { path: e.path, kind: e.type }; ev.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload)); }} onClick={(ev) => onSelect(e, entries, modifiers(ev))} onDoubleClick={() => onOpenPath(e.path, e.type)} onContextMenu={(ev) => onContextMenu(ev, e)} className={["flex h-28 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center hover:bg-neutral-800", selected ? "border-blue-500 bg-blue-600/20" : "border-neutral-800 bg-neutral-900"].join(" ")}>
-              {e.type === "dir" ? <FolderOpen width={28} height={28} className="text-amber-400" /> : fileIcon(e.name)}
-              <span className="line-clamp-2 text-xs text-neutral-200">{e.name}</span>
-              <span className="text-[10px] text-neutral-500">{e.type === "dir" ? "Folder" : formatBytes(e.size)}</span>
+            <button key={e.path} draggable onDragStart={(ev) => { const payload: GhNodeDrag = { path: e.path, kind: e.type }; ev.dataTransfer.setData(GH_NODE_MIME, JSON.stringify(payload)); }} onClick={(ev) => onSelect(e, entries, modifiers(ev))} onDoubleClick={() => onOpenPath(e.path, e.type)} onContextMenu={(ev) => onContextMenu(ev, e)} className={["flex h-28 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center hover:bg-[var(--dh-surface-hover)]", selected ? "border-[var(--dh-accent)] bg-[var(--dh-accent)]/20" : "border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)]"].join(" ")}>
+              {e.type === "dir" ? <FolderOpen width={28} height={28} className="text-amber-700 dark:text-amber-400" /> : fileIcon(e.name)}
+              <span className="line-clamp-2 text-xs text-[var(--dh-text)]">{e.name}</span>
+              <span className="text-[10px] text-[var(--dh-text-secondary)]">{e.type === "dir" ? "Folder" : formatBytes(e.size)}</span>
             </button> ); })}
         </div>
       </div>
@@ -423,10 +423,10 @@ function FolderView({
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="sticky top-0 z-20 flex justify-end gap-1 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-blue-600 px-2 py-1 text-white">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">Grid</button></div>
+      <div className="sticky top-0 z-20 flex justify-end gap-1 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-2 text-xs"><button onClick={() => onViewMode("list")} className="rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)]">List</button><button onClick={() => onViewMode("grid")} className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-[var(--dh-text-secondary)]">Grid</button></div>
       <table className="w-full border-collapse text-[13px]">
         <thead>
-          <tr className="sticky top-0 z-10 border-b border-neutral-800 bg-neutral-950 text-left text-[11px] uppercase tracking-wider text-neutral-500">
+          <tr className="sticky top-0 z-10 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] text-left text-[11px] uppercase tracking-wider text-[var(--dh-text-secondary)]">
             <th className="px-3 py-2 font-medium">Name</th>
             <th className="px-3 py-2 font-medium">Size</th>
             <th className="hidden px-3 py-2 font-medium sm:table-cell">Type</th>
@@ -474,17 +474,17 @@ function FolderView({
                 onPointerUp={clearLP}
                 onPointerLeave={clearLP}
                 className={[
-                  "cursor-pointer border-b border-neutral-800/50 hover:bg-neutral-800/50",
-                  selected ? "bg-blue-600/20" : "",
+                  "cursor-pointer border-b border-[var(--dh-window-border)]/50 hover:bg-[var(--dh-surface-hover)]/50",
+                  selected ? "bg-[var(--dh-accent)]/20" : "",
                 ].join(" ")}
               >
                 <td className="px-3 py-1.5">
-                  <div className="flex items-center gap-2 text-neutral-200">
+                  <div className="flex items-center gap-2 text-[var(--dh-text)]">
                     {e.type === "dir" ? (
                       <FolderOpen
                         width={16}
                         height={16}
-                        className="shrink-0 text-amber-400"
+                        className="shrink-0 text-amber-700 dark:text-amber-400"
                       />
                     ) : (
                       fileIcon(e.name)
@@ -492,10 +492,10 @@ function FolderView({
                     <span className="truncate">{e.name}</span>
                   </div>
                 </td>
-                <td className="px-3 py-1.5 text-neutral-400">
+                <td className="px-3 py-1.5 text-[var(--dh-text-secondary)]">
                   {e.type === "dir" ? "—" : formatBytes(e.size)}
                 </td>
-                <td className="hidden px-3 py-1.5 text-neutral-500 sm:table-cell">
+                <td className="hidden px-3 py-1.5 text-[var(--dh-text-secondary)] sm:table-cell">
                   {e.type === "dir" ? "Folder" : e.name.split(".").pop()?.toUpperCase() || "File"}
                 </td>
               </tr>
@@ -503,7 +503,7 @@ function FolderView({
           })}
           {entries.length === 0 && (
             <tr>
-              <td colSpan={3} className="px-3 py-8 text-center text-neutral-600">
+              <td colSpan={3} className="px-3 py-8 text-center text-[var(--dh-text-disabled)]">
                 Empty folder
               </td>
             </tr>
@@ -597,15 +597,15 @@ function FileContentView({
 
   if (tab.contentState === "loading") {
     return (
-      <div className="flex items-center gap-2 p-4 text-neutral-500">
-        <Spinner width={15} height={15} className="text-blue-400" />
+      <div className="flex items-center gap-2 p-4 text-[var(--dh-text-secondary)]">
+        <Spinner width={15} height={15} className="text-blue-700 dark:text-blue-400" />
         Loading {tab.path.split("/").pop()}…
       </div>
     );
   }
   if (tab.contentState === "error") {
     return (
-      <div className="p-4 text-red-400">
+      <div className="p-4 text-red-600 dark:text-red-400">
         {tab.contentError ?? "Failed to load file."}
       </div>
     );
@@ -615,25 +615,25 @@ function FileContentView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3 py-1.5 text-[13px]">
+      <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-1.5 text-[13px]">
         {fileIcon(tab.path.split("/").pop() ?? "")}
-        <span className="font-medium text-neutral-100">
+        <span className="font-medium text-[var(--dh-text)]">
           {tab.path.split("/").pop()}
         </span>
         {tab.language && (
-          <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-neutral-300">
+          <span className="rounded bg-[var(--dh-surface-hover)] px-1.5 py-0.5 text-[11px] text-[var(--dh-text-secondary)]">
             {tab.language}
           </span>
         )}
         {typeof tab.size === "number" && (
-          <span className="text-[11px] text-neutral-500">
+          <span className="text-[11px] text-[var(--dh-text-secondary)]">
             {formatBytes(tab.size)}
           </span>
         )}
         {dirty && (
           <span
             title="Unsaved draft — save stages it as a Working Change"
-            className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-medium text-amber-400"
+            className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
           >
             unsaved draft
           </span>
@@ -642,7 +642,7 @@ function FileContentView({
           {!isImage && !lfsPointer && (
             <button
               onClick={() => setEditing((v) => !v)}
-              className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+              className="rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
             >
               {editing ? "View" : "Edit"}
             </button>
@@ -650,7 +650,7 @@ function FileContentView({
           {isMarkdown && !editing && (
             <button
               onClick={() => setMdPreview((v) => !v)}
-              className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+              className="rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
             >
               {mdPreview ? "Source" : "Preview"}
             </button>
@@ -659,7 +659,7 @@ function FileContentView({
             <button
               onClick={() => onOpenPath(parent, "dir")}
               title="Open containing folder"
-              className="rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+              className="rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
             >
               Folder
             </button>
@@ -667,7 +667,7 @@ function FileContentView({
           <button
             onClick={() => onCopy(tab.content ?? "")}
             title="Copy contents"
-            className="flex items-center gap-1 rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            className="flex items-center gap-1 rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <Copy width={14} height={14} /> Copy
           </button>
@@ -676,7 +676,7 @@ function FileContentView({
             target="_blank"
             rel="noreferrer"
             title="Download"
-            className="flex items-center gap-1 rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            className="flex items-center gap-1 rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <Download width={14} height={14} /> Raw
           </a>
@@ -685,7 +685,7 @@ function FileContentView({
             target="_blank"
             rel="noreferrer"
             title="Open on GitHub"
-            className="flex items-center gap-1 rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            className="flex items-center gap-1 rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <ExternalLink width={14} height={14} /> GitHub
           </a>
@@ -693,10 +693,10 @@ function FileContentView({
       </div>
 
       {lfsPointer && (
-        <div className="border-b border-blue-900/50 bg-blue-950/30 px-3 py-2 text-sm text-blue-200">
+        <div className="border-b border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm text-blue-700 dark:text-blue-200">
           Git LFS pointer detected · {formatBytes(lfsPointer.size)} · {lfsProgress ?? "not downloaded"}
           <button
-            className="ml-3 rounded bg-blue-600 px-2 py-1 text-xs text-white"
+            className="ml-3 rounded bg-[var(--dh-accent)] px-2 py-1 text-xs text-[var(--dh-accent-foreground)]"
             onClick={async () => {
               const blob = await downloadLfsObject(meta.owner, meta.repo, lfsPointer, (loaded, total) => setLfsProgress(`${formatBytes(loaded)} / ${formatBytes(total)}`));
               const url = URL.createObjectURL(blob);
@@ -706,23 +706,23 @@ function FileContentView({
         </div>
       )}
       {conflictHunks.length > 0 && (
-        <div className="border-b border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+        <div className="border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
           {conflictHunks.length} merge conflict hunk{conflictHunks.length === 1 ? "" : "s"} detected. Edit the file, resolve markers, then save as a changeset delta.
         </div>
       )}
       {editing && (
-        <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-neutral-300">
+        <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-2 text-xs text-[var(--dh-text-secondary)]">
           {savedFlash ? (
-            <span className="text-emerald-400">Saved as Working Change — checkpoint when ready.</span>
+            <span className="text-emerald-700 dark:text-emerald-400">Saved as Working Change — checkpoint when ready.</span>
           ) : dirty ? (
-            <span className="text-amber-400">Unsaved draft — kept across tab switches and reloads.</span>
+            <span className="text-amber-700 dark:text-amber-400">Unsaved draft — kept across tab switches and reloads.</span>
           ) : (
             <span>Saving stages a Working Changes delta, not an immediate commit.</span>
           )}
           {isMarkdown && (
             <button
               onClick={() => setEditPreview((v) => !v)}
-              className="ml-auto rounded bg-neutral-800 px-2 py-1 hover:bg-neutral-700"
+              className="ml-auto rounded bg-[var(--dh-surface-hover)] px-2 py-1 hover:bg-[var(--dh-surface-selected)]"
             >
               {editPreview ? "Editor" : "Preview"}
             </button>
@@ -733,7 +733,7 @@ function FileContentView({
             title="Save (Ctrl/Cmd+S)"
             className={[
               isMarkdown ? "" : "ml-auto",
-              "rounded bg-blue-600 px-2 py-1 text-white disabled:opacity-40",
+              "rounded bg-[var(--dh-accent)] px-2 py-1 text-[var(--dh-accent-foreground)] disabled:opacity-40",
             ].join(" ")}
           >
             Save <kbd className="ml-1 rounded bg-blue-800 px-1 text-[10px]">⌘S</kbd>
@@ -745,7 +745,7 @@ function FileContentView({
               setResetNonce((n) => n + 1);
             }}
             disabled={!dirty}
-            className="rounded bg-neutral-800 px-2 py-1 disabled:opacity-40"
+            className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 disabled:opacity-40"
           >
             Discard draft
           </button>
@@ -754,13 +754,13 @@ function FileContentView({
       <div className="min-h-0 flex-1 overflow-auto">
         {editing && needsSizeGuard ? (
           <div className="flex flex-col items-center gap-3 p-8 text-center">
-            <p className="text-sm text-neutral-300">
+            <p className="text-sm text-[var(--dh-text-secondary)]">
               This file is {formatBytes(contentBytes)} — large files can make the
               editor slow.
             </p>
             <button
               onClick={() => setSizeGuardAccepted(true)}
-              className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+              className="rounded-md bg-[var(--dh-accent)] px-4 py-1.5 text-sm font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
             >
               Edit anyway
             </button>
@@ -800,7 +800,7 @@ function FileContentView({
         ) : (
           <pre className="flex min-w-full font-mono text-[12.5px] leading-5">
             <code className="flex min-w-full">
-              <span className="select-none border-r border-neutral-800 px-3 py-2 text-right text-neutral-600">
+              <span className="select-none border-r border-[var(--dh-window-border)] px-3 py-2 text-right text-[var(--dh-text-disabled)]">
                 {shownLines.map((_, i) => (
                   <div key={i}>{i + 1}</div>
                 ))}
@@ -824,7 +824,7 @@ function FileContentView({
           </pre>
         )}
         {truncated && (
-          <div className="border-t border-neutral-800 bg-neutral-950 px-4 py-2 text-[12px] text-neutral-500">
+          <div className="border-t border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-4 py-2 text-[12px] text-[var(--dh-text-secondary)]">
             Showing first {CAP} lines of {lines.length.toLocaleString()}. Use
             “Raw” to view the full file.
           </div>

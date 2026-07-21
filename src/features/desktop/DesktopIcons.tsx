@@ -31,7 +31,10 @@ function DesktopIcon({ item }: { item: DesktopIconState }) {
         applicationId: "repository-explorer",
         owner: { type: "desktop" },
         resource: item.resource,
-        title: `${item.title} — Demo`,
+        title:
+          item.resource.type === "repository"
+            ? item.resource.repoKey
+            : item.title,
       });
     else if (item.resource?.type === "system")
       wm.openOrFocusWindow({
@@ -78,7 +81,10 @@ function DesktopIcon({ item }: { item: DesktopIconState }) {
     >
       <span>{icon(item.iconKey)}</span>
       <b>{item.title}</b>
-      {item.kind === "repository-drive" && <small>DEMO DRIVE</small>}
+      {item.kind === "repository-drive" &&
+        item.resource?.type === "repository" && (
+          <small>{item.resource.repoKey.split("/")[0]}</small>
+        )}
     </button>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { appIconFor } from "@/features/icons";
 import { snapPoint } from "./geometry";
-import { icon } from "./WindowFrame";
 import { useWindowManager } from "./WindowManagerProvider";
 import type { DesktopIconState } from "./types";
 export function DesktopIcons() {
@@ -79,7 +79,9 @@ function DesktopIcon({ item }: { item: DesktopIconState }) {
         wm.flushPersistence();
       }}
     >
-      <span>{icon(item.iconKey)}</span>
+      <span>
+        <DesktopIconGlyph iconKey={item.iconKey} />
+      </span>
       <b>{item.title}</b>
       {item.kind === "repository-drive" &&
         item.resource?.type === "repository" && (
@@ -87,4 +89,8 @@ function DesktopIcon({ item }: { item: DesktopIconState }) {
         )}
     </button>
   );
+}
+function DesktopIconGlyph({ iconKey }: { iconKey: string }) {
+  const Icon = appIconFor(iconKey);
+  return <Icon />;
 }

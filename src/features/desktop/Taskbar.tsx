@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useEffect, useSyncExternalStore } from "react";
+import { appIconFor, AppsRegular, SearchRegular } from "@/features/icons";
 import { groupTaskbar } from "./window-state";
-import { icon } from "./WindowFrame";
 import { useWindowManager } from "./WindowManagerProvider";
 import { useSearch } from "@/features/search";
 import {
@@ -45,14 +45,14 @@ export function Taskbar() {
           })
         }
       >
-        ◈
+        <AppsRegular />
       </button>
       <button
         className="search-launch"
         onClick={search.open}
         title="Search repositories (Ctrl/Cmd+K)"
       >
-        ⌕ <span>Launcher / Search</span>
+        <SearchRegular /> <span>Launcher / Search</span>
       </button>
       <div className="task-groups">
         {groups.map((group) => {
@@ -75,7 +75,9 @@ export function Taskbar() {
                     : setOpenGroup(openGroup === group.key ? null : group.key)
                 }
               >
-                <span>{icon(top.iconKey)}</span>
+                <span>
+                  <TaskGlyph iconKey={top.iconKey} />
+                </span>
                 <em>
                   {top.owner.type === "repository"
                     ? top.owner.repoKey.split("/").pop()
@@ -93,7 +95,9 @@ export function Taskbar() {
                         setOpenGroup(null);
                       }}
                     >
-                      <span>{icon(w.iconKey)}</span>
+                      <span>
+                        <TaskGlyph iconKey={w.iconKey} />
+                      </span>
                       <b>{w.title}</b>
                       <small>
                         {w.minimized
@@ -121,4 +125,8 @@ export function Taskbar() {
       </div>
     </footer>
   );
+}
+function TaskGlyph({ iconKey }: { iconKey: string }) {
+  const Icon = appIconFor(iconKey);
+  return <Icon />;
 }

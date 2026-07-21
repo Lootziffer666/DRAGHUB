@@ -44,28 +44,12 @@ import type {
   WindowLifecycleAdapter,
   RecycleBinLifecycleAdapter,
 } from "./types";
-const initialIcons: DesktopIconState[] = [
-  {
-    id: "bin",
-    kind: "recycle-bin",
-    title: "Recycle Bin",
-    iconKey: "bin",
-    resource: { type: "system", systemId: "recycle-bin" },
-    position: { x: 24, y: 76 },
-    selected: false,
-    pinned: true,
-  },
-  {
-    id: "settings",
-    kind: "settings",
-    title: "Settings",
-    iconKey: "settings",
-    resource: { type: "system", systemId: "settings" },
-    position: { x: 24, y: 190 },
-    selected: false,
-    pinned: true,
-  },
-];
+// Recycle Bin and Settings are deliberately not seeded as generic desktop
+// icons (native workspace redesign) — both stay one click away via the
+// launcher's tool grid instead of sitting on the desktop as decorative
+// Windows-95-style icons. Repository drives remain the only default icons,
+// since a repository IS a docked workspace, not a shortcut to one.
+const initialIcons: DesktopIconState[] = [];
 /** Icon slot for the next repository drive (below the system icons). */
 function nextIconPosition(icons: DesktopIconState[]) {
   const used = icons.map((i) => i.position.y).filter((y) => y >= 0);

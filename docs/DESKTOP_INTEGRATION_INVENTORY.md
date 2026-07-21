@@ -87,12 +87,15 @@ about what a transaction is allowed to touch:
 
 ## 4. daedalOS concepts — adopted / deferred / rejected
 
-- Adopted now: none beyond what the kernel already established (grouped
-  taskbar, desktop shortcuts, window lifecycle) — the first pass is pure
-  DRAGHUB integration per the brief.
-- Deferred (good candidates next): file-type→application associations and
-  explicit "Open With", launcher search over applications + recent resources,
-  taskbar hover previews, recent-resource tracking, richer registry metadata.
+- Adopted (2026-07-21): file-type→application associations and explicit
+  "Open With", via the file handler registry (§6).
+- Adopted at first pass: none beyond what the kernel already established
+  (grouped taskbar, desktop shortcuts, window lifecycle) — that pass was
+  pure DRAGHUB integration per the brief.
+- Deferred (good candidates next): archive viewer (inline ZIP browsing),
+  full Tree View window, Repository Gallery, Local Tool Broker for native
+  program handoff, launcher search over applications + recent resources,
+  taskbar hover previews, recent-resource tracking.
 - Rejected: general virtual filesystem, bundled app zoo, theming
   infrastructure, service-worker FS emulation, process abstractions
   duplicating the kernel.
@@ -101,6 +104,35 @@ about what a transaction is allowed to touch:
 
 Shares/device bridge (see `docs/adr/ADR-EXPLICIT-SHARES-ONLY.md`), Theia,
 ANVIL-Core backend, agents/validation/Playwright-in-product, SWIFT/SHADED/
-TRIVIUM, new speculative resource types, visual redesign. Kernel contracts
-(persistence v5 — extended only by the additive `file-editor` application id —
+TRIVIUM, new speculative resource types, visual redesign, archive
+extraction/execution (no archive viewer yet — `.zip`/`.7z`/`.rar` only
+offer Download), native/local program handoff (Local Tool Broker, not
+built). Kernel contracts (persistence v5 — extended only by the additive
+`file-editor`, `raw-text-viewer` and `audio-player` application ids —
 close transactions, ownership, presentation/minimized split) unchanged.
+
+## 6. File handler registry and Open With (2026-07-21)
+
+`src/features/desktop-apps/file-handlers/` answers "what can open this
+file" with registered `FileHandlerDefinition` entries instead of
+`if (extension === ...)` branches spread across the file window
+components:
+
+- `extensions` (empty = wildcard) plus `canHandle(resource)` decide
+  applicability; `priority` (registration order as tiebreaker) ranks the
+  "Open with" menu and picks the default handler.
+- Registered today: Code Editor (`file-editor`), Image Viewer /
+  Markdown Preview (`image-viewer`, the existing generic File Viewer app),
+  Raw Text (new `raw-text-viewer` app — literal source, no Markdown
+  rendering), Audio Player (new `audio-player` app), and a `Download`
+  sentinel handled by the menu itself (fetches the authenticated blob,
+  triggers a browser download — never opens a window).
+- `OpenWithMenu` (`RepositoryExplorerApp`'s toolbar) lists
+  `handlersForSurface(resource, "window")` for the active tab; it replaced
+  the previous unconditional "Viewer window"/"Editor window" buttons,
+  which offered every action for every file regardless of type.
+- Backed by a shared binary resource adapter — `getRepositoryBlob` /
+  `getRepositoryArrayBuffer` / `getRepositoryText` in `src/lib/github.ts`,
+  built on the existing authenticated `fetchRepositoryBlob` — so image,
+  audio and future archive support share one GitHub downloader and one
+  preview-size guard instead of three independent ones.

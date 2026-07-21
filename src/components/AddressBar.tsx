@@ -16,7 +16,17 @@ import {
 } from "./icons";
 import { UploadPanel } from "./UploadPanel";
 
-export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
+export function AddressBar({
+  onGoHome,
+  onOpenRepo,
+  onCloseRepo,
+}: {
+  onGoHome: () => void;
+  /** Overrides how a typed/recent repository is opened — the desktop shell
+   * routes this into a new repository window instead of the global store. */
+  onOpenRepo?: (input: string) => void;
+  onCloseRepo?: () => void;
+}) {
   const { state, openRepo, setBranch, closeRepo } = useStore();
   const repo = useActiveRepo();
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -47,9 +57,14 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
     }
   }, [state.repoLoading]);
 
+  const open = (input: string) => {
+    if (onOpenRepo) onOpenRepo(input);
+    else void openRepo(input);
+  };
+
   function submit() {
     if (!value.trim()) return;
-    void openRepo(value);
+    open(value);
     setShowRecent(false);
     inputRef.current?.blur();
   }
@@ -103,7 +118,7 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
                 onMouseDown={(e) => {
                   e.preventDefault();
                   setValue(r);
-                  void openRepo(r);
+                  open(r);
                   setShowRecent(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-800"
@@ -173,7 +188,7 @@ export function AddressBar({ onGoHome }: { onGoHome: () => void }) {
           </button>
 
           <button
-            onClick={closeRepo}
+            onClick={onCloseRepo ?? closeRepo}
             title="Close repository"
             className="flex h-8 items-center justify-center rounded-md px-2 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           >

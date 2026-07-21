@@ -35,10 +35,10 @@ export function DesktopShell() {
         <strong>
           <span>◈</span> DRAGHUB
         </strong>
-        <nav>DESKTOP UX FOUNDATION</nav>
+        <nav>VIRTUAL GITHUB DESKTOP</nav>
         <div>
-          <b>DEMO</b>
-          <span>Adapter disconnected</span>
+          <b>GITHUB</b>
+          <span>api.github.com</span>
         </div>
       </header>
       <DesktopCanvas />

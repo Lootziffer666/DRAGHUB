@@ -201,6 +201,90 @@ export async function fetchFileContent(
   return { content: data.content, size: data.size };
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  webp: "image/webp",
+  ico: "image/x-icon",
+  bmp: "image/bmp",
+  avif: "image/avif",
+};
+
+function mimeFromPath(path: string): string | null {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXT[ext] ?? null;
+}
+
+/**
+ * Decode a base64 string into a Uint8Array WITHOUT TextDecoder. Operates purely
+ * on the base64 alphabet so binary payloads (images) survive unmoested.
+ */
+function base64ToBytes(b64: string): Uint8Array {
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const lookup = new Int16Array(128).fill(-1);
+  for (let i = 0; i < alphabet.length; i++) {
+    lookup[alphabet.charCodeAt(i)] = i;
+  }
+  const clean = b64.replace(/=+$/, "");
+  const out = new Uint8Array(Math.floor((clean.length * 6) / 8));
+  let bitBuffer = 0;
+  let bitCount = 0;
+  let outIndex = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const val = lookup[clean.charCodeAt(i)];
+    if (val < 0) continue;
+    bitBuffer = (bitBuffer << 6) | val;
+    bitCount += 6;
+    if (bitCount >= 8) {
+      bitCount -= 8;
+      out[outIndex++] = (bitBuffer >> bitCount) & 0xff;
+    }
+  }
+  return out.slice(0, outIndex);
+}
+
+export async function fetchRepositoryBlob({
+  owner,
+  repo,
+  branch,
+  path,
+}: {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+}): Promise<Blob> {
+  const data = await ghFetch<{
+    content: string;
+    encoding: string;
+    size: number;
+    download_url: string | null;
+  }>(
+    `/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`
+  );
+
+  if (data.size > 5 * 1024 * 1024) {
+    throw new Error(
+      "Large file preview is disabled. Use Raw/LFS download to fetch it on demand."
+    );
+  }
+
+  if (data.encoding !== "base64") {
+    throw new Error("Unsupported content encoding for binary fetch.");
+  }
+
+  const cleaned = data.content.replace(/\s/g, "");
+  const bytes = base64ToBytes(cleaned);
+  const buf = new ArrayBuffer(bytes.length);
+  new Uint8Array(buf).set(bytes);
+  const type = mimeFromPath(path);
+  return new Blob([buf], type ? { type } : undefined);
+}
+
 export async function fetchBranches(
   owner: string,
   repo: string

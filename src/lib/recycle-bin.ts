@@ -56,10 +56,10 @@ export function listRetained(repoKey: string): RetainedChange[] {
   return load().filter((r) => r.repoKey === repoKey);
 }
 
-/** Returns every retained change across all repositories (domain retention). */
+/** Retained discarded changes across every repository (system Recycle Bin). */
 export function listAllRetained(): RetainedChange[] {
   void purgeExpired();
-  return load();
+  return [...load()];
 }
 
 /** Removes a retained entry (after restore, or per-item permanent delete).

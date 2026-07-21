@@ -38,6 +38,8 @@ export function SearchProvider({
   relatedRepoKey = null,
 }: {
   children: ReactNode;
+  /** Overrides what selecting a repository result does — the desktop shell
+   * opens/focuses a repository window instead of the global store. */
   onSelectRepo?: (fullName: string) => void;
   relatedRepoKey?: string | null;
 }) {

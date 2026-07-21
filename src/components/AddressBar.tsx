@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useActiveRepo, useStore } from "@/lib/store";
+import { useActiveRepo, useRepoRequest, useStore } from "@/lib/store";
 import { fetchBranches } from "@/lib/github";
 import {
   ChevronDown,
@@ -27,8 +27,10 @@ export function AddressBar({
   onOpenRepo?: (input: string) => void;
   onCloseRepo?: () => void;
 }) {
-  const { state, openRepo, setBranch, closeRepo } = useStore();
+  const { openRepo, setBranch, closeRepo } = useStore();
   const repo = useActiveRepo();
+  const repoKey = repo?.meta.fullName ?? null;
+  const req = useRepoRequest(repoKey);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [value, setValue] = useState("");
   const [branches, setBranches] = useState<string[]>([]);
@@ -55,7 +57,12 @@ export function AddressBar({
     } catch {
       setRecent([]);
     }
-  }, [state.repoLoading]);
+  }, [req.loading]);
+
+  const open = (input: string) => {
+    if (onOpenRepo) onOpenRepo(input);
+    else void openRepo(input);
+  };
 
   const open = (input: string) => {
     if (onOpenRepo) onOpenRepo(input);
@@ -98,7 +105,7 @@ export function AddressBar({
             className="flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-600"
             spellCheck={false}
           />
-          {state.repoLoading && (
+          {req.loading && (
             <Spinner width={15} height={15} className="text-blue-400" />
           )}
           {value && (

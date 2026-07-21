@@ -4,7 +4,7 @@ import { ChevronDownRegular, ChevronUpRegular, appIconFor, type AppIconKey } fro
 import { useWindowManager } from "./WindowManagerProvider";
 import type { WindowResource } from "./types";
 const items = [
-  "Code",
+  "Files",
   "Pull Requests",
   "Issues",
   "Actions",
@@ -15,7 +15,7 @@ const items = [
   "Settings",
 ];
 const itemIconKeys: Record<string, AppIconKey> = {
-  Code: "code",
+  Files: "code",
   "Pull Requests": "pull-requests",
   Issues: "issues",
   Actions: "actions",
@@ -40,7 +40,9 @@ export function RubberBand({
     repoKey,
     repositoryWindowId: windowId,
     edge: "top" as const,
-    collapsed: false,
+    // Collapsed by default: this is a secondary-tools launcher, not the
+    // primary GitHub-tab-style navigation the workspace redesign removed.
+    collapsed: true,
     autoHide: false,
     itemOrder: items,
   };
@@ -78,13 +80,12 @@ export function RubberBand({
             <button
               key={label}
               onClick={() => {
-                if (label === "Code") return;
                 const featureId = label.toLowerCase().replaceAll(" ", "-");
                 wm.openRepositoryChild(
                   windowId,
                   "github-feature",
                   { type: "github-feature", repoKey, featureId },
-                  `${repoKey.split("/").pop()} ${label} — Demo`,
+                  `${repoKey.split("/").pop()} — ${label}`,
                 );
               }}
             >

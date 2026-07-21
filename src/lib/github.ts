@@ -334,6 +334,47 @@ export async function fetchBranches(
   return data.map((b) => b.name);
 }
 
+export type RecentCommit = {
+  sha: string;
+  message: string;
+  author: string;
+  /** True when the commit's GitHub account is a Bot (Actions, Dependabot,
+   * Copilot, etc.) — surfaced separately from human activity rather than
+   * inferred from the author name. */
+  isBot: boolean;
+  date: string;
+  htmlUrl: string;
+};
+
+/**
+ * Recent commits on a branch, newest first — the repository-wide equivalent
+ * of `fetchFileHistory`, backing the workspace dashboard's "current
+ * activity" (recent meaningful changes, agent/bot activity).
+ */
+export async function fetchRecentCommits(
+  owner: string,
+  repo: string,
+  branch: string,
+  perPage = 10
+): Promise<RecentCommit[]> {
+  const data = await ghFetch<
+    Array<{
+      sha: string;
+      html_url: string;
+      commit: { message: string; author: { name: string; date: string } | null };
+      author: { login: string; type: string } | null;
+    }>
+  >(`/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=${perPage}`);
+  return data.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message.split("\n")[0],
+    author: c.author?.login ?? c.commit.author?.name ?? "unknown",
+    isBot: c.author?.type === "Bot",
+    date: c.commit.author?.date ?? "",
+    htmlUrl: c.html_url,
+  }));
+}
+
 export type FileHistoryEntry = {
   sha: string;
   message: string;

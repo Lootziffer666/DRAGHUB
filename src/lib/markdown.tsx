@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 
 /**
  * Minimal dependency-free Markdown renderer for the M3b preview
@@ -104,11 +104,13 @@ export function renderMarkdown(source: string): ReactNode {
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      const Tag = `h${level}` as React.ElementType;
       blocks.push(
-        <Tag key={key++} className={HEADING_CLASS[level]}>
-          {renderInline(heading[2], `h${key}`)}
-        </Tag>
+        createElement(
+          Tag,
+          { key: key++, className: HEADING_CLASS[level] },
+          renderInline(heading[2], `h${key}`)
+        )
       );
       i++;
       continue;

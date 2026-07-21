@@ -287,7 +287,7 @@ function ReleaseList({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onSelectRepo(repo.fullName)}
-              className="truncate font-medium text-[var(--dh-text)] hover:text-blue-700 dark:text-blue-400"
+              className="truncate font-medium text-[var(--dh-text)] hover:text-blue-700 dark:hover:text-blue-400"
             >
               {repo.fullName}
             </button>

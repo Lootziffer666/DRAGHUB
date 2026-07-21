@@ -105,6 +105,7 @@ export function AddressBar({
           {value && (
             <button
               onClick={() => setValue("")}
+              aria-label="Clear address"
               className="text-[var(--dh-text-secondary)] hover:text-[var(--dh-text)]"
             >
               <X width={14} height={14} />
@@ -182,7 +183,7 @@ export function AddressBar({
           <button
             onClick={() => setUploadOpen(true)}
             title="Upload files"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 text-sm text-[var(--dh-text)] hover:border-blue-600 hover:text-blue-700 dark:text-blue-300"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 text-sm text-[var(--dh-text)] hover:border-blue-600 hover:text-blue-700 dark:hover:text-blue-300"
           >
             <Upload width={14} height={14} />
             Upload

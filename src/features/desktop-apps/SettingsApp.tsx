@@ -111,7 +111,7 @@ export function SettingsApp() {
             if (window.confirm("Reset the desktop session? All windows will close; repositories and pending changes are kept."))
               wm.resetDesktopSession();
           }}
-          className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs text-red-600 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/40"
+          className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40"
         >
           Reset desktop session
         </button>

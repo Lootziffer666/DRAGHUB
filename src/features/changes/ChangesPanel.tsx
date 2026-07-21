@@ -154,7 +154,7 @@ export function ChangesPanelBody() {
                     <button
                       onClick={() => changes.discardChange(c.id)}
                       title="Discard"
-                      className="shrink-0 text-[var(--dh-text-secondary)] hover:text-red-600 dark:text-red-400"
+                      className="shrink-0 text-[var(--dh-text-secondary)] hover:text-red-600 dark:hover:text-red-400"
                     >
                       <X width={14} height={14} />
                     </button>

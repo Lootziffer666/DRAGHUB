@@ -161,7 +161,8 @@ function TabButton({
       <button
         onClick={onClose}
         title="Close tab (middle-click)"
-        className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--dh-text-secondary)] opacity-0 hover:bg-[var(--dh-surface-selected)] hover:text-[var(--dh-text)] group-hover:opacity-100"
+        aria-label={`Close ${tab.label}`}
+        className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--dh-text-secondary)] opacity-0 hover:bg-[var(--dh-surface-selected)] hover:text-[var(--dh-text)] group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
       >
         <X width={12} height={12} />
       </button>

@@ -162,7 +162,7 @@ export function RecycleBinApp() {
                       if (window.confirm(`Permanently delete "${e.label}"?`))
                         wm.deleteRecycleEntry(e.id);
                     }}
-                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/40"
+                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     Delete
                   </button>
@@ -256,7 +256,7 @@ export function RecycleBinApp() {
                       )
                         void removeRetained(r.change.id, true);
                     }}
-                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-950/40"
+                    className="shrink-0 rounded border border-red-200 dark:border-red-900 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     Delete
                   </button>
@@ -271,7 +271,7 @@ export function RecycleBinApp() {
         <button
           onClick={() => void onEmpty()}
           disabled={summary.kernelCount === 0 && summary.domainCount === 0}
-          className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/40 disabled:opacity-40"
+          className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40"
         >
           Empty Recycle Bin…
         </button>

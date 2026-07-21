@@ -1,6 +1,8 @@
 import type { WindowApplicationDefinition } from "./types";
 import { RepositoryExplorerApp } from "@/features/desktop-apps/RepositoryExplorerApp";
 import { FileViewerApp, FileEditorApp } from "@/features/desktop-apps/FileWindowApp";
+import { RawTextViewerApp } from "@/features/desktop-apps/RawTextViewerApp";
+import { AudioPlayerApp } from "@/features/desktop-apps/AudioPlayerApp";
 import { GithubFeatureApp } from "@/features/desktop-apps/GithubFeatureApp";
 import { ScratchpadApp } from "@/features/desktop-apps/ScratchpadApp";
 import { SettingsApp } from "@/features/desktop-apps/SettingsApp";
@@ -35,6 +37,26 @@ const definitions: WindowApplicationDefinition[] = [
     minimumSize: { width: 420, height: 300 },
     allowMultiple: true,
     render: (p) => <FileEditorApp {...p} />,
+  },
+  {
+    id: "raw-text-viewer",
+    kind: "viewer",
+    title: "Raw Text",
+    iconKey: "tool",
+    defaultSize: { width: 640, height: 480 },
+    minimumSize: { width: 380, height: 280 },
+    allowMultiple: true,
+    render: (p) => <RawTextViewerApp {...p} />,
+  },
+  {
+    id: "audio-player",
+    kind: "viewer",
+    title: "Audio Player",
+    iconKey: "tool",
+    defaultSize: { width: 420, height: 300 },
+    minimumSize: { width: 320, height: 240 },
+    allowMultiple: true,
+    render: (p) => <AudioPlayerApp {...p} />,
   },
   {
     id: "github-feature",

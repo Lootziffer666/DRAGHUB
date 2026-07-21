@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RepoScope, useActiveRepo, useStore } from "@/lib/store";
+import { RepoScope, useActiveRepo, useRepoRequest, useStore } from "@/lib/store";
 import { parseRepoInput } from "@/lib/github";
 import { ChangesProvider, useChanges } from "@/features/changes";
 import { UIProvider } from "@/components/ui-context";
@@ -38,6 +38,7 @@ export function RepositoryExplorerApp({ windowId, resource }: WindowContentProps
           (k) => k.toLowerCase() === requestedKey.toLowerCase()
         )) ?? requestedKey;
   const repo = state.repos[repoKey];
+  const request = useRepoRequest(requestedKey);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -50,9 +51,9 @@ export function RepositoryExplorerApp({ windowId, resource }: WindowContentProps
   if (!repo) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
-        {state.repoError && !state.repoLoading ? (
+        {request.error && !request.loading ? (
           <>
-            <p className="max-w-md text-sm text-red-300">{state.repoError}</p>
+            <p className="max-w-md text-sm text-red-300">{request.error}</p>
             <button
               onClick={() => setAttempt((n) => n + 1)}
               className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"

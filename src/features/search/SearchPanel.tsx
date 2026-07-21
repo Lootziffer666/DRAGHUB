@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/lib/store";
 import { formatBytes, ghRequest } from "@/lib/github";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
+import { changesFor, repoKeysWithChanges, subscribeChanges } from "@/features/changes/store";
 import {
   appIconFor,
+  ArrowSyncRegular as ChangesIcon,
   ClockRegular,
   DraghubMark,
   OpenRegular as ExternalLink,
@@ -70,11 +72,37 @@ function useGithubRateLimit(): RateLimitInfo {
   return rate;
 }
 
-/** The launcher's "home" content: a quick-access row (recently opened
- * repositories, live GitHub rate-limit status) and a grid of DRAGHUB's own
- * standalone tools — everything here is real data/real windows, the same
- * `state.recent`/`openOrFocusWindow` the rest of the desktop uses, not
- * placeholder content. */
+type Identity = { login: string; avatarUrl: string } | null;
+
+/** The authenticated GitHub identity behind the configured token, fetched
+ * once per launcher session — real account data for the launcher's greeting,
+ * not a placeholder name. Resolves to null (rendered as "not signed in")
+ * when no token is configured or the request fails. */
+function useGithubIdentity(): { identity: Identity; loading: boolean } {
+  const [identity, setIdentity] = useState<Identity>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    ghRequest("/user")
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json<{ login: string; avatar_url: string }>();
+        if (!cancelled) setIdentity({ login: data.login, avatarUrl: data.avatar_url });
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return { identity, loading };
+}
+
+/** The launcher's "home" content: a greeting, a quick-access row (recently
+ * opened repositories, live GitHub rate-limit status), an adaptive widget
+ * surfacing repositories with unsaved working changes, and a grid of
+ * DRAGHUB's own standalone tools — everything here is real data/real
+ * windows, the same `state.recent`/`openOrFocusWindow` the rest of the
+ * desktop uses, not placeholder content. */
 function HomeView({
   onSelectRepo,
 }: {
@@ -83,7 +111,13 @@ function HomeView({
   const { state } = useStore();
   const wm = useWindowManager();
   const rate = useGithubRateLimit();
+  const { identity, loading: identityLoading } = useGithubIdentity();
   const recent = state.recent.slice(0, 5);
+  const repoKeysPending = useSyncExternalStore(
+    subscribeChanges,
+    () => repoKeysWithChanges(),
+    () => []
+  );
 
   const tools: { id: string; label: string; iconKey: string; open: () => void }[] = [
     {
@@ -126,6 +160,24 @@ function HomeView({
 
   return (
     <div className="flex flex-col gap-4 p-3">
+      <div className="flex items-center gap-2.5 px-1">
+        {identity ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={identity.avatarUrl} alt="" width={32} height={32} className="rounded-full" />
+            <span className="text-sm font-medium text-[var(--dh-text)]">
+              Welcome back, {identity.login}
+            </span>
+          </>
+        ) : identityLoading ? (
+          <span className="text-sm text-[var(--dh-text-secondary)]">Checking sign-in…</span>
+        ) : (
+          <span className="text-sm text-[var(--dh-text-secondary)]">
+            Not signed in — add a token in Settings to unlock writes and a higher rate limit.
+          </span>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--dh-text-secondary)]">
@@ -175,6 +227,34 @@ function HomeView({
           )}
         </div>
       </div>
+
+      {/* Adaptive: only appears when there's something to act on — the
+          "widgets generated according to usage" idea, using real local
+          Working Changes state instead of a fixed slot. */}
+      {repoKeysPending.length > 0 && (
+        <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--dh-text-secondary)]">
+            <ChangesIcon width={13} height={13} />
+            Unsaved working changes
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {repoKeysPending.map((key) => (
+              <li key={key}>
+                <button
+                  onClick={() => onSelectRepo(key)}
+                  className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
+                >
+                  <GithubMark width={12} height={12} className="shrink-0 text-[var(--dh-text-secondary)]" />
+                  <span className="min-w-0 flex-1 truncate">{key}</span>
+                  <span className="shrink-0 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    {changesFor(key).length}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <div className="mb-2 text-xs font-medium text-[var(--dh-text-secondary)]">

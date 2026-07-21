@@ -4,6 +4,16 @@ export const metadata: Metadata = {
   title: "DRAGHUB — Virtual GitHub Desktop",
   description:
     "An adapter-ready virtual desktop UX for repositories, files, GitHub features and development tools.",
+  openGraph: {
+    title: "DRAGHUB — Virtual GitHub Desktop",
+    description:
+      "An adapter-ready virtual desktop UX for repositories, files, GitHub features and development tools.",
+    images: ["/branding/logo.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/branding/logo.png"],
+  },
 };
 
 // Runs before React hydrates and before first paint, so the persisted theme

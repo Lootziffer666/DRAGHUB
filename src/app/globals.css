@@ -161,7 +161,16 @@ input:focus-visible {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: var(--dh-desktop-background);
+  /* The DRAGHUB wallpaper, like a real OS wallpaper, is intentionally
+   * constant across light/dark mode — only the chrome floating on top of
+   * it (systembar, windows, taskbar) retheme. A light scrim keeps desktop
+   * icon labels legible against the artwork's brighter regions.
+   * background-color is the fallback if the image fails to load;
+   * --dh-desktop-background stays defined (unused here) as part of the
+   * documented token contract. */
+  background: linear-gradient(180deg, rgba(4, 20, 26, 0.32), rgba(4, 20, 26, 0.5)),
+    url("/branding/wallpaper.png") center/cover no-repeat fixed;
+  background-color: var(--dh-surface);
   font-family: "Segoe UI", Aptos, Calibri, system-ui, sans-serif;
   color: var(--dh-text);
 }
@@ -237,13 +246,26 @@ input:focus-visible {
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: var(--dh-text);
+  /* Like every desktop icon label on a real OS, this sits directly on the
+   * (theme-independent) wallpaper rather than a themed surface, so it stays
+   * a fixed light color with a shadow instead of following --dh-text. */
+  color: #f2f6fa;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
   touch-action: none;
 }
 .desktop-shortcut:hover,
 .desktop-shortcut.selected {
   border-color: var(--dh-window-border-active);
   background: var(--dh-surface-hover);
+  /* Once a themed surface sits behind the label (instead of the bare
+   * wallpaper), switch off the fixed light/shadow styling and follow the
+   * theme like everything else on that surface. */
+  color: var(--dh-text);
+  text-shadow: none;
+}
+.desktop-shortcut:hover small,
+.desktop-shortcut.selected small {
+  color: var(--dh-text-secondary);
 }
 .desktop-shortcut > span {
   width: 52px;
@@ -261,7 +283,7 @@ input:focus-visible {
   font-size: 12px;
 }
 .desktop-shortcut small {
-  color: var(--dh-text-secondary);
+  color: #d7e0ea;
   font-size: 7px;
   letter-spacing: 0.1em;
 }

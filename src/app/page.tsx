@@ -7,6 +7,7 @@ import { StagingProvider } from "@/lib/staging";
 import { SearchProvider, repoKeyFromWindow } from "@/features/search";
 import { createDesktopLifecycleAdapter } from "@/features/desktop-apps/lifecycle-adapter";
 import { DraghubThemeProvider } from "@/features/theme";
+import { SplashScreen } from "@/features/branding/SplashScreen";
 
 /**
  * DRAGHUB desktop entry point. The PR #8 window manager stays the shell;
@@ -18,16 +19,24 @@ import { DraghubThemeProvider } from "@/features/theme";
  * app. It owns only theme mode — switching it re-renders but never remounts
  * the store/staging/window-manager tree beneath it, so open windows, tabs,
  * editor drafts and desktop session state all survive a theme change.
+ *
+ * SplashScreen is a purely cosmetic overlay (fixed position, high z-index)
+ * rendered alongside — not instead of — the desktop tree, so the app
+ * underneath mounts and becomes interactive immediately; the splash just
+ * covers it visually until its own fade-out timer completes.
  */
 export default function Page() {
   return (
-    <DraghubThemeProvider>
-      <StoreProvider>
-        <StagingProvider>
-          <DesktopWithDomain />
-        </StagingProvider>
-      </StoreProvider>
-    </DraghubThemeProvider>
+    <>
+      <SplashScreen />
+      <DraghubThemeProvider>
+        <StoreProvider>
+          <StagingProvider>
+            <DesktopWithDomain />
+          </StagingProvider>
+        </StoreProvider>
+      </DraghubThemeProvider>
+    </>
   );
 }
 

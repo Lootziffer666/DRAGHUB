@@ -56,10 +56,10 @@ export function listRetained(repoKey: string): RetainedChange[] {
   return load().filter((r) => r.repoKey === repoKey);
 }
 
-/** Returns every retained change across all repositories (domain retention). */
+/** Retained discarded changes across every repository (system Recycle Bin). */
 export function listAllRetained(): RetainedChange[] {
   void purgeExpired();
-  return load();
+  return [...load()];
 }
 
 /** Removes a retained entry (after restore, or per-item permanent delete).
@@ -101,4 +101,9 @@ export function subscribeBin(listener: () => void): () => void {
 
 export function retainedCount(repoKey: string): number {
   return load().filter((r) => r.repoKey === repoKey).length;
+}
+
+/** Test hook: reset the in-memory cache so the next read hits storage. */
+export function __resetRecycleBinForTests(): void {
+  cache = null;
 }

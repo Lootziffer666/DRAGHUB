@@ -117,37 +117,13 @@ const base: DesktopSession = {
   restoredItems: [],
   recycleError: null,
 };
-export const demoLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
-  async inspectClose(context) {
-    const scope = deriveCloseDomainScope(context);
-    switch (scope.mode) {
-      case "repository":
-        return scope.repoKey.endsWith("/ANVIL")
-          ? [
-              {
-                type: "unsaved-draft" as const,
-                windowId: context.target.id,
-                label: `Unsaved demo state in ${context.target.title}`,
-              },
-            ]
-          : [];
-      case "editor":
-        return [];
-      case "viewer":
-        return [];
-      case "application":
-        return [];
-    }
+/** Fallback adapter when no domain lifecycle is injected: closes cleanly. */
+const cleanLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
+  async inspectClose() {
+    return [];
   },
-  async resolveClose(context, resolution) {
-    if (resolution.action === "cancel") return { success: false };
-    const scope = deriveCloseDomainScope(context);
-    if (resolution.action === "discard-to-recycle-bin-and-close") {
-      const entry = discardEntryForScope(context.target, scope);
-      if (entry) return { success: true, recycleBinEntries: [entry] };
-      return { success: true };
-    }
-    return { success: true };
+  async resolveClose(_context, resolution) {
+    return { success: resolution.action !== "cancel" };
   },
   async restoreEntry() {
     return { success: true };

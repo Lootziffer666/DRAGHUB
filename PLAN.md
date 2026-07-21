@@ -432,3 +432,42 @@ Bestätigung; Git-Historie wird nie umgeschrieben (Hinweis in der UI). Offen:
 Varianten-Zuordnung ist derzeit Repo-genau (ein Branch pro Repo-Fenster);
 sobald Varianten/Branch-Wechsel existieren, muss der Papierkorb-Eintrag
 zusätzlich die Variante tragen.
+
+**Status Post-Integrationskorrekturen (umgesetzt 2026-07-21):** Fünf
+Isolationslücken aus dem ersten Integrationspass geschlossen, jede mit
+Regressionstests abgedeckt:
+
+- **Verwandte-Suche**: `SearchPanel` liest den Repository-Kontext nicht mehr
+  über den global aktiven Repo-Zeiger, sondern erhält ein explizites
+  `relatedRepoKey`, abgeleitet vom fokussierten Desktop-Fenster
+  (`repoKeyFromWindow` in `src/features/search/`); System-/Tool-Fenster
+  deaktivieren die Verwandte-Suche mit Erklärtext.
+- **Bild-Vorschau privater Repos**: neue authentifizierte
+  `fetchRepositoryBlob` (`src/lib/github.ts`, gleicher Token-Pfad wie jede
+  andere Anfrage, byte-treuer Base64-Decode, bestehende 5-MB-Guard) statt
+  eines unauthentifizierten `raw.githubusercontent.com`-Requests; der
+  `ImageViewer` in `FileView.tsx` rendert den Blob über eine Object-URL,
+  verwaltet vom reinen Helfer `src/lib/image-url.ts`
+  (`createImageUrlManager`), die bei Ersetzung und beim Unmount freigegeben
+  wird.
+- **Papierkorb leeren**: `RecycleBinApp` leert jetzt sowohl die
+  Kernel-Einträge (`wm.session.recycleBin`) als auch die pro Repository
+  zurückgehaltenen Changes in einer Aktion (reine Helfer
+  `recycleBinSummary`/`emptyRecycleBinAll` in
+  `src/features/recycle-bin/recycle-bin-summary.ts`); zuvor leerte die
+  Aktion nur die zurückgehaltenen Changes. Zur Löschung vorgemerkte,
+  noch nicht committete Änderungen bleiben unangetastet.
+- **Repository-Ladezustand**: die globalen `repoLoading`/`repoError`-Felder
+  sind einer `repoRequests`-Map je (kleingeschriebenem) repoKey gewichen
+  (`src/lib/store.tsx`, `useRepoRequest`), sodass parallel ladende oder
+  wiederholende Repository-Fenster einander nicht mehr beeinflussen.
+- **Fenster-Schließ-Geltungsbereich**: `features/desktop-apps/lifecycle-adapter.ts`
+  leitet Inspektion und Auflösung jetzt aus derselben reinen
+  `deriveCloseScope(target)` ab. Ein einzelnes Editor- oder Viewer-Fenster
+  wirkte zuvor auf das gesamte Repository (jeder offene Entwurf wurde
+  gestaged/verworfen, ein Editor-Schließen konnte sogar einen vollen
+  Repository-Checkpoint auslösen); jetzt betrifft ein Editor-Schließen nur
+  seine eigene Datei (kein Checkpoint, keine fremden Entwürfe, die
+  Working-Changes-Bucket des Repos bleibt unberührt), und ein
+  Viewer-Schließen hat nie einen Domänen-Effekt. Das Verhalten beim
+  Schließen eines Repository-Fensters bleibt unverändert.

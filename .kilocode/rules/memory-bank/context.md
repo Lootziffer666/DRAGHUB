@@ -14,9 +14,48 @@ features: repository windows browse/edit real repositories with per-window
 state, child windows (viewer/editor/PRs/issues/actions/triage/security/
 releases/changes) bind to typed resources, and the close/Recycle-Bin
 lifecycle inspects real dirty drafts and pending changes. PR #9 tracks this
-integration. Deferred: shares (ADR), Theia/ANVIL-Core, daedalOS UX extras.
+integration; a post-integration fix pass (2026-07-21) closed five isolation
+gaps left by the first pass — see below. Deferred: shares (ADR),
+Theia/ANVIL-Core, daedalOS UX extras.
 
 ## Recently Completed
+
+- [x] **Post-PR9 integration fixes (2026-07-21)**: five isolation gaps in the
+  first integration pass closed, each with regression tests:
+  - **Related search** now takes an explicit `relatedRepoKey` derived from
+    the focused desktop window (`repoKeyFromWindow` in `features/search`)
+    instead of the globally active repository, so Related reflects whichever
+    window actually has focus; system/tool windows disable it with an
+    explanation.
+  - **Private-repository image previews** go through a new authenticated
+    `fetchRepositoryBlob` (`src/lib/github.ts`, same token path as every
+    other request, byte-safe base64 decode, existing 5 MB guard) instead of
+    an unauthenticated `raw.githubusercontent.com` request. `FileView`'s
+    `ImageViewer` renders the blob through an Object URL managed by the pure
+    `src/lib/image-url.ts` helper (`createImageUrlManager`), revoked on
+    replacement and unmount; nothing is persisted into desktop persistence.
+  - **Recycle Bin "Empty"** now clears both the kernel entries
+    (`wm.session.recycleBin`, drafts discarded on window close) and the
+    per-repository retained changes in one action, via the pure
+    `recycleBinSummary`/`emptyRecycleBinAll` helpers in
+    `src/features/recycle-bin/recycle-bin-summary.ts`; previously it only
+    cleared retained changes, so kernel entries could accumulate forever and
+    the button stayed disabled while they existed. Staged deletions are
+    still never touched.
+  - **Repository loading/error state** moved from two global flags to a
+    `repoRequests` map keyed by lowercased repoKey (`src/lib/store.tsx`,
+    `useRepoRequest`), so two repository windows hydrating or retrying
+    concurrently no longer show each other's status.
+  - **Window-close scope**: `features/desktop-apps/lifecycle-adapter.ts`
+    gained a pure `deriveCloseScope(target)` used by both `inspectClose` and
+    `resolveClose`. Closing a single file-editor or image-viewer window
+    previously fell through to repository-wide logic — staging/discarding
+    every dirty draft in the repo and, for editors, potentially creating a
+    full repository checkpoint. Now an editor's close touches only its own
+    file (no checkpoint, no other draft, no effect on the repository's
+    Working Changes bucket) and a viewer's close is always a no-op;
+    repository-window closes keep their existing repo-wide behavior
+    unchanged.
 
 - [x] **Second integration slice (2026-07-20)**: Triage, Security, Releases and
   repo-Settings became real `github-feature` child windows
@@ -208,7 +247,7 @@ integration. Deferred: shares (ADR), Theia/ANVIL-Core, daedalOS UX extras.
 | `src/lib/flubber-selection.ts`          | FLUBBER two-long-press touch text selection (CM6 extension)                                                                                             |
 | `src/lib/markdown.tsx`                  | Dependency-free Markdown → React renderer                                                                                                               |
 | `src/lib/recycle-bin.ts`                | Retention store for discarded content-bearing changes (7-day grace)                                                                                     |
-| `src/features/recycle-bin/`             | **Feature module**: `RecycleBinPanel.tsx`, `index.tsx` (`RecycleBinButton`)                                                                             |
+| `src/features/recycle-bin/`             | Pure helpers only: `recycle-bin-summary.ts` (`recycleBinSummary`, `emptyRecycleBinAll`), consumed by `desktop-apps/RecycleBinApp.tsx`                   |
 
 ## Key Decisions
 
@@ -237,3 +276,5 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | 2026-07-15 | PLAN.md M3–M7 and M9–M12: editor/delta, LFS and large-file read guards, grid layout, conflict primitives, PR/Issue/Triage modules, Dock, Control Panel, Start Menu, and wiki spike note                                                                          |
 | 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard                                       |
 | 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange`                            |
+
+| 2026-07-20 | PR #9 regression part 2 (bead db44d74f): restored unified Recycle Bin empty (kernel `wm.emptyRecycleBin()` + per-repo `emptyBin`) lost when `RecycleBinApp` replaced `RecycleBinPanel`; added `emptyRecycleBinAll` + `recycleBinSummary` helpers in `src/features/recycle-bin/recycle-bin-summary.ts`. Extracted pure `createImageUrlManager` to `src/lib/image-url.ts` (re-exported from `FileView.tsx`) for unit testing. Added `src/features/desktop-apps/pr9-regression-part2.test.ts` covering scenarios 18-23 (unified empty + authenticated `fetchRepositoryBlob` + object-URL revocation). All gates green: 41 tests, typecheck, lint. |

@@ -56,8 +56,8 @@ export function UploadPanel({
     !processing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[color-mix(in_srgb,var(--dh-surface-raised)_72%,transparent)] shadow-2xl backdrop-blur-2xl backdrop-saturate-150">
         <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] px-4 py-3">
           <Upload width={18} height={18} className="text-blue-700 dark:text-blue-400" />
           <h2 className="text-sm font-semibold text-[var(--dh-text)]">

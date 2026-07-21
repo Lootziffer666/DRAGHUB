@@ -162,14 +162,14 @@ input:focus-visible {
   height: 100vh;
   overflow: hidden;
   /* The DRAGHUB wallpaper, like a real OS wallpaper, is intentionally
-   * constant across light/dark mode — only the chrome floating on top of
-   * it (systembar, windows, taskbar) retheme. A light scrim keeps desktop
-   * icon labels legible against the artwork's brighter regions.
+   * constant across light/dark mode and shown at full color — no dimming
+   * scrim — only the chrome floating on top of it (systembar, windows,
+   * taskbar) retheme, and desktop icon labels use a fixed light color +
+   * shadow for legibility instead of darkening the whole backdrop.
    * background-color is the fallback if the image fails to load;
    * --dh-desktop-background stays defined (unused here) as part of the
    * documented token contract. */
-  background: linear-gradient(180deg, rgba(4, 20, 26, 0.32), rgba(4, 20, 26, 0.5)),
-    url("/branding/wallpaper.png") center/cover no-repeat fixed;
+  background: url("/branding/wallpaper.png") center/cover no-repeat fixed;
   background-color: var(--dh-surface);
   font-family: "Segoe UI", Aptos, Calibri, system-ui, sans-serif;
   color: var(--dh-text);
@@ -191,8 +191,11 @@ input:focus-visible {
   align-items: center;
   padding: 0 17px;
   border-bottom: 1px solid var(--dh-window-border);
-  background: var(--dh-surface-raised);
-  backdrop-filter: blur(18px);
+  /* Fluent Acrylic: a translucent surface + blur/saturate so the wallpaper
+   * actually shows through (an opaque background here would make the blur
+   * filter below a no-op). */
+  background: color-mix(in srgb, var(--dh-surface-raised) 68%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -274,7 +277,8 @@ input:focus-visible {
   place-items: center;
   border: 1px solid var(--dh-window-border);
   border-radius: 9px;
-  background: var(--dh-surface-raised);
+  background: color-mix(in srgb, var(--dh-surface-raised) 55%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
   box-shadow: var(--dh-shadow-window);
   color: var(--dh-accent);
   font-size: 27px;
@@ -302,7 +306,13 @@ input:focus-visible {
   overflow: hidden;
   border: 1px solid var(--dh-window-border);
   border-radius: 9px;
-  background: var(--dh-surface);
+  /* Fluent Mica: a barely-perceptible translucency + blur on the window
+   * frame itself. Most app content (Settings, Recycle Bin, CodeMirror, ...)
+   * paints its own fully opaque background over this, so Mica only shows
+   * through gaps/padding — enough to read as "real" glass without ever
+   * risking text legibility inside a window. */
+  background: color-mix(in srgb, var(--dh-surface) 94%, transparent);
+  backdrop-filter: blur(40px);
   box-shadow: var(--dh-shadow-window);
 }
 .desktop-window.active {
@@ -323,7 +333,8 @@ input:focus-visible {
   align-items: center;
   padding: 0 8px 0 12px;
   border-bottom: 1px solid var(--dh-window-border);
-  background: var(--dh-surface-raised);
+  background: color-mix(in srgb, var(--dh-surface-raised) 70%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
   user-select: none;
   touch-action: none;
 }
@@ -335,7 +346,7 @@ input:focus-visible {
   margin-right: 9px;
   border: 1px solid var(--dh-window-border);
   border-radius: 5px;
-  background: var(--dh-surface-hover);
+  background: color-mix(in srgb, var(--dh-surface-hover) 65%, transparent);
   color: var(--dh-accent);
   font-size: 14px;
 }
@@ -399,9 +410,9 @@ input:focus-visible {
   padding: 6px 8px;
   border: 1px solid var(--dh-window-border);
   border-radius: 10px;
-  background: var(--dh-surface-raised);
+  background: color-mix(in srgb, var(--dh-surface-raised) 68%, transparent);
   box-shadow: var(--dh-shadow-taskbar);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px) saturate(1.5);
 }
 .desktop-taskbar > button {
   height: 46px;
@@ -489,7 +500,8 @@ input:focus-visible {
   padding: 5px;
   border: 1px solid var(--dh-window-border-active);
   border-radius: 7px;
-  background: var(--dh-surface);
+  background: color-mix(in srgb, var(--dh-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
   box-shadow: var(--dh-shadow-window);
 }
 .task-group-menu button {
@@ -578,7 +590,8 @@ input:focus-visible {
   padding: 24px;
   border: 1px solid var(--dh-window-border-active);
   border-radius: 9px;
-  background: var(--dh-surface);
+  background: color-mix(in srgb, var(--dh-surface) 85%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
   box-shadow: var(--dh-shadow-window);
 }
 .close-overlay .warning {
@@ -616,7 +629,8 @@ input:focus-visible {
   padding: 5px;
   border: 1px solid var(--dh-window-border-active);
   border-radius: 6px;
-  background: var(--dh-surface);
+  background: color-mix(in srgb, var(--dh-surface) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
   box-shadow: var(--dh-shadow-window);
 }
 .desktop-menu strong {

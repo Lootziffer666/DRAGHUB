@@ -189,7 +189,7 @@ function HomeView({
                 onClick={tool.open}
                 className="flex flex-col items-center gap-1.5 rounded-lg p-2 text-center hover:bg-[var(--dh-surface-hover)]"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] text-[var(--dh-accent)]">
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--dh-window-border)] bg-[color-mix(in_srgb,var(--dh-surface-raised)_60%,transparent)] text-[var(--dh-accent)]">
                   <Icon width={18} height={18} />
                 </span>
                 <span className="text-[11px] text-[var(--dh-text-secondary)]">
@@ -316,8 +316,8 @@ export function SearchPanel({
   const isHome = mode === "repos" && !query.trim();
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/60 p-4 pt-[8vh] backdrop-blur-sm">
-      <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] shadow-2xl">
+    <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/30 p-4 pt-[8vh] backdrop-blur-sm">
+      <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[color-mix(in_srgb,var(--dh-surface-raised)_72%,transparent)] shadow-2xl backdrop-blur-2xl backdrop-saturate-150">
         <div className="flex items-center gap-2 px-4 pb-1 pt-3">
           <DraghubMark className="h-4 w-4 text-[var(--dh-lime-brand)]" />
           <h2 className="text-sm font-semibold text-[var(--dh-text)]">Kapitänskajüte</h2>

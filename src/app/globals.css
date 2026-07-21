@@ -90,6 +90,18 @@
   --dh-scrim: rgba(2, 4, 8, 0.66);
 }
 
+/* Transparency checkerboard behind the image viewer, so PNG/SVG alpha
+ * channels are visible against a neutral backdrop in both themes. */
+.dh-image-checker {
+  background-image: linear-gradient(45deg, var(--dh-checker-dark) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--dh-checker-dark) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--dh-checker-dark) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--dh-checker-dark) 75%);
+  background-color: var(--dh-checker-light);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
 html,
 body {
   height: 100%;

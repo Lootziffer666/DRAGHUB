@@ -2,10 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
-import { EditorState, EditorSelection, type Extension } from "@codemirror/state";
+import { Compartment, EditorState, EditorSelection, type Extension } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { css } from "@codemirror/lang-css";
@@ -16,6 +17,7 @@ import { rust } from "@codemirror/lang-rust";
 import { cpp } from "@codemirror/lang-cpp";
 import { java } from "@codemirror/lang-java";
 import { flubberSelection } from "@/lib/flubber-selection";
+import { useDraghubTheme, type ThemeMode } from "@/features/theme";
 
 /** Best-effort language extension by file extension — falls back to plain text. */
 function languageExtensionFor(path: string): Extension[] {
@@ -63,6 +65,54 @@ export type EditorViewState = {
   scrollTop: number;
 };
 
+/** Light-mode editor chrome, driven by the same --dh-* semantic tokens as
+ * the rest of the app (rather than a hardcoded palette), paired with
+ * CodeMirror's own reference light-appropriate syntax highlighting. Dark
+ * mode keeps the existing `oneDark` theme, which already bundles its own
+ * chrome + highlight style. */
+const lightEditorTheme = EditorView.theme(
+  {
+    "&": { backgroundColor: "var(--dh-surface)", color: "var(--dh-text)" },
+    ".cm-content": { caretColor: "var(--dh-accent)" },
+    ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--dh-accent)" },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+      backgroundColor: "var(--dh-surface-selected)",
+    },
+    ".cm-gutters": {
+      backgroundColor: "var(--dh-surface-raised)",
+      color: "var(--dh-text-secondary)",
+      borderRight: "1px solid var(--dh-window-border)",
+    },
+    ".cm-activeLine": { backgroundColor: "var(--dh-surface-hover)" },
+    ".cm-activeLineGutter": { backgroundColor: "var(--dh-surface-hover)" },
+    ".cm-matchingBracket, .cm-nonmatchingBracket": {
+      backgroundColor: "var(--dh-surface-selected)",
+    },
+    ".cm-searchMatch": {
+      backgroundColor: "color-mix(in srgb, var(--dh-accent) 30%, transparent)",
+    },
+    ".cm-tooltip": {
+      backgroundColor: "var(--dh-surface-raised)",
+      border: "1px solid var(--dh-window-border)",
+      color: "var(--dh-text)",
+    },
+  },
+  { dark: false },
+);
+
+/** Extensions held in a Compartment so the theme mode can be swapped with
+ * `view.dispatch({ effects: themeCompartment.reconfigure(...) })` — a plain
+ * extension reconfiguration, not a document/session recreation, so it never
+ * touches undo history, selection, scroll position or dirty state. A single
+ * Compartment instance may be safely shared across every CodeEditor
+ * instance: CodeMirror resolves a reconfigure against the state it was
+ * dispatched to, not globally. */
+const themeCompartment = new Compartment();
+
+function themeExtensions(mode: ThemeMode): Extension[] {
+  return mode === "dark" ? [oneDark] : [lightEditorTheme, syntaxHighlighting(defaultHighlightStyle)];
+}
+
 /**
  * CodeMirror 6 editor (M3b). basicSetup provides line numbers, syntax
  * highlighting, search/replace (Ctrl/Cmd+F), undo/redo history, bracket
@@ -85,6 +135,9 @@ export function CodeEditor({
   onSave: () => void;
   onViewState?: (state: EditorViewState) => void;
 }) {
+  const { mode } = useDraghubTheme();
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -119,7 +172,7 @@ export function CodeEditor({
           indentWithTab,
         ]),
         basicSetup,
-        oneDark,
+        themeCompartment.of(themeExtensions(modeRef.current)),
         ...languageExtensionFor(path),
         flubberSelection(),
         EditorView.updateListener.of((update) => {
@@ -157,6 +210,15 @@ export function CodeEditor({
     // on every keystroke via onChange and must not reset the document.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
+
+  // Swaps only the theme Compartment's extensions when the app's light/dark
+  // mode changes — a plain reconfigure, so document, undo history,
+  // selection and scroll position are all preserved (no session recreation).
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: themeCompartment.reconfigure(themeExtensions(mode)),
+    });
+  }, [mode]);
 
   return <div ref={hostRef} className="h-full min-h-0 flex-1 overflow-hidden" />;
 }

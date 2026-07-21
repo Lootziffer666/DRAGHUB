@@ -100,7 +100,7 @@ export function ImageViewer({
     return <p className="p-4 text-red-600 dark:text-red-400">{view.error}</p>;
   }
   return (
-    <div className="flex justify-center p-6">
+    <div className="dh-image-checker flex justify-center rounded-lg p-6">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={view.url ?? ""}

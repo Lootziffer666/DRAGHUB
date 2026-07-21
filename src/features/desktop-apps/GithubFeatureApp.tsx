@@ -135,10 +135,17 @@ function BranchAwareView({
   const resolved = useCanonicalRepo(repoKey);
   if (!resolved) return <WaitingForRepo repoKey={repoKey} />;
   const meta = resolved.repo.meta;
-  return view === "releases" ? (
-    <ReleasesView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
-  ) : (
-    <RepoSettingsView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
+  if (view === "releases") {
+    return <ReleasesView owner={meta.owner} repo={meta.repo} branch={meta.branch} />;
+  }
+  // Settings' "People & Access" category stages CODEOWNERS as a normal
+  // working change via useChanges(), same as SecurityWindow's scope below.
+  return (
+    <RepoScope repoKey={resolved.key}>
+      <ChangesProvider>
+        <RepoSettingsView owner={meta.owner} repo={meta.repo} branch={meta.branch} />
+      </ChangesProvider>
+    </RepoScope>
   );
 }
 

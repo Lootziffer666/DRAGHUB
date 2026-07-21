@@ -22,6 +22,7 @@ import {
   wikiSpikeNote,
 } from "@/features/start-menu/api";
 import { Spinner, OpenRegular as ExternalLink } from "@/features/icons";
+import { SettingsPanel } from "./settings/SettingsPanel";
 
 /**
  * Remaining repository-owned feature-window bodies (second integration
@@ -313,44 +314,7 @@ export function RepoSettingsView({
   repo: string;
   branch: string;
 }) {
-  const [protection, setProtection] = useState<Probe | null>(null);
-
-  useEffect(() => {
-    getBranchProtection(owner, repo, branch)
-      .then(setProtection)
-      .catch(() => setProtection({ ok: false, status: 0, message: "Request failed" }));
-  }, [owner, repo, branch]);
-
-  return (
-    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-4">
-      <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2">
-        <span
-          className={[
-            "h-2 w-2 shrink-0 rounded-full",
-            !protection ? "bg-[var(--dh-window-border-active)]" : protection.ok ? "bg-emerald-400" : "bg-amber-400",
-          ].join(" ")}
-        />
-        <span className="flex-1 text-sm text-[var(--dh-text)]">
-          Branch protection on {branch}
-        </span>
-        <span className="text-xs text-[var(--dh-text-secondary)]">
-          {protection ? protection.message : "Probing…"}
-        </span>
-      </div>
-      <p className="mb-3 text-xs text-[var(--dh-text-secondary)]">
-        Repository administration (rules, collaborators, webhooks) stays on
-        GitHub — this window only probes what the current token can see.
-      </p>
-      <a
-        href={`https://github.com/${owner}/${repo}/settings`}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-xs text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
-      >
-        <ExternalLink width={13} height={13} /> Open repository settings on GitHub
-      </a>
-    </div>
-  );
+  return <SettingsPanel owner={owner} repo={repo} branch={branch} />;
 }
 
 function LoadingRow({ label }: { label: string }) {

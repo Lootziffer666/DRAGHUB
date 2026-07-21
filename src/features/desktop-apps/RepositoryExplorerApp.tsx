@@ -12,8 +12,10 @@ import { FileView } from "@/components/FileView";
 import { RubberBand } from "@/features/desktop/RubberBand";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
 import type { WindowContentProps } from "@/features/desktop/types";
-import { GitBranch, GitCommit, Edit, FileIcon, Spinner } from "@/components/icons";
+import { GitBranch, GitCommit, FileIcon, Spinner } from "@/components/icons";
 import { DesktopWindowContext } from "./window-context";
+import { OpenWithMenu } from "./file-handlers";
+import type { FileHandlerDefinition } from "./file-handlers";
 
 // Repositories currently being hydrated, so several windows (or StrictMode
 // re-runs) never fire duplicate metadata/root fetches for the same repo.
@@ -142,38 +144,18 @@ function RepositoryWindowBody({
           )}
         </button>
         {activeTab?.kind === "file" && (
-          <>
-            <button
-              onClick={() =>
-                wm.openRepositoryChild(
-                  windowId,
-                  "image-viewer",
-                  { type: "file", repoKey, path: activeTab.path },
-                  activeTab.label
-                )
-              }
-              title="Open current file in a viewer window"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
-            >
-              <FileIcon width={13} height={13} className="text-sky-400" />
-              Viewer window
-            </button>
-            <button
-              onClick={() =>
-                wm.openRepositoryChild(
-                  windowId,
-                  "file-editor",
-                  { type: "file", repoKey, path: activeTab.path },
-                  activeTab.label
-                )
-              }
-              title="Open current file in an editor window"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
-            >
-              <Edit width={13} height={13} className="text-emerald-400" />
-              Editor window
-            </button>
-          </>
+          <OpenWithMenu
+            resource={{ repoKey, path: activeTab.path, size: activeTab.size }}
+            meta={{ owner: repo.meta.owner, repo: repo.meta.repo, branch: repo.meta.branch }}
+            onOpenHandler={(handler: FileHandlerDefinition) =>
+              wm.openRepositoryChild(
+                windowId,
+                handler.applicationId,
+                { type: "file", repoKey, path: activeTab.path },
+                activeTab.label
+              )
+            }
+          />
         )}
         <span className="ml-auto truncate text-[11px] text-neutral-600">
           {repoKey}

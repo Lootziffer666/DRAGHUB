@@ -16,6 +16,12 @@ const META_KEY = "gh-browser-changes-by-repo";
 const EMPTY: WorkingChange[] = [];
 
 let cache: Record<string, WorkingChange[]> | null = null;
+// Referentially stable until the next mutation — `repoKeysWithChanges()` is
+// used directly as a `useSyncExternalStore` snapshot (the launcher's
+// adaptive "unsaved working changes" widget), which requires the same array
+// reference across renders when nothing changed, or React re-renders
+// infinitely believing the snapshot keeps changing.
+let repoKeysCache: string[] | null = null;
 const listeners = new Set<() => void>();
 
 function loadAll(): Record<string, WorkingChange[]> {
@@ -58,9 +64,13 @@ export function pendingCount(repoKey: string | null): number {
   return changesFor(repoKey).length;
 }
 
-/** Every repo key that currently has at least one pending change. */
+/** Every repo key that currently has at least one pending change.
+ * Referentially stable between mutations — see `repoKeysCache` above. */
 export function repoKeysWithChanges(): string[] {
-  return Object.keys(loadAll()).filter((k) => (loadAll()[k] ?? []).length > 0);
+  if (repoKeysCache) return repoKeysCache;
+  const all = loadAll();
+  repoKeysCache = Object.keys(all).filter((k) => (all[k] ?? []).length > 0);
+  return repoKeysCache;
 }
 
 export function updateBucket(
@@ -73,6 +83,7 @@ export function updateBucket(
   if (next === prev) return;
   all[repoKey] = next;
   persist();
+  repoKeysCache = null;
   notify();
 }
 
@@ -84,4 +95,5 @@ export function subscribeChanges(listener: () => void): () => void {
 /** Test hook: reset the in-memory cache so the next read hits storage. */
 export function __resetChangesStoreForTests(): void {
   cache = null;
+  repoKeysCache = null;
 }

@@ -15,9 +15,18 @@ import {
   DocumentTextRegular as FileText,
   FolderOpenRegular as FolderOpen,
   ArrowClockwiseRegular as Refresh,
+  ClockRegular as History,
+  BranchForkRegular as BranchIcon,
   Spinner,
 } from "@/features/icons";
-import { fetchRepositoryBlob, formatBytes, type GithubEntry } from "@/lib/github";
+import {
+  fetchRepositoryBlob,
+  fetchFileHistory,
+  formatBytes,
+  type FileHistoryEntry,
+  type GithubEntry,
+} from "@/lib/github";
+import { createBranchFromSha } from "@/lib/github-write";
 import { createImageUrlManager } from "@/lib/image-url";
 import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
 import { parseConflictHunks } from "@/lib/merge";
@@ -527,12 +536,15 @@ function FileContentView({
   onCopy,
 }: {
   tab: {
+    id: string;
     path: string;
     content?: string;
     contentState: string;
     contentError?: string;
     language?: string;
     size?: number;
+    ref?: string;
+    refLabel?: string;
   };
   repoKey: string;
   meta: { owner: string; repo: string; branch: string; htmlUrl: string };
@@ -543,10 +555,12 @@ function FileContentView({
     tab.path.split(".").pop()?.toLowerCase() ?? ""
   );
   const isMarkdown = /\.(md|mdx)$/i.test(tab.path);
+  const isHistorical = Boolean(tab.ref);
   const parent = tab.path.includes("/")
     ? tab.path.slice(0, tab.path.lastIndexOf("/"))
     : "";
   const { stageEdit } = useChanges();
+  const { openFileAtRef, markTabBranchedOff } = useStore();
   const [editing, setEditing] = useState(false);
   const [mdPreview, setMdPreview] = useState(isMarkdown);
   const [sizeGuardAccepted, setSizeGuardAccepted] = useState(false);
@@ -555,6 +569,10 @@ function FileContentView({
   const [resetNonce, setResetNonce] = useState(0);
   const [editPreview, setEditPreview] = useState(false);
   const [lfsProgress, setLfsProgress] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<FileHistoryEntry[] | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [branchPrompt, setBranchPrompt] = useState<{ sha: string } | null>(null);
   const lfsPointer = parseLfsPointer(tab.content);
   const conflictHunks = useMemo(() => parseConflictHunks(tab.content ?? ""), [tab.content]);
 
@@ -563,12 +581,32 @@ function FileContentView({
 
   // A dirty draft from a previous visit (tab/repo switch or reload) must
   // resurface instead of being silently lost — reopen the editor on it.
+  // Historical tabs never auto-enter edit mode; the only way in is
+  // branching off (below), since a draft keyed by repoKey+path could
+  // otherwise leak in from an unrelated branch-tip tab on the same path.
   useEffect(() => {
-    if (dirty && !editing && !isImage && !lfsPointer && tab.contentState === "loaded") {
+    if (dirty && !editing && !isImage && !lfsPointer && !isHistorical && tab.contentState === "loaded") {
       setEditing(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab.contentState]);
+
+  const openHistory = () => {
+    setHistoryOpen((v) => !v);
+    if (!history && !historyError) {
+      fetchFileHistory(meta.owner, meta.repo, tab.path, meta.branch)
+        .then(setHistory)
+        .catch((e) => setHistoryError(e instanceof Error ? e.message : "File history unavailable."));
+    }
+  };
+
+  const branchOff = async (branchName: string) => {
+    if (!tab.ref) return;
+    await createBranchFromSha(meta.owner, meta.repo, branchName, tab.ref);
+    markTabBranchedOff(tab.id, branchName);
+    setBranchPrompt(null);
+    setEditing(true);
+  };
 
   const session =
     editing && tab.contentState === "loaded"
@@ -638,13 +676,33 @@ function FileContentView({
             unsaved draft
           </span>
         )}
+        {isHistorical && (
+          <span
+            title="Pinned to a historical commit, not the branch tip"
+            className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400"
+          >
+            {tab.refLabel ?? "historical"}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           {!isImage && !lfsPointer && (
             <button
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => (isHistorical ? setBranchPrompt({ sha: tab.ref! }) : setEditing((v) => !v))}
               className="rounded px-2 py-1 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
             >
-              {editing ? "View" : "Edit"}
+              {isHistorical ? "Branch off to edit" : editing ? "View" : "Edit"}
+            </button>
+          )}
+          {!isImage && !isHistorical && (
+            <button
+              onClick={openHistory}
+              title="File history"
+              className={[
+                "flex items-center gap-1 rounded px-2 py-1 hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]",
+                historyOpen ? "text-[var(--dh-text)]" : "text-[var(--dh-text-secondary)]",
+              ].join(" ")}
+            >
+              <History width={14} height={14} /> History
             </button>
           )}
           {isMarkdown && !editing && (
@@ -691,6 +749,33 @@ function FileContentView({
           </a>
         </div>
       </div>
+
+      {isHistorical && (
+        <div className="border-b border-violet-200 dark:border-violet-900/50 bg-violet-50 dark:bg-violet-950/30 px-3 py-2 text-sm text-violet-700 dark:text-violet-200">
+          Viewing {tab.path.split("/").pop()} as of {tab.refLabel ?? "an older commit"} — historical
+          commits can&apos;t be edited directly. Branch off a new variant to continue from here.
+        </div>
+      )}
+
+      {historyOpen && (
+        <FileHistoryPanel
+          history={history}
+          error={historyError}
+          onSelect={(entry) => {
+            openFileAtRef(tab.path, entry.sha, `${entry.sha.slice(0, 7)} · ${formatHistoryDate(entry.date)}`);
+            setHistoryOpen(false);
+          }}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
+      {branchPrompt && (
+        <BranchOffDialog
+          defaultName={`variant/${branchPrompt.sha.slice(0, 7)}`}
+          onCancel={() => setBranchPrompt(null)}
+          onCreate={branchOff}
+        />
+      )}
 
       {lfsPointer && (
         <div className="border-b border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm text-blue-700 dark:text-blue-200">
@@ -829,6 +914,141 @@ function FileContentView({
             “Raw” to view the full file.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function formatHistoryDate(iso: string): string {
+  if (!iso) return "unknown date";
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** Lists commits that touched the active file, newest first — the entry
+ * point into viewing (and, from there, branching off) a historical ref. */
+function FileHistoryPanel({
+  history,
+  error,
+  onSelect,
+  onClose,
+}: {
+  history: FileHistoryEntry[] | null;
+  error: string | null;
+  onSelect: (entry: FileHistoryEntry) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="max-h-64 overflow-auto border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)]">
+      <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--dh-text-secondary)]">
+        File history
+        <button
+          onClick={onClose}
+          className="rounded px-1.5 py-0.5 normal-case text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)]"
+        >
+          Close
+        </button>
+      </div>
+      {error && <p className="px-3 pb-2 text-sm text-red-600 dark:text-red-300">{error}</p>}
+      {!error && !history && (
+        <div className="flex items-center gap-2 px-3 pb-2 text-sm text-[var(--dh-text-secondary)]">
+          <Spinner width={14} height={14} className="text-blue-700 dark:text-blue-400" /> Loading history…
+        </div>
+      )}
+      {history && history.length === 0 && (
+        <p className="px-3 pb-2 text-sm text-[var(--dh-text-disabled)]">No commit history found for this file.</p>
+      )}
+      {history && history.length > 0 && (
+        <ul>
+          {history.map((entry) => (
+            <li key={entry.sha}>
+              <button
+                onClick={() => onSelect(entry)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-[var(--dh-surface-hover)]"
+              >
+                <span className="shrink-0 rounded bg-[var(--dh-surface-hover)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--dh-text-secondary)]">
+                  {entry.sha.slice(0, 7)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[var(--dh-text)]">{entry.message}</span>
+                <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">
+                  {entry.author} · {formatHistoryDate(entry.date)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Prompts for a new branch name and creates it from the historical commit
+ * being viewed (M3 acceptance criterion: "branch off a new variant" instead
+ * of a blocking error when editing a non-tip ref). */
+function BranchOffDialog({
+  defaultName,
+  onCancel,
+  onCreate,
+}: {
+  defaultName: string;
+  onCancel: () => void;
+  onCreate: (branchName: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Branch name is required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onCreate(trimmed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create branch.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-4 shadow-2xl">
+        <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--dh-text)]">
+          <BranchIcon width={15} height={15} /> Branch off to edit
+        </h3>
+        <p className="mb-3 text-xs text-[var(--dh-text-secondary)]">
+          Creates a new branch starting at this exact commit, then opens it here for editing.
+        </p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit();
+          }}
+          autoFocus
+          spellCheck={false}
+          className="w-full rounded border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2 py-1.5 text-sm text-[var(--dh-text)] outline-none focus:border-[var(--dh-window-border-active)]"
+        />
+        {error && <p className="mt-2 text-xs text-red-600 dark:text-red-300">{error}</p>}
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded px-3 py-1.5 text-sm text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void submit()}
+            disabled={busy}
+            className="rounded bg-[var(--dh-accent)] px-3 py-1.5 text-sm font-medium text-[var(--dh-accent-foreground)] hover:opacity-90 disabled:opacity-40"
+          >
+            {busy ? "Creating…" : "Create & edit"}
+          </button>
+        </div>
       </div>
     </div>
   );

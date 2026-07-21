@@ -348,8 +348,26 @@ async function createRef(
     body: JSON.stringify({ ref: `refs/heads/${ref}`, sha }),
   });
   if (!res.ok) {
+    if (res.status === 422) {
+      throw new Error(`Branch "${branch}" already exists.`);
+    }
     throw new Error(`Failed to create branch "${branch}" (${res.status}).`);
   }
+}
+
+/**
+ * Branches off an arbitrary commit sha — backs "editing a historical ref
+ * offers branching off a new variant" (M3 acceptance criterion): the new
+ * branch starts at the exact commit the user was viewing, not the current
+ * branch tip, so its content matches what they saw.
+ */
+export async function createBranchFromSha(
+  owner: string,
+  repo: string,
+  branch: string,
+  sha: string
+): Promise<void> {
+  await createRef(owner, repo, branch, sha);
 }
 
 async function uploadLfsObject(

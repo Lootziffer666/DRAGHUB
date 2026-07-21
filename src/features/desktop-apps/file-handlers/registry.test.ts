@@ -36,6 +36,11 @@ describe("extensionOf", () => {
     expect(extensionOf("Dockerfile")).toBe("");
     expect(extensionOf("src/a")).toBe("");
   });
+  test("ignores dots in directory names, not just the filename", () => {
+    expect(extensionOf(".github/workflows/build")).toBe("");
+    expect(extensionOf("v1.0/README")).toBe("");
+    expect(extensionOf("v1.0/README.md")).toBe("md");
+  });
 });
 
 describe("registerFileHandler", () => {

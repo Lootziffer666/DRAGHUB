@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "@/lib/store";
 import { getRepositoryBlob, formatBytes } from "@/lib/github";
 import { createImageUrlManager } from "@/lib/image-url";
@@ -28,7 +28,7 @@ export function AudioPlayerApp({ resource }: WindowContentProps) {
   const repo = state.repos[repoKey];
   const meta = repo?.meta ?? null;
 
-  const manager = useMemo(() => createImageUrlManager(), []);
+  const [manager] = useState(() => createImageUrlManager());
   const [view, setView] = useState<{
     url: string | null;
     loading: boolean;

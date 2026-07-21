@@ -47,8 +47,14 @@ export function OpenWithMenu({
         const a = document.createElement("a");
         a.href = url;
         a.download = resource.path.split("/").pop() ?? "download";
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        // Firefox needs the anchor attached to the DOM to trigger a
+        // download, and revoking the object URL synchronously can abort
+        // the download in several browsers since it's handled
+        // asynchronously by the download manager.
+        setTimeout(() => URL.revokeObjectURL(url), 100);
       } finally {
         setDownloading(false);
       }

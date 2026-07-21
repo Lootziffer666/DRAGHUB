@@ -20,8 +20,9 @@ export function listFileHandlers(): FileHandlerDefinition[] {
 }
 
 export function extensionOf(path: string): string {
-  const idx = path.lastIndexOf(".");
-  return idx === -1 ? "" : path.slice(idx + 1).toLowerCase();
+  const filename = path.split("/").pop() ?? "";
+  const idx = filename.lastIndexOf(".");
+  return idx === -1 ? "" : filename.slice(idx + 1).toLowerCase();
 }
 
 function matchesExtension(def: FileHandlerDefinition, ext: string): boolean {

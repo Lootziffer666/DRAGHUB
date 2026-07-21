@@ -102,3 +102,8 @@ export function subscribeBin(listener: () => void): () => void {
 export function retainedCount(repoKey: string): number {
   return load().filter((r) => r.repoKey === repoKey).length;
 }
+
+/** Test hook: reset the in-memory cache so the next read hits storage. */
+export function __resetRecycleBinForTests(): void {
+  cache = null;
+}

@@ -11,11 +11,11 @@ import {
 import {
   listAllRetained,
   removeRetained,
-  emptyBin,
   subscribeBin,
   GRACE_PERIOD_MS,
   type RetainedChange,
 } from "@/lib/recycle-bin";
+import { emptyRecycleBinAll, recycleBinSummary } from "@/features/recycle-bin/recycle-bin-summary";
 import type { WorkingChange } from "@/lib/github-ops";
 import { formatBytes } from "@/lib/github";
 import { events } from "@/lib/events";
@@ -84,18 +84,24 @@ export function RecycleBinApp() {
     await removeRetained(entry.change.id, false);
   };
 
+  const summary = recycleBinSummary(kernelEntries, retained);
+
   const onEmpty = async () => {
-    if (retained.length === 0) return;
-    const totalBytes = retained.reduce((s, r) => s + (r.change.size ?? 0), 0);
+    // Unified empty: clears BOTH kernel recycle-bin entries (discarded
+    // drafts from closed windows) and domain-retention entries (retained
+    // changes) per repo. Staged deletions are intentionally preserved.
+    if (summary.kernelCount === 0 && summary.domainCount === 0) return;
     if (
       !window.confirm(
-        `Empty the Recycle Bin?\n\n${retained.length} discarded draft${retained.length === 1 ? "" : "s"} (${formatBytes(totalBytes)}) across ${new Set(retained.map((r) => r.repoKey)).size} repositor${new Set(retained.map((r) => r.repoKey)).size === 1 ? "y" : "ies"} will be permanently deleted. Staged deletions and Git history are not affected.`
+        `Empty the Recycle Bin?\n\n${summary.kernelCount} discarded draft${summary.kernelCount === 1 ? "" : "s"} from closed windows and ${summary.domainCount} retained change${summary.domainCount === 1 ? "" : "s"} across ${summary.repos.length} repositor${summary.repos.length === 1 ? "y" : "ies"} will be permanently deleted. Staged deletions and Git history are not affected.`
       )
     )
       return;
-    for (const repoKey of new Set(retained.map((r) => r.repoKey))) {
-      await emptyBin(repoKey);
-    }
+    await emptyRecycleBinAll({
+      session: wm,
+      kernelEntries,
+      domainEntries: retained,
+    });
   };
 
   const [busyEntry, setBusyEntry] = useState<string | null>(null);
@@ -260,7 +266,7 @@ export function RecycleBinApp() {
       <div className="flex items-center justify-end border-t border-neutral-800 px-4 py-3">
         <button
           onClick={() => void onEmpty()}
-          disabled={retained.length === 0}
+          disabled={summary.kernelCount === 0 && summary.domainCount === 0}
           className="rounded-md border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-40"
         >
           Empty Recycle Bin…

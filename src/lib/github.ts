@@ -292,6 +292,38 @@ export async function fetchRepositoryBlob({
   return new Blob([buf], type ? { type } : undefined);
 }
 
+export type RepositoryResourceRef = {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+};
+
+/**
+ * Shared binary resource adapter. Every consumer that needs a repository
+ * file's bytes — image previews, the audio player, an archive viewer —
+ * goes through these three functions instead of writing its own GitHub
+ * downloader, so there is exactly one authenticated fetch path, one
+ * base64-decode implementation and one preview-size guard.
+ */
+export function getRepositoryBlob(ref: RepositoryResourceRef): Promise<Blob> {
+  return fetchRepositoryBlob(ref);
+}
+
+export async function getRepositoryArrayBuffer(
+  ref: RepositoryResourceRef
+): Promise<ArrayBuffer> {
+  const blob = await getRepositoryBlob(ref);
+  return blob.arrayBuffer();
+}
+
+export async function getRepositoryText(
+  ref: RepositoryResourceRef
+): Promise<string> {
+  const buf = await getRepositoryArrayBuffer(ref);
+  return new TextDecoder("utf-8", { fatal: false }).decode(buf);
+}
+
 export async function fetchBranches(
   owner: string,
   repo: string

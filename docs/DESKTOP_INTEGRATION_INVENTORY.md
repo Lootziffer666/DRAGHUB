@@ -1,7 +1,9 @@
 # Desktop integration — inventory and per-window state design
 
 Companion document for the first post-PR #8 integration pass
-(`docs/POST_PR8_REFERENCE_INTEGRATION.md`). Status: 2026-07-20.
+(`docs/POST_PR8_REFERENCE_INTEGRATION.md`). Status: 2026-07-21 (includes the
+post-integration fix pass that closed five isolation gaps left by the first
+pass — see §2, §3 and §6 below).
 
 ## 1. Module inventory → desktop applications
 
@@ -12,12 +14,12 @@ Companion document for the first post-PR #8 integration pass
 | `Tabs` | repository main-window surface | integrated |
 | `FileView` (incl. tab editor, LFS, conflicts, grid) | repository main-window surface | integrated |
 | `CodeEditor` + `editor-sessions` + FLUBBER | main-window tabs **and** `file-editor` child application | integrated |
-| Search (`features/search`) | global launcher (taskbar + Ctrl/Cmd-K); results resolve to `repository` resources via `openOrFocusWindow` | integrated |
+| Search (`features/search`) | global launcher (taskbar + Ctrl/Cmd-K); results resolve to `repository` resources via `openOrFocusWindow`; Related search context is an explicit `relatedRepoKey` derived from the focused window | integrated |
 | Changes (`features/changes`) | `github-feature` child application (`featureId: "changes"`) + toolbar badge; buckets in module store | integrated |
 | Pull requests (`features/pulls`) | `github-feature` child (`pull-requests`) via rubber band | integrated |
 | Issues (`features/issues`) | `github-feature` child (`issues`) via rubber band | integrated |
 | Actions | `github-feature` child (`actions`, run list + link-out) | integrated (minimal) |
-| Recycle Bin (`lib/recycle-bin` domain store) | `recycle-bin` system application (kernel entries + staged deletions + retained drafts) | integrated |
+| Recycle Bin (`lib/recycle-bin` domain store + `features/recycle-bin/recycle-bin-summary.ts` pure helpers) | `recycle-bin` system application (kernel entries + staged deletions + retained drafts); Empty clears kernel and retained entries together | integrated |
 | Settings | `settings` system application (PAT, desktop reset) | integrated |
 | Upload / staging (`UploadPanel`, `lib/staging`) | repository window via AddressBar | mounted, own commit path (M2 gap unchanged) |
 | Triage (`features/triage` API + classify) | `github-feature` child (`triage`) via rubber band; bulk close with explicit double-confirm | integrated |
@@ -51,20 +53,36 @@ global active pointer.
   since the kernel prevents duplicate windows for the same resource, this is
   equivalent to `repositoryWindowId + repoKey` today. If explicitly-requested
   duplicate repo windows arrive later, `RepoScope` gains the window id.
+- Repository hydration status (loading/error) is a `repoRequests` map on the
+  store keyed by lowercased repoKey (`useRepoRequest(repoKey)`), not a single
+  global flag — two repository windows loading or retrying concurrently never
+  see each other's status. `REPO_LOADED` reconciles a hand-typed request key
+  against the API's canonical `fullName` casing.
 
 ## 3. Lifecycle adapters (Stage 4)
 
 `features/desktop-apps/lifecycle-adapter.ts` implements
-`WindowLifecycleAdapter` + `RecycleBinLifecycleAdapter`:
+`WindowLifecycleAdapter` + `RecycleBinLifecycleAdapter`. Both `inspectClose`
+and `resolveClose` derive their close-domain scope from the same pure
+`deriveCloseScope(target)`, so inspection and resolution can never disagree
+about what a transaction is allowed to touch:
 
-- inspect: dirty editor sessions (repo-wide for repository windows, per-file
-  for `file-editor` children, attributed to the owning window) and pending
-  working-change counts.
-- commit-and-close: stages dirty drafts, then one checkpoint per repository
-  via the existing commit engine; fails cleanly without a token.
-- discard-to-recycle-bin-and-close: unsaved drafts → kernel `draft` entries
-  (restored through the adapter into editor sessions); staged changes → the
-  domain retention store (blobs kept, 7-day grace).
+- `repository` scope (repository-explorer windows): unchanged repo-wide
+  behavior — inspect every dirty draft in the repo plus the Working Changes
+  bucket; commit-and-close stages all dirty drafts and checkpoints the whole
+  repository via the existing commit engine (fails cleanly without a token);
+  discard moves every draft to a kernel `draft` entry and the Working
+  Changes bucket to the domain retention store (blobs kept, 7-day grace).
+- `editor` scope (`file-editor` windows): touches exactly its own file.
+  Inspection reports a blocker only for its own dirty draft. Commit-and-close
+  stages only that file as a Working Change and never checkpoints. Discard
+  creates exactly one kernel draft entry for that file. Neither action
+  touches any other draft or the repository's Working Changes bucket.
+- `viewer` scope (`image-viewer` windows): never blocked by any draft
+  (including a same-path editor draft) and never stages, commits, discards,
+  or retains repository changes — close is always a no-op for domain state.
+- `none` (every other application/system/tool window): no implicit
+  repo-wide draft or Working Change behavior.
 - The window manager keeps transaction guards; no domain logic moved into it.
 
 ## 4. daedalOS concepts — adopted / deferred / rejected

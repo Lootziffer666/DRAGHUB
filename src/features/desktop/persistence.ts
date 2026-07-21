@@ -73,6 +73,7 @@ const applications = new Set([
   "tool-window",
   "settings",
   "recycle-bin",
+  "repo-world",
 ]);
 export function sanitizeDesktopSession(
   session: DesktopSession,

@@ -16,6 +16,7 @@ import {
   EditRegular,
   FlashRegular,
   FolderRegular,
+  GlobeRegular,
   ImageRegular,
   OpenRegular,
   SaveRegular,
@@ -59,7 +60,8 @@ export type AppIconKey =
   | "edit"
   | "save"
   | "close"
-  | "refresh";
+  | "refresh"
+  | "world";
 
 const appIcons: Record<AppIconKey, IconComponent> = {
   repository: FolderRegular,
@@ -87,6 +89,7 @@ const appIcons: Record<AppIconKey, IconComponent> = {
   save: SaveRegular,
   close: DismissRegular,
   refresh: ArrowClockwiseRegular,
+  world: GlobeRegular,
 };
 
 /** Resolves a semantic app/desktop icon key to its component. Unknown keys

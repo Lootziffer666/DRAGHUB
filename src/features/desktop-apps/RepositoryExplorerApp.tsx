@@ -17,6 +17,7 @@ import {
   RecordRegular as GitCommit,
   EditRegular as Edit,
   DocumentRegular as FileIcon,
+  GlobeRegular as WorldIcon,
   Spinner,
 } from "@/features/icons";
 import { DesktopWindowContext } from "./window-context";
@@ -146,6 +147,21 @@ function RepositoryWindowBody({
               {changes.changes.length}
             </span>
           )}
+        </button>
+        <button
+          onClick={() =>
+            wm.openRepositoryChild(
+              windowId,
+              "repo-world",
+              { type: "repository", repoKey },
+              `${repoName} — World`
+            )
+          }
+          title="Open repository world view"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
+        >
+          <WorldIcon width={13} height={13} className="text-violet-700 dark:text-violet-400" />
+          World
         </button>
         {activeTab?.kind === "file" && (
           <>

@@ -24,6 +24,7 @@ export {
   DocumentAddRegular,
   ImageRegular,
   ImageFilled,
+  GlobeRegular,
   MusicNote2Regular,
   MusicNote2Filled,
   MarkdownRegular,

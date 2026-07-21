@@ -5,6 +5,7 @@ import { GithubFeatureApp } from "@/features/desktop-apps/GithubFeatureApp";
 import { ScratchpadApp } from "@/features/desktop-apps/ScratchpadApp";
 import { SettingsApp } from "@/features/desktop-apps/SettingsApp";
 import { RecycleBinApp } from "@/features/desktop-apps/RecycleBinApp";
+import { RepoWorldApp } from "@/features/repo-world/RepoWorldApp";
 const definitions: WindowApplicationDefinition[] = [
   {
     id: "repository-explorer",
@@ -55,6 +56,16 @@ const definitions: WindowApplicationDefinition[] = [
     minimumSize: { width: 340, height: 240 },
     allowMultiple: true,
     render: (p) => <ScratchpadApp {...p} />,
+  },
+  {
+    id: "repo-world",
+    kind: "tool",
+    title: "Repository World",
+    iconKey: "world",
+    defaultSize: { width: 960, height: 640 },
+    minimumSize: { width: 480, height: 340 },
+    allowMultiple: true,
+    render: (p) => <RepoWorldApp {...p} />,
   },
   {
     id: "settings",

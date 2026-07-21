@@ -1,6 +1,6 @@
 "use client";
 import { useRef, type PointerEvent } from "react";
-import { Button, Tooltip } from "@fluentui/react-components";
+import { Tooltip } from "@fluentui/react-components";
 import {
   ArrowMinimizeRegular,
   DismissRegular,
@@ -88,43 +88,41 @@ export function WindowFrame({
         </div>
         <nav className="window-controls">
           <Tooltip content={`Minimize ${window.title}`} relationship="label">
-            <Button
-              appearance="subtle"
-              size="small"
+            <button
+              type="button"
               className="window-control"
-              icon={<SubtractRegular />}
               aria-label={`Minimize ${window.title}`}
               onClick={() => wm.minimizeWindow(window.id)}
-            />
+            >
+              <SubtractRegular />
+            </button>
           </Tooltip>
           <Tooltip
             content={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
             relationship="label"
           >
-            <Button
-              appearance="subtle"
-              size="small"
+            <button
+              type="button"
               className="window-control"
-              icon={
-                window.presentation === "maximized" ? (
-                  <ArrowMinimizeRegular />
-                ) : (
-                  <MaximizeRegular />
-                )
-              }
               aria-label={`${window.presentation === "maximized" ? "Restore" : "Maximize"} ${window.title}`}
               onClick={() => wm.toggleMaximizeWindow(window.id)}
-            />
+            >
+              {window.presentation === "maximized" ? (
+                <ArrowMinimizeRegular />
+              ) : (
+                <MaximizeRegular />
+              )}
+            </button>
           </Tooltip>
           <Tooltip content={`Close ${window.title}`} relationship="label">
-            <Button
-              appearance="subtle"
-              size="small"
+            <button
+              type="button"
               className="window-control window-control-close"
-              icon={<DismissRegular />}
               aria-label={`Close ${window.title}`}
               onClick={() => wm.requestCloseWindow(window.id)}
-            />
+            >
+              <DismissRegular />
+            </button>
           </Tooltip>
         </nav>
       </header>

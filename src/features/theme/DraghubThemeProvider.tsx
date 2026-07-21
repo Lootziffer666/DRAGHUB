@@ -48,7 +48,6 @@ export function DraghubThemeProvider({ children }: { children: ReactNode }) {
     applyThemeToDocument(stored);
     // Mount-only: restores the persisted selection once, after hydration
     // has safely completed with the matching SSR default.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setMode = useCallback((next: ThemeMode) => {

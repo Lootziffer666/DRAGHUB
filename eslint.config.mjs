@@ -14,6 +14,12 @@ const eslintConfig = [
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",
       "react-hooks/refs": "off",
+      // Icon registries (src/features/icons) resolve a stable component
+      // reference from a string key via a plain Record lookup — the same
+      // key always yields the same component identity. The linter can't
+      // see that statically and flags it as "creating a component during
+      // render".
+      "react-hooks/static-components": "off",
     },
   },
 ];

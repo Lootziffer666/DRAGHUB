@@ -20,6 +20,9 @@ import {
   applyCloseResolutionFailure,
   applyCloseResolutionPending,
   canResolveClose,
+  deriveCloseDomainScope,
+  languageFromPath,
+  type CloseDomainScope,
 } from "./lifecycle";
 import {
   childOwner,
@@ -36,7 +39,9 @@ import {
 import type {
   DesktopIconState,
   DesktopSession,
+  DesktopWindowState,
   OpenWindowInput,
+  RecycleBinEntry,
   RubberBandState,
   WindowBounds,
   WindowId,
@@ -124,6 +129,37 @@ const cleanLifecycle: WindowLifecycleAdapter & RecycleBinLifecycleAdapter = {
     return { success: true };
   },
 };
+
+function discardEntryForScope(
+  target: DesktopWindowState,
+  scope: CloseDomainScope,
+): RecycleBinEntry | null {
+  if (scope.mode === "editor") {
+    return {
+      id: crypto.randomUUID(),
+      kind: "draft",
+      sourceWindowId: target.id,
+      repoKey: scope.repoKey,
+      path: scope.path,
+      label: `Unsaved ${target.title} draft`,
+      discardedAt: Date.now(),
+      payload: { content: "", language: languageFromPath(scope.path) },
+    };
+  }
+  if (scope.mode === "repository") {
+    return {
+      id: crypto.randomUUID(),
+      kind: "draft",
+      sourceWindowId: target.id,
+      repoKey: scope.repoKey,
+      path: "docs/unsaved-demo.md",
+      label: `Unsaved ${target.title} demo draft`,
+      discardedAt: Date.now(),
+      payload: { content: "# Recoverable demo draft\n", language: "markdown" },
+    };
+  }
+  return null;
+}
 type API = {
   session: DesktopSession;
   viewport: DesktopViewport;

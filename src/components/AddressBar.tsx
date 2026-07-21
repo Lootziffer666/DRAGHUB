@@ -64,6 +64,11 @@ export function AddressBar({
     else void openRepo(input);
   };
 
+  const open = (input: string) => {
+    if (onOpenRepo) onOpenRepo(input);
+    else void openRepo(input);
+  };
+
   function submit() {
     if (!value.trim()) return;
     open(value);

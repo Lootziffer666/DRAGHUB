@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { formatBytes } from "@/lib/github";
+import { formatBytes, ghRequest } from "@/lib/github";
+import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
 import {
+  appIconFor,
+  ClockRegular,
+  DraghubMark,
   OpenRegular as ExternalLink,
   DocumentRegular as FileIcon,
   BranchForkRegular as GitBranch,
   GithubMark,
+  PlugConnectedRegular,
   SearchRegular as Search,
   Spinner,
   StarRegular as Star,
@@ -22,6 +27,182 @@ import {
 } from "./github-search";
 
 type Mode = "repos" | "related" | "releases";
+
+type RateLimitInfo = { remaining: string | null; reset: string | null };
+
+/** Live GitHub API rate-limit status for the launcher's status card — the
+ * same /rate_limit endpoint the Dock polls, fetched independently here so
+ * this panel doesn't depend on the Dock being mounted. */
+function useGithubRateLimit(): RateLimitInfo {
+  const [rate, setRate] = useState<RateLimitInfo>({ remaining: null, reset: null });
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      if (document.hidden) return;
+      try {
+        const res = await ghRequest("/rate_limit");
+        if (cancelled || !res.ok) return;
+        const data = await res.json<{
+          resources?: { core?: { remaining: number; reset: number } };
+        }>();
+        const core = data.resources?.core;
+        if (core) {
+          setRate({
+            remaining: String(core.remaining),
+            reset: new Date(core.reset * 1000).toLocaleTimeString(),
+          });
+        }
+      } catch {
+        // Rate-limit status is a nice-to-have; a failed poll just leaves
+        // the previous (or "Checking…") value in place.
+      }
+    }
+    void poll();
+    const id = window.setInterval(poll, 120_000);
+    const onVisible = () => void poll();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+  return rate;
+}
+
+/** The launcher's "home" content: a quick-access row (recently opened
+ * repositories, live GitHub rate-limit status) and a grid of DRAGHUB's own
+ * standalone tools — everything here is real data/real windows, the same
+ * `state.recent`/`openOrFocusWindow` the rest of the desktop uses, not
+ * placeholder content. */
+function HomeView({
+  onSelectRepo,
+}: {
+  onSelectRepo: (fullName: string) => void;
+}) {
+  const { state } = useStore();
+  const wm = useWindowManager();
+  const rate = useGithubRateLimit();
+  const recent = state.recent.slice(0, 5);
+
+  const tools: { id: string; label: string; iconKey: string; open: () => void }[] = [
+    {
+      id: "scratchpad",
+      label: "Scratchpad",
+      iconKey: "code",
+      open: () =>
+        wm.openOrFocusWindow({
+          applicationId: "tool-window",
+          owner: { type: "desktop" },
+          resource: { type: "tool", toolId: "scratchpad" },
+          title: "Scratchpad",
+        }),
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      iconKey: "settings",
+      open: () =>
+        wm.openOrFocusWindow({
+          applicationId: "settings",
+          owner: { type: "desktop" },
+          resource: { type: "system", systemId: "settings" },
+          title: "Settings",
+        }),
+    },
+    {
+      id: "recycle-bin",
+      label: "Recycle Bin",
+      iconKey: "recycle-bin",
+      open: () =>
+        wm.openOrFocusWindow({
+          applicationId: "recycle-bin",
+          owner: { type: "desktop" },
+          resource: { type: "system", systemId: "recycle-bin" },
+          title: "Recycle Bin",
+        }),
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4 p-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--dh-text-secondary)]">
+            <ClockRegular width={13} height={13} />
+            Recent
+          </div>
+          {recent.length === 0 ? (
+            <p className="text-xs text-[var(--dh-text-disabled)]">
+              No repositories opened yet.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {recent.map((key) => (
+                <li key={key}>
+                  <button
+                    onClick={() => onSelectRepo(key)}
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
+                  >
+                    <GithubMark
+                      width={12}
+                      height={12}
+                      className="shrink-0 text-[var(--dh-text-secondary)]"
+                    />
+                    <span className="truncate">{key}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--dh-text-secondary)]">
+            <PlugConnectedRegular width={13} height={13} />
+            GitHub status
+          </div>
+          {rate.remaining === null ? (
+            <p className="text-xs text-[var(--dh-text-disabled)]">Checking…</p>
+          ) : (
+            <p className="text-[13px] text-[var(--dh-text)]">
+              {rate.remaining} requests left
+              {rate.reset && (
+                <span className="block text-xs text-[var(--dh-text-secondary)]">
+                  Resets {rate.reset}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs font-medium text-[var(--dh-text-secondary)]">
+          Tools
+        </div>
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {tools.map((tool) => {
+            const Icon = appIconFor(tool.iconKey);
+            return (
+              <button
+                key={tool.id}
+                onClick={tool.open}
+                className="flex flex-col items-center gap-1.5 rounded-lg p-2 text-center hover:bg-[var(--dh-surface-hover)]"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] text-[var(--dh-accent)]">
+                  <Icon width={18} height={18} />
+                </span>
+                <span className="text-[11px] text-[var(--dh-text-secondary)]">
+                  {tool.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SearchPanel({
   onClose,
@@ -128,9 +309,19 @@ export function SearchPanel({
     onClose();
   }
 
+  // The launcher's "home" state — greeting, quick-access cards and the
+  // tool grid — shows only for the default Repositories tab with nothing
+  // typed yet, the same way a Start Menu's widgets/grid give way to search
+  // results the moment you start typing.
+  const isHome = mode === "repos" && !query.trim();
+
   return (
     <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/60 p-4 pt-[8vh] backdrop-blur-sm">
       <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] shadow-2xl">
+        <div className="flex items-center gap-2 px-4 pb-1 pt-3">
+          <DraghubMark className="h-4 w-4 text-[var(--dh-lime-brand)]" />
+          <h2 className="text-sm font-semibold text-[var(--dh-text)]">Kapitänskajüte</h2>
+        </div>
         <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] px-3 py-2.5">
           <Search width={18} height={18} className="text-[var(--dh-text-secondary)]" />
           <input
@@ -145,7 +336,7 @@ export function SearchPanel({
                 ? "Find repos with releases & APK downloads…"
                 : mode === "related"
                   ? "Related to the open repository…"
-                  : "Search repositories (name, topic, description)…"
+                  : "Chart a course — search repositories…"
             }
             className="flex-1 bg-transparent text-sm text-[var(--dh-text)] outline-none placeholder:text-[var(--dh-text-disabled)]"
             spellCheck={false}
@@ -153,6 +344,7 @@ export function SearchPanel({
           {loading && <Spinner width={16} height={16} className="text-blue-700 dark:text-blue-400" />}
           <button
             onClick={onClose}
+            aria-label="Close launcher"
             className="flex h-7 w-7 items-center justify-center rounded text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-hover)] hover:text-[var(--dh-text)]"
           >
             <X width={16} height={16} />
@@ -197,7 +389,11 @@ export function SearchPanel({
             </div>
           )}
 
-          {mode === "repos" && <RepoList repos={repos} onSelect={selectRepo} />}
+          {isHome && <HomeView onSelectRepo={selectRepo} />}
+
+          {mode === "repos" && !isHome && (
+            <RepoList repos={repos} onSelect={selectRepo} />
+          )}
 
           {mode === "related" && (
             <RepoList repos={related} onSelect={selectRepo} />

@@ -1,5 +1,6 @@
 "use client";
 import { useMemo } from "react";
+import { ChevronDownRegular, ChevronUpRegular, appIconFor, type AppIconKey } from "@/features/icons";
 import { useWindowManager } from "./WindowManagerProvider";
 import type { WindowResource } from "./types";
 const items = [
@@ -13,6 +14,17 @@ const items = [
   "Changes",
   "Settings",
 ];
+const itemIconKeys: Record<string, AppIconKey> = {
+  Code: "code",
+  "Pull Requests": "pull-requests",
+  Issues: "issues",
+  Actions: "actions",
+  Triage: "triage",
+  Releases: "releases",
+  Security: "security",
+  Changes: "changes",
+  Settings: "settings",
+};
 export function RubberBand({
   windowId,
   resource,
@@ -57,26 +69,29 @@ export function RubberBand({
           wm.setRubberBand({ ...state, collapsed: !state.collapsed })
         }
       >
-        ⌄
+        {state.collapsed ? <ChevronDownRegular /> : <ChevronUpRegular />}
       </button>
       {!state.collapsed &&
-        ordered.map((label) => (
-          <button
-            key={label}
-            onClick={() => {
-              if (label === "Code") return;
-              const featureId = label.toLowerCase().replaceAll(" ", "-");
-              wm.openRepositoryChild(
-                windowId,
-                "github-feature",
-                { type: "github-feature", repoKey, featureId },
-                `${repoKey.split("/").pop()} ${label} — Demo`,
-              );
-            }}
-          >
-            {label}
-          </button>
-        ))}
+        ordered.map((label) => {
+          const Icon = appIconFor(itemIconKeys[label] ?? "code");
+          return (
+            <button
+              key={label}
+              onClick={() => {
+                if (label === "Code") return;
+                const featureId = label.toLowerCase().replaceAll(" ", "-");
+                wm.openRepositoryChild(
+                  windowId,
+                  "github-feature",
+                  { type: "github-feature", repoKey, featureId },
+                  `${repoKey.split("/").pop()} ${label} — Demo`,
+                );
+              }}
+            >
+              <Icon /> {label}
+            </button>
+          );
+        })}
     </div>
   );
 }

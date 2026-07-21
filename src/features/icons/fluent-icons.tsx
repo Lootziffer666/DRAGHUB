@@ -11,6 +11,7 @@
 export {
   ChevronRightRegular,
   ChevronDownRegular,
+  ChevronUpRegular,
   FolderRegular,
   FolderFilled,
   FolderOpenRegular,

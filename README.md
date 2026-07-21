@@ -22,11 +22,13 @@ GitHub ist mächtig, fühlt sich aber oft nicht wie ein zusammenhängender Arbei
 
 DRAGHUB übersetzt GitHub in ein vertrauteres Desktop-Modell:
 
-- Repositories verhalten sich wie eigene Arbeitsbereiche.
+- Repositories öffnen sich als echte Fenster in einem Desktop-Kernel — nicht als Tabs oder Seiten.
+- Jedes Repository-Fenster hat seinen eigenen Zustand (Tabs, Baum, Auswahl, Ladezustand); zwei Fenster beeinflussen sich nie gegenseitig.
 - Dateien und Ordner bleiben im sichtbaren Projektkontext.
 - Mehrere Repositories können parallel geöffnet werden.
 - Änderungen werden gesammelt und als **Checkpoint** bestätigt.
-- GitHub-Funktionen erscheinen als zusammengehörige Werkzeuge statt als lose Webseiten.
+- GitHub-Funktionen (PRs, Issues, Actions, Triage, Security, Releases, Settings) docken als eigene, repository-gebundene Fenster an.
+- Was eine Datei öffnen kann, entscheidet eine echte **Datei-Handler-Registry** — „Öffnen mit" statt wachsender Sonderfälle.
 
 Das Ziel ist nicht, GitHub nachzubauen. DRAGHUB soll die Reibung zwischen **Repository, Dateien, Änderungen und Entscheidungen** entfernen.
 
@@ -50,22 +52,24 @@ DRAGHUB ist derzeit ein **aktiver Entwicklungsstand**, kein stabiles Produktions
 
 ## Funktionen der Phase 1
 
-### Repository-Arbeitsbereiche
+### Desktop-Kernel und Repository-Fenster
 
-- Mehrere Repositories gleichzeitig öffnen und wechseln
-- Repository-eigene Tabs, Auswahl, Verzeichniszustände und Caches
+- Fenster-Kernel mit Anwendungsregistrierung, Taskleiste, Dock und Desktop-Icons für Repositories
+- Jedes Repository-Fenster ist über `RepoScope` isoliert — eigene Tabs, Auswahl, Verzeichniszustände und Lade-/Fehlerzustand pro Fenster, nicht global
+- Mehrere Repositories gleichzeitig öffnen, parallel laden, unabhängig scheitern und erneut versuchen
 - Branch-Wechsel ohne Vermischung laufender Datei- oder Ordneranfragen
-- Dock für geöffnete und angeheftete Repositories
-- Repository-Suche und schneller Wechsel zwischen Arbeitsbereichen
+- Repository-Suche über die fokussierte Fensterumgebung; „Related" bezieht sich immer auf das gerade fokussierte Fenster, nie auf ein global „aktives" Repository
 
-### Dateien und Ordner
+### Dateien, Viewer und Öffnen mit
 
 - Datei- und Ordnernavigation im Explorer
 - Neue Dateien und Ordner anlegen
 - Umbenennen, löschen und per Drag-and-drop verschieben
 - Mehrfachauswahl und Kontextmenüs
 - Datei-Tabs mit Drag-Reordering
-- In-Browser-Codebearbeitung
+- In-Browser-Codebearbeitung (CodeMirror 6) mit Entwurfssitzungen, die Tab- und Repo-Wechsel überleben
+- Registry-basiertes „Öffnen mit": Code-Editor, Bild-Viewer, Markdown-Vorschau, Raw-Text-Ansicht, Audio-Player und Download werden pro Dateityp aus einer echten Handler-Tabelle bestimmt, nicht aus verstreuten `if (extension === ...)`-Prüfungen
+- Bilder und Audio laufen über einen gemeinsamen, authentifizierten Binär-Adapter — private Repositories funktionieren identisch zu öffentlichen
 - Räumliche Grid-Ansicht mit persistenter Anordnung
 - Bewusstsein für Git LFS und große Dateien
 
@@ -88,6 +92,8 @@ Basis-Commit
 - Gesamtes Changeset als einen Checkpoint schreiben
 - Blob-SHAs bei Umbenennungen wiederverwenden
 - Merge-Konflikte strukturiert auflösen
+- Ein einzelnes Editor- oder Viewer-Fenster schließen betrifft **ausschließlich seine eigene Datei** — nie fremde Entwürfe, nie das Working-Changes-Bucket des Repositories, nie einen ungewollten Checkpoint; Repository-Fenster behalten ihr repo-weites Schließverhalten
+- Papierkorb vereinigt Kernel-Einträge (verworfene Entwürfe geschlossener Fenster) und zurückgehaltene Working Changes in einer Ansicht und einer „Leeren"-Aktion; zur Löschung vorgemerkte, noch nicht committete Änderungen bleiben davon unberührt
 
 ### GitHub-Werkzeuge
 
@@ -155,10 +161,18 @@ http://localhost:3000
 ### Qualitätsprüfungen
 
 ```bash
+bun test          # Unit-Tests (bun:test, unter src/)
 bun typecheck
 bun lint
 bun build
+bun run test:e2e  # Playwright — nutzt das im Image vorinstallierte Chromium,
+                   # kein separater Browser-Download nötig
 ```
+
+Playwright ist eine feste devDependency; `playwright.config.ts` startet den
+Next.js-Dev-Server automatisch und mockt GitHub für die E2E-Specs unter
+`e2e/` (siehe `e2e/fixtures/github-mock.ts`) — echte GitHub-API-Aufrufe sind
+für diese Tests nicht nötig.
 
 ---
 
@@ -187,10 +201,17 @@ Für erweiterte Aktionen werden passende GitHub-Berechtigungen benötigt:
 ```text
 DRAGHUB/
 ├── src/
-│   ├── app/                 # Next.js-App und Shell
+│   ├── app/                 # Next.js-App, Desktop-Kernel-Bootstrap
 │   ├── components/          # Explorer, Tabs, Viewer und UI-Bausteine
-│   ├── features/            # isolierte GitHub- und Workspace-Funktionen
+│   ├── features/
+│   │   ├── desktop/         # Fenster-Kernel: Manager, Registry, Taskbar, Lifecycle
+│   │   ├── desktop-apps/    # Reale Anwendungen (Repository Explorer, Viewer,
+│   │   │                    #   Editor, GitHub-Feature-Fenster, Recycle Bin, …)
+│   │   │   └── file-handlers/  # Datei-Handler-Registry + Open-With-Menü
+│   │   └── …                # isolierte GitHub-Feature-Module (pulls, issues, …)
 │   └── lib/                 # GitHub-Zugriff, Store, DnD und Kernlogik
+├── e2e/                     # Playwright-Specs + GitHub-API-Mock-Fixture
+├── supabase/anvil-graph/    # Migrationen für DRAGHUBs Eintrag im ANVIL System Graph
 ├── docs/                    # verbindliche Produkt- und Architekturspezifikationen
 ├── PLAN.md                  # Ausführungsplan und Milestone-Status
 ├── AGENTS.md                # Regeln für ausführende Coding-Agenten
@@ -217,6 +238,9 @@ Der zentrale Store und seine öffentlichen Verträge sollten nicht beiläufig er
 | [`docs/MULTI_REPO_WINDOW_DOCK_SPEC.md`](./docs/MULTI_REPO_WINDOW_DOCK_SPEC.md) | Multi-Repo-State, Fenster und Dock |
 | [`docs/GITHUB_DESKTOP_SHELL_SPEC.md`](./docs/GITHUB_DESKTOP_SHELL_SPEC.md) | Desktop-Shell und GitHub-Werkzeuge |
 | [`docs/RUBBER_BAND_WORKSPACE_VIEWER_SPEC.md`](./docs/RUBBER_BAND_WORKSPACE_VIEWER_SPEC.md) | file-first Workspace, Rubber Band und Viewer |
+| [`docs/DESKTOP_INTEGRATION_INVENTORY.md`](./docs/DESKTOP_INTEGRATION_INVENTORY.md) | Modul-Inventar, Per-Window-State-Design, Lifecycle-Adapter, Datei-Handler-Registry, daedalOS-Übernahmestatus |
+| [`.kilocode/rules/memory-bank/context.md`](./.kilocode/rules/memory-bank/context.md) | laufend gepflegter Änderungsverlauf und aktueller Stand |
+| [`supabase/anvil-graph/README.md`](./supabase/anvil-graph/README.md) | DRAGHUBs Eintrag im geteilten ANVIL System Graph (Supabase) und wie er inkrementell erweitert wird |
 
 Bei Widersprüchen gelten die neuesten verbindlichen Spezifikationen und `PLAN.md` — nicht ältere PR-Beschreibungen oder Agentenberichte.
 
@@ -224,13 +248,15 @@ Bei Widersprüchen gelten die neuesten verbindlichen Spezifikationen und `PLAN.m
 
 ## Bekannte offene Punkte
 
-- finales End-to-End-QA der vollständigen Phase 1
+- ZIP/Archiv-Viewer (Mini-Explorer im Fenster, mit Path-Traversal-, Größen- und Zip-Bomb-Limits)
+- volle Tree-View als eigenes Fenster; Repository-Galerie als globaler Launcher
+- Local Tool Broker für die Übergabe an native Windows-Programme
 - UI-Polish und konsistente responsive Bedienung
 - Vereinheitlichung des älteren Upload-Pfads mit dem Working-Changes-Modell
 - vollständige Overlay-Darstellung auch in der Ordner-Hauptansicht
 - belastbare Produktions-Authentifizierung
 - weitere Zerlegung großer zentraler Module
-- Tests für kritische Repo-, Branch- und Async-Zustände
+- breitere End-to-End-Abdeckung über den bestehenden Playwright-Kern (Open With, Desktop-Shell) hinaus
 
 ---
 

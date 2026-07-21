@@ -109,7 +109,7 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-[100] min-w-[200px] select-none rounded-lg border border-neutral-700/80 bg-neutral-900/95 p-1 shadow-2xl shadow-black/50 backdrop-blur-md"
+      className="fixed z-[100] min-w-[200px] select-none rounded-lg border border-[var(--dh-window-border)]/80 bg-[var(--dh-surface-raised)]/95 p-1 shadow-2xl shadow-black/50 backdrop-blur-md"
       style={{ left: pos.x, top: pos.y }}
       onContextMenu={(e) => e.preventDefault()}
       onMouseDown={(e) => {
@@ -120,14 +120,14 @@ export function ContextMenu({
       {menu.items.map((item, i) => {
         if (!item.label) {
           return item.separatorBefore && i > 0 ? (
-            <div key={item.id} className="my-1 h-px bg-neutral-700/70" />
+            <div key={item.id} className="my-1 h-px bg-[var(--dh-surface-selected)]/70" />
           ) : null;
         }
         const isActive = i === active;
         return (
           <div key={item.id}>
             {item.separatorBefore && i > 0 && (
-              <div className="my-1 h-px bg-neutral-700/70" />
+              <div className="my-1 h-px bg-[var(--dh-surface-selected)]/70" />
             )}
             <button
               role="menuitem"
@@ -142,14 +142,14 @@ export function ContextMenu({
               className={[
                 "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
                 item.disabled
-                  ? "cursor-default text-neutral-600"
+                  ? "cursor-default text-[var(--dh-text-disabled)]"
                   : isActive
                     ? item.danger
                       ? "bg-red-500/90 text-white"
                       : "bg-blue-600 text-white"
                     : item.danger
-                      ? "text-red-400 hover:bg-red-500/15"
-                      : "text-neutral-200 hover:bg-neutral-700/60",
+                      ? "text-red-600 dark:text-red-400 hover:bg-red-500/15"
+                      : "text-[var(--dh-text)] hover:bg-[var(--dh-surface-selected)]/60",
               ].join(" ")}
             >
               <span className="flex h-4 w-4 items-center justify-center">
@@ -157,7 +157,7 @@ export function ContextMenu({
               </span>
               <span className="flex-1 truncate">{item.label}</span>
               {item.shortcut && (
-                <span className="text-[11px] text-neutral-500">{item.shortcut}</span>
+                <span className="text-[11px] text-[var(--dh-text-secondary)]">{item.shortcut}</span>
               )}
             </button>
           </div>

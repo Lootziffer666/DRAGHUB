@@ -55,16 +55,16 @@ export function GithubFeatureApp({ resource }: WindowContentProps) {
       return <BranchAwareView repoKey={repoKey} view="settings" />;
     default:
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-2 bg-neutral-950 p-6 text-center">
-          <p className="text-sm text-neutral-300 capitalize">
+        <div className="flex h-full flex-col items-center justify-center gap-2 bg-[var(--dh-surface)] p-6 text-center">
+          <p className="text-sm text-[var(--dh-text-secondary)] capitalize">
             {featureId.replaceAll("-", " ")}
           </p>
-          <p className="max-w-sm text-xs text-neutral-500">
+          <p className="max-w-sm text-xs text-[var(--dh-text-secondary)]">
             This surface is not integrated into the desktop yet. It stays a
             deferred feature per the post-PR8 integration brief.
           </p>
           <a
-            className="text-xs text-blue-400 hover:underline"
+            className="text-xs text-blue-700 dark:text-blue-400 hover:underline"
             href={`https://github.com/${repoKey}`}
             target="_blank"
             rel="noreferrer"
@@ -92,8 +92,8 @@ function useCanonicalRepo(repoKey: string) {
 function WaitingForRepo({ repoKey }: { repoKey: string }) {
   return (
     <Center>
-      <Spinner width={20} height={20} className="text-blue-400" />
-      <p className="text-sm text-neutral-400">Waiting for repository {repoKey}…</p>
+      <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+      <p className="text-sm text-[var(--dh-text-secondary)]">Waiting for repository {repoKey}…</p>
     </Center>
   );
 }
@@ -104,7 +104,7 @@ function ChangesWindow({ repoKey }: { repoKey: string }) {
   return (
     <RepoScope repoKey={resolved.key}>
       <ChangesProvider>
-        <div className="flex h-full flex-col bg-neutral-900">
+        <div className="flex h-full flex-col bg-[var(--dh-surface-raised)]">
           <ChangesPanelBody />
         </div>
       </ChangesProvider>
@@ -157,30 +157,30 @@ function PullsView({ owner, repo }: { owner: string; repo: string }) {
   }, [owner, repo]);
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-3">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-3">
       {loading && <Loading label="pull requests" />}
       {error && <ErrorBox message={error} />}
       {!loading && !error && items.length === 0 && (
-        <p className="p-4 text-center text-sm text-neutral-600">No open pull requests.</p>
+        <p className="p-4 text-center text-sm text-[var(--dh-text-disabled)]">No open pull requests.</p>
       )}
       <div className="space-y-2">
         {items.map((pr) => (
-          <div key={pr.number} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+          <div key={pr.number} className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-3">
             <div className="flex gap-2">
-              <span className="text-blue-300">#{pr.number}</span>
+              <span className="text-blue-700 dark:text-blue-300">#{pr.number}</span>
               <a
                 href={pr.htmlUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 text-sm text-neutral-100 hover:underline"
+                className="flex-1 text-sm text-[var(--dh-text)] hover:underline"
               >
                 {pr.title}
               </a>
-              <span className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
+              <span className="rounded bg-[var(--dh-surface-hover)] px-2 py-0.5 text-xs text-[var(--dh-text-secondary)]">
                 {classifyPr(pr)}
               </span>
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-[var(--dh-text-secondary)]">
               {pr.user} · {pr.changedFiles} files · +{pr.additions}/-{pr.deletions}
             </div>
             <div className="mt-2 flex gap-2">
@@ -200,7 +200,7 @@ function PullsView({ owner, repo }: { owner: string; repo: string }) {
                     .then(() => setItems((v) => v.filter((x) => x.number !== pr.number)))
                     .catch((e) => setError(String(e)))
                 }
-                className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+                className="rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-xs text-[var(--dh-text)] hover:bg-[var(--dh-surface-selected)]"
               >
                 Close
               </button>
@@ -227,27 +227,27 @@ function IssuesView({ owner, repo }: { owner: string; repo: string }) {
   }, [owner, repo]);
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-3">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-3">
       {loading && <Loading label="issues" />}
       {error && <ErrorBox message={error} />}
       {!loading && !error && items.length === 0 && (
-        <p className="p-4 text-center text-sm text-neutral-600">No open issues.</p>
+        <p className="p-4 text-center text-sm text-[var(--dh-text-disabled)]">No open issues.</p>
       )}
       <div className="space-y-2">
         {items.map((i) => (
-          <div key={i.number} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+          <div key={i.number} className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-3">
             <div className="flex gap-2">
-              <span className="text-emerald-300">#{i.number}</span>
+              <span className="text-emerald-700 dark:text-emerald-300">#{i.number}</span>
               <a
                 href={i.htmlUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 text-sm text-neutral-100 hover:underline"
+                className="flex-1 text-sm text-[var(--dh-text)] hover:underline"
               >
                 {i.title}
               </a>
             </div>
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-[var(--dh-text-secondary)]">
               {i.user} · {i.comments} comments · {i.labels.join(", ") || "no labels"}
             </div>
             <button
@@ -256,7 +256,7 @@ function IssuesView({ owner, repo }: { owner: string; repo: string }) {
                   .then(() => setItems((v) => v.filter((x) => x.number !== i.number)))
                   .catch((e) => setError(String(e)))
               }
-              className="mt-2 rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+              className="mt-2 rounded bg-[var(--dh-surface-hover)] px-2 py-1 text-xs text-[var(--dh-text)] hover:bg-[var(--dh-surface-selected)]"
             >
               Close
             </button>
@@ -297,11 +297,11 @@ function ActionsView({ owner, repo }: { owner: string; repo: string }) {
   }, [owner, repo]);
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-3">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-3">
       {loading && <Loading label="workflow runs" />}
       {error && <ErrorBox message={error} />}
       {!loading && !error && runs.length === 0 && (
-        <p className="p-4 text-center text-sm text-neutral-600">No workflow runs.</p>
+        <p className="p-4 text-center text-sm text-[var(--dh-text-disabled)]">No workflow runs.</p>
       )}
       <div className="space-y-1.5">
         {runs.map((r) => (
@@ -310,7 +310,7 @@ function ActionsView({ owner, repo }: { owner: string; repo: string }) {
             href={r.html_url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 hover:border-neutral-600"
+            className="flex items-center gap-2 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2 hover:border-[var(--dh-window-border-active)]"
           >
             <span
               className={[
@@ -322,10 +322,10 @@ function ActionsView({ owner, repo }: { owner: string; repo: string }) {
                     : "bg-amber-400",
               ].join(" ")}
             />
-            <span className="min-w-0 flex-1 truncate text-sm text-neutral-200">
+            <span className="min-w-0 flex-1 truncate text-sm text-[var(--dh-text)]">
               {r.name ?? "Workflow"} #{r.run_number}
             </span>
-            <span className="shrink-0 text-xs text-neutral-500">
+            <span className="shrink-0 text-xs text-[var(--dh-text-secondary)]">
               {r.head_branch} · {r.conclusion ?? r.status}
             </span>
           </a>
@@ -337,15 +337,15 @@ function ActionsView({ owner, repo }: { owner: string; repo: string }) {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 p-6 text-sm text-neutral-500">
-      <Spinner width={16} height={16} className="text-blue-400" /> Loading {label}…
+    <div className="flex items-center justify-center gap-2 p-6 text-sm text-[var(--dh-text-secondary)]">
+      <Spinner width={16} height={16} className="text-blue-700 dark:text-blue-400" /> Loading {label}…
     </div>
   );
 }
 
 function ErrorBox({ message }: { message: string }) {
   return (
-    <p className="rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300">
+    <p className="rounded border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-2 text-sm text-red-600 dark:text-red-300">
       {message}
     </p>
   );
@@ -353,7 +353,7 @@ function ErrorBox({ message }: { message: string }) {
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--dh-surface)] p-6 text-center">
       {children}
     </div>
   );

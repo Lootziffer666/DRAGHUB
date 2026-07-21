@@ -20,7 +20,7 @@ export function ScratchpadApp({ resource }: WindowContentProps) {
   }, [storageKey]);
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950">
+    <div className="flex h-full flex-col bg-[var(--dh-surface)]">
       <textarea
         value={text}
         onChange={(e) => {
@@ -32,7 +32,7 @@ export function ScratchpadApp({ resource }: WindowContentProps) {
           }
         }}
         placeholder="Local notes — saved automatically in this browser."
-        className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-sm text-neutral-200 outline-none placeholder:text-neutral-600"
+        className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-sm text-[var(--dh-text)] outline-none placeholder:text-[var(--dh-text-disabled)]"
         spellCheck={false}
       />
     </div>

@@ -71,14 +71,14 @@ export function TriageView({ owner, repo }: { owner: string; repo: string }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-3">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-3">
       {loading && <LoadingRow label="pull requests" />}
       {error && <ErrorRow message={error} />}
-      <div className="mb-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3 text-sm text-neutral-300">
+      <div className="mb-3 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-3 text-sm text-[var(--dh-text-secondary)]">
         {selected.length} selected. Bulk close summary: {selected.length} PRs
         will be closed; branches are not deleted.{" "}
         {confirm && (
-          <span className="text-amber-300">Click again to confirm ({confirm}).</span>
+          <span className="text-amber-700 dark:text-amber-300">Click again to confirm ({confirm}).</span>
         )}
         <button
           disabled={selected.length === 0 || working}
@@ -92,7 +92,7 @@ export function TriageView({ owner, repo }: { owner: string; repo: string }) {
         {items.map((pr) => (
           <label
             key={pr.number}
-            className="flex cursor-pointer items-center gap-3 rounded border border-neutral-800 bg-neutral-900 px-3 py-2"
+            className="flex cursor-pointer items-center gap-3 rounded border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2"
           >
             <input
               type="checkbox"
@@ -105,15 +105,15 @@ export function TriageView({ owner, repo }: { owner: string; repo: string }) {
                 )
               }
             />
-            <span className="text-blue-300">#{pr.number}</span>
-            <span className="flex-1 text-sm text-neutral-100">{pr.title}</span>
-            <span className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
+            <span className="text-blue-700 dark:text-blue-300">#{pr.number}</span>
+            <span className="flex-1 text-sm text-[var(--dh-text)]">{pr.title}</span>
+            <span className="rounded bg-[var(--dh-surface-hover)] px-2 py-0.5 text-xs text-[var(--dh-text-secondary)]">
               {classifyPr(pr)}
             </span>
           </label>
         ))}
         {!loading && !error && items.length === 0 && (
-          <p className="p-4 text-center text-sm text-neutral-600">
+          <p className="p-4 text-center text-sm text-[var(--dh-text-disabled)]">
             No open pull requests to triage.
           </p>
         )}
@@ -168,8 +168,8 @@ export function SecurityView({
   const canStage = Boolean(scoped) && !staged;
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-4">
-      <p className="mb-3 text-xs text-neutral-500">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-4">
+      <p className="mb-3 text-xs text-[var(--dh-text-secondary)]">
         Probes show what the current token can reach — a 403/404 usually means
         a missing scope or a feature that is disabled for this repository.
       </p>
@@ -180,16 +180,16 @@ export function SecurityView({
             return (
               <div
                 key={label}
-                className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2"
+                className="flex items-center gap-2 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2"
               >
                 <span
                   className={[
                     "h-2 w-2 shrink-0 rounded-full",
-                    !probe ? "bg-neutral-600" : probe.ok ? "bg-emerald-400" : "bg-amber-400",
+                    !probe ? "bg-[var(--dh-window-border-active)]" : probe.ok ? "bg-emerald-400" : "bg-amber-400",
                   ].join(" ")}
                 />
-                <span className="flex-1 text-sm text-neutral-200">{label}</span>
-                <span className="text-xs text-neutral-500">
+                <span className="flex-1 text-sm text-[var(--dh-text)]">{label}</span>
+                <span className="text-xs text-[var(--dh-text-secondary)]">
                   {probe ? probe.message : "Probing…"}
                 </span>
               </div>
@@ -197,9 +197,9 @@ export function SecurityView({
           }
         )}
       </div>
-      <div className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
-        <div className="mb-1 text-sm font-medium text-neutral-200">CODEOWNERS</div>
-        <p className="mb-2 text-xs text-neutral-500">
+      <div className="mt-4 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-3">
+        <div className="mb-1 text-sm font-medium text-[var(--dh-text)]">CODEOWNERS</div>
+        <p className="mb-2 text-xs text-[var(--dh-text-secondary)]">
           Stages a starter <code>.github/CODEOWNERS</code> as a normal working
           change in this repository&apos;s changeset — nothing commits until you
           create a checkpoint.
@@ -248,13 +248,13 @@ export function ReleasesView({
   }, [owner, repo]);
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-4">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-4">
       <div className="mb-4 flex flex-wrap gap-2">
         <a
           href={codespacesUrl(owner, repo, branch)}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 hover:border-neutral-500"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-xs text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
         >
           <ExternalLink width={13} height={13} /> New Codespace on {branch}
         </a>
@@ -262,27 +262,27 @@ export function ReleasesView({
           href={`https://github.com/${owner}/${repo}/wiki`}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 hover:border-neutral-500"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-xs text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
         >
           <ExternalLink width={13} height={13} /> Wiki
         </a>
         <button
           onClick={() => setWikiOpen((v) => !v)}
-          className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+          className="rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
         >
           Why no in-app wiki editing?
         </button>
       </div>
       {wikiOpen && (
-        <p className="mb-4 rounded-lg border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-400">
+        <p className="mb-4 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] p-3 text-xs text-[var(--dh-text-secondary)]">
           {wikiSpikeNote}
         </p>
       )}
-      <h3 className="mb-2 text-sm font-semibold text-neutral-200">Releases</h3>
+      <h3 className="mb-2 text-sm font-semibold text-[var(--dh-text)]">Releases</h3>
       {loading && <LoadingRow label="releases" />}
       {error && <ErrorRow message={error} />}
       {!loading && !error && releases.length === 0 && (
-        <p className="p-4 text-center text-sm text-neutral-600">No releases.</p>
+        <p className="p-4 text-center text-sm text-[var(--dh-text-disabled)]">No releases.</p>
       )}
       <div className="space-y-1.5">
         {releases.map((r) => (
@@ -291,12 +291,12 @@ export function ReleasesView({
             href={r.html_url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 hover:border-neutral-600"
+            className="flex items-center gap-2 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2 hover:border-[var(--dh-window-border-active)]"
           >
-            <span className="min-w-0 flex-1 truncate text-sm text-neutral-200">
+            <span className="min-w-0 flex-1 truncate text-sm text-[var(--dh-text)]">
               {r.name || r.tag_name}
             </span>
-            <span className="shrink-0 text-xs text-neutral-500">{r.tag_name}</span>
+            <span className="shrink-0 text-xs text-[var(--dh-text-secondary)]">{r.tag_name}</span>
           </a>
         ))}
       </div>
@@ -322,22 +322,22 @@ export function RepoSettingsView({
   }, [owner, repo, branch]);
 
   return (
-    <div className="h-full overflow-auto bg-neutral-950 p-4">
-      <div className="mb-3 flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2">
+    <div className="h-full overflow-auto bg-[var(--dh-surface)] p-4">
+      <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-2">
         <span
           className={[
             "h-2 w-2 shrink-0 rounded-full",
-            !protection ? "bg-neutral-600" : protection.ok ? "bg-emerald-400" : "bg-amber-400",
+            !protection ? "bg-[var(--dh-window-border-active)]" : protection.ok ? "bg-emerald-400" : "bg-amber-400",
           ].join(" ")}
         />
-        <span className="flex-1 text-sm text-neutral-200">
+        <span className="flex-1 text-sm text-[var(--dh-text)]">
           Branch protection on {branch}
         </span>
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-[var(--dh-text-secondary)]">
           {protection ? protection.message : "Probing…"}
         </span>
       </div>
-      <p className="mb-3 text-xs text-neutral-500">
+      <p className="mb-3 text-xs text-[var(--dh-text-secondary)]">
         Repository administration (rules, collaborators, webhooks) stays on
         GitHub — this window only probes what the current token can see.
       </p>
@@ -345,7 +345,7 @@ export function RepoSettingsView({
         href={`https://github.com/${owner}/${repo}/settings`}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-200 hover:border-neutral-500"
+        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-xs text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
       >
         <ExternalLink width={13} height={13} /> Open repository settings on GitHub
       </a>
@@ -355,15 +355,15 @@ export function RepoSettingsView({
 
 function LoadingRow({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 p-6 text-sm text-neutral-500">
-      <Spinner width={16} height={16} className="text-blue-400" /> Loading {label}…
+    <div className="flex items-center justify-center gap-2 p-6 text-sm text-[var(--dh-text-secondary)]">
+      <Spinner width={16} height={16} className="text-blue-700 dark:text-blue-400" /> Loading {label}…
     </div>
   );
 }
 
 function ErrorRow({ message }: { message: string }) {
   return (
-    <p className="mb-2 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-300">
+    <p className="mb-2 rounded border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-2 text-sm text-red-600 dark:text-red-300">
       {message}
     </p>
   );

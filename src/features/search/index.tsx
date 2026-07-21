@@ -103,13 +103,13 @@ export function SearchButton({
       onClick={open}
       title="Search (Ctrl/Cmd+K)"
       className={[
-        "flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1.5 text-sm text-neutral-300 hover:border-neutral-600",
+        "flex items-center gap-2 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1.5 text-sm text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]",
         className,
       ].join(" ")}
     >
-      <Search width={14} height={14} className="text-neutral-500" />
+      <Search width={14} height={14} className="text-[var(--dh-text-secondary)]" />
       <span className="hidden sm:inline">{label}</span>
-      <kbd className="hidden rounded bg-neutral-800 px-1.5 text-[11px] text-neutral-400 sm:inline">
+      <kbd className="hidden rounded bg-[var(--dh-surface-hover)] px-1.5 text-[11px] text-[var(--dh-text-secondary)] sm:inline">
         ⌘K
       </kbd>
     </button>

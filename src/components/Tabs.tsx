@@ -25,7 +25,7 @@ export function Tabs() {
   return (
     <div
       className={[
-        "flex items-stretch gap-0.5 overflow-x-auto border-b border-neutral-800 bg-neutral-950 px-2 pt-1.5",
+        "flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2 pt-1.5",
         dropActive ? "ring-1 ring-inset ring-blue-500/60" : "",
       ].join(" ")}
       onDragOver={(e) => {
@@ -131,20 +131,20 @@ function TabButton({
       className={[
         "group relative flex max-w-[200px] cursor-pointer items-center gap-2 rounded-t-md border-x border-t px-2.5 py-2 text-[13px] transition-colors",
         active
-          ? "border-neutral-700 bg-neutral-900 text-neutral-100"
-          : "border-transparent bg-neutral-900/40 text-neutral-400 hover:bg-neutral-900/70 hover:text-neutral-200",
+          ? "border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] text-[var(--dh-text)]"
+          : "border-transparent bg-[var(--dh-surface-raised)]/40 text-[var(--dh-text-secondary)] hover:bg-[var(--dh-surface-raised)]/70 hover:text-[var(--dh-text)]",
         isOver ? "border-t-blue-500" : "",
       ].join(" ")}
     >
       <Grip
         width={12}
         height={12}
-        className="shrink-0 text-neutral-600 group-hover:text-neutral-400"
+        className="shrink-0 text-[var(--dh-text-disabled)] group-hover:text-[var(--dh-text-secondary)]"
       />
       {tab.kind === "dir" ? (
-        <Folder width={14} height={14} className="shrink-0 text-amber-400" />
+        <Folder width={14} height={14} className="shrink-0 text-amber-700 dark:text-amber-400" />
       ) : (
-        <FileIcon width={14} height={14} className="shrink-0 text-sky-400" />
+        <FileIcon width={14} height={14} className="shrink-0 text-sky-700 dark:text-sky-400" />
       )}
       <span className="truncate">{tab.label}</span>
       {dirty && (
@@ -156,7 +156,7 @@ function TabButton({
       <button
         onClick={onClose}
         title="Close tab (middle-click)"
-        className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-neutral-500 opacity-0 hover:bg-neutral-700 hover:text-neutral-100 group-hover:opacity-100"
+        className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--dh-text-secondary)] opacity-0 hover:bg-[var(--dh-surface-selected)] hover:text-[var(--dh-text)] group-hover:opacity-100"
       >
         <X width={12} height={12} />
       </button>

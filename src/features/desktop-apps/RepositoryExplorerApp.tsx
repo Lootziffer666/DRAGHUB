@@ -50,21 +50,21 @@ export function RepositoryExplorerApp({ windowId, resource }: WindowContentProps
 
   if (!repo) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--dh-surface)] p-6 text-center">
         {request.error && !request.loading ? (
           <>
-            <p className="max-w-md text-sm text-red-300">{request.error}</p>
+            <p className="max-w-md text-sm text-red-600 dark:text-red-300">{request.error}</p>
             <button
               onClick={() => setAttempt((n) => n + 1)}
-              className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+              className="rounded-md border border-[var(--dh-window-border)] px-3 py-1.5 text-sm text-[var(--dh-text)] hover:border-[var(--dh-window-border-active)]"
             >
               Retry
             </button>
           </>
         ) : (
           <>
-            <Spinner width={22} height={22} className="text-blue-400" />
-            <p className="text-sm text-neutral-400">Loading {requestedKey}…</p>
+            <Spinner width={22} height={22} className="text-blue-700 dark:text-blue-400" />
+            <p className="text-sm text-[var(--dh-text-secondary)]">Loading {requestedKey}…</p>
           </>
         )}
       </div>
@@ -109,14 +109,14 @@ function RepositoryWindowBody({
   };
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950 text-neutral-200">
+    <div className="flex h-full flex-col bg-[var(--dh-surface)] text-[var(--dh-text)]">
       <RubberBand windowId={windowId} resource={resource} />
       <AddressBar
         onGoHome={() => wm.minimizeWindow(windowId)}
         onOpenRepo={openRepoInput}
         onCloseRepo={() => wm.requestCloseWindow(windowId)}
       />
-      <div className="flex items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3 py-1.5">
+      <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-1.5">
         <button
           onClick={() =>
             wm.openRepositoryChild(
@@ -127,12 +127,12 @@ function RepositoryWindowBody({
             )
           }
           title="Working changes"
-          className="relative flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
+          className="relative flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
         >
           <GitCommit
             width={13}
             height={13}
-            className={changes.changes.length > 0 ? "text-amber-400" : "text-neutral-500"}
+            className={changes.changes.length > 0 ? "text-amber-700 dark:text-amber-400" : "text-[var(--dh-text-secondary)]"}
           />
           Changes
           {changes.changes.length > 0 && (
@@ -153,9 +153,9 @@ function RepositoryWindowBody({
                 )
               }
               title="Open current file in a viewer window"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
             >
-              <FileIcon width={13} height={13} className="text-sky-400" />
+              <FileIcon width={13} height={13} className="text-sky-700 dark:text-sky-400" />
               Viewer window
             </button>
             <button
@@ -168,19 +168,19 @@ function RepositoryWindowBody({
                 )
               }
               title="Open current file in an editor window"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-600"
+              className="flex items-center gap-1.5 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-2.5 py-1 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
             >
-              <Edit width={13} height={13} className="text-emerald-400" />
+              <Edit width={13} height={13} className="text-emerald-700 dark:text-emerald-400" />
               Editor window
             </button>
           </>
         )}
-        <span className="ml-auto truncate text-[11px] text-neutral-600">
+        <span className="ml-auto truncate text-[11px] text-[var(--dh-text-disabled)]">
           {repoKey}
         </span>
       </div>
       <div className="flex min-h-0 flex-1">
-        <aside className="w-64 shrink-0 border-r border-neutral-800 max-md:hidden">
+        <aside className="w-64 shrink-0 border-r border-[var(--dh-window-border)] max-md:hidden">
           <Explorer />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">
@@ -190,7 +190,7 @@ function RepositoryWindowBody({
           </div>
         </main>
       </div>
-      <div className="flex items-center gap-4 border-t border-neutral-800 bg-neutral-950 px-3 py-1 text-[11px] text-neutral-500">
+      <div className="flex items-center gap-4 border-t border-[var(--dh-window-border)] bg-[var(--dh-surface)] px-3 py-1 text-[11px] text-[var(--dh-text-secondary)]">
         <span className="flex items-center gap-1">
           <GitBranch width={12} height={12} />
           {repo.meta.branch}

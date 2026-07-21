@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
 /*
+ * Ties Tailwind's `dark:` variant to our explicit, persisted theme
+ * attribute instead of `prefers-color-scheme` — the mode is a user choice
+ * (DraghubThemeProvider/theme-storage), not an OS setting.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
  * DRAGHUB semantic design tokens.
  * Light is the default/reference design (:root). [data-theme="dark"] overrides
  * the same token set for the tonal dark mode. --dh-lime-brand is intentionally

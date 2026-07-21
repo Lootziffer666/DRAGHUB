@@ -29,14 +29,14 @@ import type { WindowContentProps } from "@/features/desktop/types";
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
 
 const TOKEN_CLASS: Record<string, string> = {
-  comment: "text-neutral-500 italic",
-  string: "text-emerald-400",
-  number: "text-amber-300",
-  keyword: "text-violet-400",
-  ident: "text-neutral-200",
-  ws: "text-neutral-200",
-  punct: "text-neutral-400",
-  plain: "text-neutral-200",
+  comment: "text-[var(--dh-text-secondary)] italic",
+  string: "text-emerald-700 dark:text-emerald-400",
+  number: "text-amber-700 dark:text-amber-300",
+  keyword: "text-violet-700 dark:text-violet-400",
+  ident: "text-[var(--dh-text)]",
+  ws: "text-[var(--dh-text)]",
+  punct: "text-[var(--dh-text-secondary)]",
+  plain: "text-[var(--dh-text)]",
 };
 
 /** Viewer child application for `file` resources (images, markdown, code). */
@@ -133,8 +133,8 @@ function FileWindowApp({
   if (!repo || !meta) {
     return (
       <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">
+        <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+        <p className="text-sm text-[var(--dh-text-secondary)]">
           Waiting for repository {requestedKey}…
         </p>
       </Center>
@@ -143,7 +143,7 @@ function FileWindowApp({
 
   if (isImage) {
     return (
-      <div className="flex h-full flex-col bg-neutral-950">
+      <div className="flex h-full flex-col bg-[var(--dh-surface)]">
         <Header path={path} note={meta.branch} />
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 [background-image:linear-gradient(45deg,#171717_25%,transparent_25%),linear-gradient(-45deg,#171717_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#171717_75%),linear-gradient(-45deg,transparent_75%,#171717_75%)] [background-size:20px_20px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -160,7 +160,7 @@ function FileWindowApp({
   if (error) {
     return (
       <Center>
-        <p className="max-w-md text-sm text-red-300">{error}</p>
+        <p className="max-w-md text-sm text-red-600 dark:text-red-300">{error}</p>
       </Center>
     );
   }
@@ -168,15 +168,15 @@ function FileWindowApp({
   if (text === null) {
     return (
       <Center>
-        <Spinner width={20} height={20} className="text-blue-400" />
-        <p className="text-sm text-neutral-400">Loading {path}…</p>
+        <Spinner width={20} height={20} className="text-blue-700 dark:text-blue-400" />
+        <p className="text-sm text-[var(--dh-text-secondary)]">Loading {path}…</p>
       </Center>
     );
   }
 
   if (mode === "viewer") {
     return (
-      <div className="flex h-full flex-col bg-neutral-950">
+      <div className="flex h-full flex-col bg-[var(--dh-surface)]">
         <Header
           path={path}
           note={`${meta.branch}${size !== null ? ` · ${formatBytes(size)}` : ""}${pending ? " · pending edit" : ""}`}
@@ -205,7 +205,7 @@ function FileWindowApp({
   };
 
   return (
-    <div className="flex h-full flex-col bg-neutral-950">
+    <div className="flex h-full flex-col bg-[var(--dh-surface)]">
       <Header
         path={path}
         note={`${meta.branch}${dirty ? " · unsaved draft" : ""}${savedFlash ? " · saved as Working Change" : ""}`}
@@ -224,7 +224,7 @@ function FileWindowApp({
                 setEditorNonce((n) => n + 1);
               }}
               disabled={!dirty}
-              className="rounded border border-neutral-700 px-2 py-0.5 text-[11px] text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
+              className="rounded border border-[var(--dh-window-border)] px-2 py-0.5 text-[11px] text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)] disabled:opacity-40"
             >
               Discard draft
             </button>
@@ -267,11 +267,11 @@ function Header({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5">
-      <span className="min-w-0 truncate text-xs text-neutral-200" title={path}>
+    <div className="flex items-center gap-2 border-b border-[var(--dh-window-border)] px-3 py-1.5">
+      <span className="min-w-0 truncate text-xs text-[var(--dh-text)]" title={path}>
         {path}
       </span>
-      {note && <span className="shrink-0 text-[11px] text-neutral-500">{note}</span>}
+      {note && <span className="shrink-0 text-[11px] text-[var(--dh-text-secondary)]">{note}</span>}
       <div className="ml-auto shrink-0">{right}</div>
     </div>
   );
@@ -284,12 +284,12 @@ function CodeLines({ content }: { content: string }) {
       <tbody>
         {lines.map((tokens, i) => (
           <tr key={i}>
-            <td className="w-10 select-none pr-3 text-right align-top text-neutral-600">
+            <td className="w-10 select-none pr-3 text-right align-top text-[var(--dh-text-disabled)]">
               {i + 1}
             </td>
             <td className="whitespace-pre-wrap break-all align-top">
               {tokens.map((t, j) => (
-                <span key={j} className={TOKEN_CLASS[t.type] ?? "text-neutral-200"}>
+                <span key={j} className={TOKEN_CLASS[t.type] ?? "text-[var(--dh-text)]"}>
                   {t.text}
                 </span>
               ))}
@@ -303,7 +303,7 @@ function CodeLines({ content }: { content: string }) {
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-950 p-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--dh-surface)] p-6 text-center">
       {children}
     </div>
   );

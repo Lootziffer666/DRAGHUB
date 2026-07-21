@@ -17,7 +17,8 @@ import {
   Refresh,
   Spinner,
 } from "./icons";
-import { formatBytes, type GithubEntry } from "@/lib/github";
+import { fetchRepositoryBlob, formatBytes, type GithubEntry } from "@/lib/github";
+import { createImageUrlManager } from "@/lib/image-url";
 import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
 import { parseConflictHunks } from "@/lib/merge";
 import { useChanges } from "@/features/changes";
@@ -35,6 +36,80 @@ import {
 } from "@/lib/editor-sessions";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
+
+/**
+ * Authenticated image viewer. Fetches the binary via fetchRepositoryBlob
+ * (same GitHub token path as every other request) and renders it through an
+ * object URL, so private-repository images load without leaking the path to
+ * an unauthenticated raw.githubusercontent.com request. No blob is
+ * persisted into Desktop persistence. The object URL is revoked on unmount
+ * and whenever a new resource key loads.
+ */
+export function ImageViewer({
+  owner,
+  repo,
+  branch,
+  path,
+}: {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+}) {
+  const manager = useMemo(() => createImageUrlManager(), []);
+  const [view, setView] = useState<{
+    url: string | null;
+    loading: boolean;
+    error: string | null;
+  }>({ url: null, loading: true, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    setView({ url: null, loading: true, error: null });
+    fetchRepositoryBlob({ owner, repo, branch, path })
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = manager.create(blob);
+        setView({ url: objectUrl, loading: false, error: null });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setView({
+          url: null,
+          loading: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [owner, repo, branch, path, manager]);
+
+  useEffect(() => {
+    return () => manager.revoke();
+  }, [manager]);
+
+  if (view.loading) {
+    return (
+      <div className="flex justify-center p-6">
+        <Spinner width={18} height={18} className="text-blue-400" />
+      </div>
+    );
+  }
+  if (view.error) {
+    return <p className="p-4 text-red-400">{view.error}</p>;
+  }
+  return (
+    <div className="flex justify-center p-6">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={view.url ?? ""}
+        alt={path.split("/").pop()}
+        className="max-h-full max-w-full rounded-lg border border-neutral-800"
+      />
+    </div>
+  );
+}
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -716,14 +791,12 @@ function FileContentView({
         ) : isMarkdown && mdPreview && tab.content !== undefined ? (
           <div className="text-sm">{renderMarkdown(tab.content)}</div>
         ) : isImage ? (
-          <div className="flex justify-center p-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={rawUrl}
-              alt={tab.path.split("/").pop()}
-              className="max-h-full max-w-full rounded-lg border border-neutral-800"
-            />
-          </div>
+          <ImageViewer
+            owner={meta.owner}
+            repo={meta.repo}
+            branch={meta.branch}
+            path={tab.path}
+          />
         ) : (
           <pre className="flex min-w-full font-mono text-[12.5px] leading-5">
             <code className="flex min-w-full">

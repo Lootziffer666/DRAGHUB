@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Search } from "@/components/icons";
 import { SearchPanel } from "./SearchPanel";
+import type { DesktopWindowState } from "@/features/desktop/types";
 
 type SearchContextValue = {
   open: () => void;
@@ -20,7 +21,38 @@ type SearchContextValue = {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-export function SearchProvider({ children }: { children: ReactNode }) {
+/**
+ * The repository "Related" search should operate against, derived from the
+ * currently FOCUSED desktop window rather than whichever repository last
+ * became globally active. Repository, file and github-feature windows carry
+ * their own repoKey; a repository-owned child window (e.g. Settings opened
+ * from a repository) inherits its owner's repoKey. System and tool windows
+ * (Recycle Bin, Scratchpad, desktop-level Settings) yield null.
+ */
+export function repoKeyFromWindow(
+  w: DesktopWindowState | undefined,
+): string | null {
+  if (!w) return null;
+  if (w.resource.type === "repository") return w.resource.repoKey;
+  if (w.resource.type === "file") return w.resource.repoKey;
+  if (w.resource.type === "github-feature") return w.resource.repoKey;
+  if (w.owner.type === "repository") return w.owner.repoKey;
+  return null;
+}
+
+export function SearchProvider({
+  children,
+  onSelectRepo,
+  relatedRepoKey = null,
+}: {
+  children: ReactNode;
+  /** Overrides what selecting a repository result does — the desktop shell
+   * opens/focuses a repository window instead of the global store. */
+  onSelectRepo?: (fullName: string) => void;
+  /** Repository context for the Related tab, derived from the focused
+   * desktop window. Null disables Related with an explanation. */
+  relatedRepoKey?: string | null;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const open = useCallback(() => setIsOpen(true), []);
@@ -41,7 +73,13 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={{ open, close, toggle, isOpen }}>
       {children}
-      {isOpen && <SearchPanel onClose={close} />}
+      {isOpen && (
+        <SearchPanel
+          onClose={close}
+          onSelectRepo={onSelectRepo}
+          relatedRepoKey={relatedRepoKey}
+        />
+      )}
     </SearchContext.Provider>
   );
 }

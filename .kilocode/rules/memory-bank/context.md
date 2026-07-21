@@ -9,11 +9,100 @@
 
 ## Current State
 
-**Status**: ✅ Isolated desktop UX foundation built and tested. The visible shell
-currently uses mock applications only; existing GitHub features remain in the
-codebase but are intentionally not connected to the new window layer yet.
+**Status**: ✅ The PR #8 desktop kernel now runs the real DRAGHUB GitHub
+features: repository windows browse/edit real repositories with per-window
+state, child windows (viewer/editor/PRs/issues/actions/triage/security/
+releases/changes) bind to typed resources, and the close/Recycle-Bin
+lifecycle inspects real dirty drafts and pending changes. PR #9 tracks this
+integration; a post-integration fix pass (2026-07-21) closed five isolation
+gaps left by the first pass — see below. Deferred: shares (ADR),
+Theia/ANVIL-Core, daedalOS UX extras.
 
 ## Recently Completed
+
+- [x] **Post-PR9 integration fixes (2026-07-21)**: five isolation gaps in the
+  first integration pass closed, each with regression tests:
+  - **Related search** now takes an explicit `relatedRepoKey` derived from
+    the focused desktop window (`repoKeyFromWindow` in `features/search`)
+    instead of the globally active repository, so Related reflects whichever
+    window actually has focus; system/tool windows disable it with an
+    explanation.
+  - **Private-repository image previews** go through a new authenticated
+    `fetchRepositoryBlob` (`src/lib/github.ts`, same token path as every
+    other request, byte-safe base64 decode, existing 5 MB guard) instead of
+    an unauthenticated `raw.githubusercontent.com` request. `FileView`'s
+    `ImageViewer` renders the blob through an Object URL managed by the pure
+    `src/lib/image-url.ts` helper (`createImageUrlManager`), revoked on
+    replacement and unmount; nothing is persisted into desktop persistence.
+  - **Recycle Bin "Empty"** now clears both the kernel entries
+    (`wm.session.recycleBin`, drafts discarded on window close) and the
+    per-repository retained changes in one action, via the pure
+    `recycleBinSummary`/`emptyRecycleBinAll` helpers in
+    `src/features/recycle-bin/recycle-bin-summary.ts`; previously it only
+    cleared retained changes, so kernel entries could accumulate forever and
+    the button stayed disabled while they existed. Staged deletions are
+    still never touched.
+  - **Repository loading/error state** moved from two global flags to a
+    `repoRequests` map keyed by lowercased repoKey (`src/lib/store.tsx`,
+    `useRepoRequest`), so two repository windows hydrating or retrying
+    concurrently no longer show each other's status.
+  - **Window-close scope**: `features/desktop-apps/lifecycle-adapter.ts`
+    gained a pure `deriveCloseScope(target)` used by both `inspectClose` and
+    `resolveClose`. Closing a single file-editor or image-viewer window
+    previously fell through to repository-wide logic — staging/discarding
+    every dirty draft in the repo and, for editors, potentially creating a
+    full repository checkpoint. Now an editor's close touches only its own
+    file (no checkpoint, no other draft, no effect on the repository's
+    Working Changes bucket) and a viewer's close is always a no-op;
+    repository-window closes keep their existing repo-wide behavior
+    unchanged.
+
+- [x] **Second integration slice (2026-07-20)**: Triage, Security, Releases and
+  repo-Settings became real `github-feature` child windows
+  (`desktop-apps/feature-views.tsx`, reusing the existing triage/control-panel/
+  start-menu API layers); rubber band gained Triage/Releases items (persisted
+  orders merge new items instead of hiding them); CODEOWNERS staging from the
+  Security window updates the parent window's Changes badge through the shared
+  bucket store. Playwright-verified (pw25.js) with zero console errors.
+  PR #9: https://github.com/Lootziffer666/DRAGHUB/pull/9
+
+- [x] **First post-PR8 integration pass (2026-07-20, per `docs/POST_PR8_REFERENCE_INTEGRATION.md`)**:
+  - Mock desktop applications replaced through the Application Registry with the
+    real DRAGHUB capabilities (`src/features/desktop-apps/`): RepositoryExplorerApp
+    (AddressBar/Explorer/Tabs/FileView/Changes under a window-scoped `RepoScope`),
+    FileViewer/FileEditor child apps (CodeMirror + editor sessions + staging),
+    GithubFeatureApp (pull-requests/issues/actions/changes; honest deferred panel
+    otherwise), real RecycleBinApp (kernel close-drafts + staged deletions +
+    domain-retained discards) and SettingsApp (PAT + desktop reset); Scratchpad
+    tool is a real local notepad.
+  - `src/lib/store.tsx`: every repository-scoped action now carries an explicit
+    `repoKey`; `RepoScope` context fixes the repository for a window subtree, so
+    existing components work unchanged per window (no global active-repo reads
+    from desktop apps — the brief's mandatory rule).
+  - `src/features/changes/store.ts`: pending changes moved to a module-level
+    per-repo bucket store (localStorage-backed, subscribable); ChangesProvider is
+    now a thin per-window binding; `ops.ts` adds provider-free stage/checkpoint/
+    discard for the lifecycle adapter.
+  - `src/features/desktop-apps/lifecycle-adapter.ts`: real close inspection
+    (dirty drafts per window ownership, pending-change counts) and resolution
+    (commit-and-close via the existing commit engine; discard → kernel draft
+    entries + domain recycle retention); WindowManagerProvider takes the adapter
+    as an injectable prop (demo lifecycle removed with the demo apps).
+  - Kernel bootstrapping made real: no demo windows/drives; system icons + recent
+    repositories as drives; repository windows auto-create desktop shortcuts;
+    taskbar search opens the real SearchPanel, whose results call
+    `openOrFocusWindow` (restore/focus/no duplicates); taskbar shows total
+    pending changes. Persistence v5 extended additively with the `file-editor`
+    application id.
+  - Superseded/removed: `src/features/recycle-bin/` modal module (absorbed into
+    RecycleBinApp), old `features/dock` strip unmounted (kernel taskbar owns
+    this), demo components deleted.
+  - Tests: `src/features/desktop-apps/desktop-integration.test.ts` (bucket
+    isolation, inspect/resolve/restore paths, cross-repo leak check) — 35 bun
+    tests green; Playwright e2e (scratchpad pw24.js) verified the full §13-style
+    slice against a mocked GitHub API with zero console errors.
+  - Docs: `docs/DESKTOP_INTEGRATION_INVENTORY.md` (inventory, per-window state
+    design, lifecycle description, daedalOS adopted/deferred/rejected).
 
 - [x] **Final close-resolution recovery fix (2026-07-20)**:
   - Adapter failures and exceptions return the matching transaction from pending to idle without changing inspection results, blockers, windows, or concurrent desktop edits; old errors are cleared on retry and transaction guards remain enforced.
@@ -158,7 +247,7 @@ codebase but are intentionally not connected to the new window layer yet.
 | `src/lib/flubber-selection.ts`          | FLUBBER two-long-press touch text selection (CM6 extension)                                                                                             |
 | `src/lib/markdown.tsx`                  | Dependency-free Markdown → React renderer                                                                                                               |
 | `src/lib/recycle-bin.ts`                | Retention store for discarded content-bearing changes (7-day grace)                                                                                     |
-| `src/features/recycle-bin/`             | **Feature module**: `RecycleBinPanel.tsx`, `index.tsx` (`RecycleBinButton`)                                                                             |
+| `src/features/recycle-bin/`             | Pure helpers only: `recycle-bin-summary.ts` (`recycleBinSummary`, `emptyRecycleBinAll`), consumed by `desktop-apps/RecycleBinApp.tsx`                   |
 
 ## Key Decisions
 
@@ -187,3 +276,4 @@ own API file, UI, and an `index.tsx` exporting a `Provider` + `useX` hook +
 | 2026-07-15 | PLAN.md M3–M7 and M9–M12: editor/delta, LFS and large-file read guards, grid layout, conflict primitives, PR/Issue/Triage modules, Dock, Control Panel, Start Menu, and wiki spike note                                                                          |
 | 2026-07-19 | Reconciled branch with main's extended plan (docs/), adopted main's tree, re-ported the deeper modules; M3b editor per correction record §5: CodeMirror 6, draft sessions, FLUBBER selection, Markdown preview, size guard                                       |
 | 2026-07-20 | Functional Recycle Bin per correction record §6: staged-deletion restore, discarded-draft retention (7-day grace, blobs kept), path-conflict handling, summary-confirmed Empty Bin; fixed StrictMode double-retain in `discardChange`                            |
+| 2026-07-21 | Post-PR9 integration fixes: focused-window related search, authenticated private-repo image loading, unified Recycle Bin empty (kernel + retained), per-repoKey loading/error isolation, exact editor/repository window-close scope — see "Recently Completed" |

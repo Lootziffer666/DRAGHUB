@@ -6,6 +6,7 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import {
@@ -46,38 +47,47 @@ export type RepoState = {
   viewMode: ViewMode;
 };
 
+type RepoRequest = { loading: boolean; error: string | null };
+
 type State = {
   repos: Record<string, RepoState>;
   activeRepoKey: string | null;
   pinnedRepoKeys: string[];
   recent: string[];
-  repoError: string | null;
-  repoLoading: boolean;
+  // Per-repository hydration status keyed by a LOWERCASED repoKey, so
+  // "Owner/Repo" and "owner/repo" resolve to the same entry. This isolates
+  // each repository window's loading/error state (Alpha can load while Beta
+  // shows an error) instead of leaking a single global flag to every window.
+  repoRequests: Record<string, RepoRequest>;
 };
 
+// Every repository-scoped action carries its target repoKey explicitly, so
+// two repository windows can mutate their own workspace concurrently without
+// racing over a single "active" pointer (MULTI_REPO_WINDOW_DOCK_SPEC §7).
 type Action =
-  | { type: "REPO_LOADING" }
+  | { type: "REPO_LOADING_FOR"; repoKey: string }
   | { type: "REPO_LOADED"; meta: RepoMeta }
-  | { type: "REPO_ERROR"; error: string }
+  | { type: "REPO_ERROR_FOR"; repoKey: string; error: string }
   | { type: "CLOSE_REPO" }
+  | { type: "RELEASE_REPO"; repoKey: string }
   | { type: "SWITCH_REPO"; repoKey: string }
   | { type: "TOGGLE_PIN_REPO"; repoKey: string }
-  | { type: "ADD_TAB"; tab: Tab; activate: boolean }
-  | { type: "CLOSE_TAB"; id: string }
-  | { type: "SET_ACTIVE"; id: string }
-  | { type: "MOVE_TAB"; from: number; to: number }
-  | { type: "DIR_LOADING"; path: string }
-  | { type: "DIR_LOADED"; path: string; entries: GithubEntry[] }
-  | { type: "DIR_ERROR"; path: string }
-  | { type: "DIR_INVALIDATE"; path: string }
-  | { type: "DIR_ATTACH"; id: string; entries: GithubEntry[] }
-  | { type: "FILE_LOADING"; id: string }
-  | { type: "FILE_LOADED"; id: string; content: string; language: string; size: number }
-  | { type: "FILE_ERROR"; id: string; error: string }
-  | { type: "SET_EXPANDED"; path: string; value: boolean }
-  | { type: "SET_SELECTION"; paths: string[] }
-  | { type: "SET_BRANCH"; branch: string }
-  | { type: "SET_VIEW_MODE"; viewMode: ViewMode };
+  | { type: "ADD_TAB"; repoKey: string; tab: Tab; activate: boolean }
+  | { type: "CLOSE_TAB"; repoKey: string; id: string }
+  | { type: "SET_ACTIVE"; repoKey: string; id: string }
+  | { type: "MOVE_TAB"; repoKey: string; from: number; to: number }
+  | { type: "DIR_LOADING"; repoKey: string; path: string }
+  | { type: "DIR_LOADED"; repoKey: string; path: string; entries: GithubEntry[] }
+  | { type: "DIR_ERROR"; repoKey: string; path: string }
+  | { type: "DIR_INVALIDATE"; repoKey: string; path: string }
+  | { type: "DIR_ATTACH"; repoKey: string; id: string; entries: GithubEntry[] }
+  | { type: "FILE_LOADING"; repoKey: string; id: string }
+  | { type: "FILE_LOADED"; repoKey: string; id: string; content: string; language: string; size: number }
+  | { type: "FILE_ERROR"; repoKey: string; id: string; error: string }
+  | { type: "SET_EXPANDED"; repoKey: string; path: string; value: boolean }
+  | { type: "SET_SELECTION"; repoKey: string; paths: string[] }
+  | { type: "SET_BRANCH"; repoKey: string; branch: string }
+  | { type: "SET_VIEW_MODE"; repoKey: string; viewMode: ViewMode };
 
 function emptyRepo(meta: RepoMeta): RepoState {
   return {
@@ -125,42 +135,77 @@ function languageFor(path: string): string {
   return map[ext] ?? (path.toLowerCase() === "dockerfile" ? "Dockerfile" : "Text");
 }
 
-const initialState: State = {
+export const initialState: State = {
   repos: {},
   activeRepoKey: null,
   pinnedRepoKeys: [],
   recent: [],
-  repoError: null,
-  repoLoading: false,
+  repoRequests: {},
 };
 
-function updateActiveRepo(state: State, fn: (repo: RepoState) => RepoState): State {
-  if (!state.activeRepoKey) return state;
-  const repo = state.repos[state.activeRepoKey];
+function updateRepo(state: State, repoKey: string, fn: (repo: RepoState) => RepoState): State {
+  const repo = state.repos[repoKey];
   if (!repo) return state;
-  return { ...state, repos: { ...state.repos, [state.activeRepoKey]: fn(repo) } };
+  return { ...state, repos: { ...state.repos, [repoKey]: fn(repo) } };
 }
 
-function reducer(state: State, action: Action): State {
+// Exported (test-only) so the regression suite can assert per-repo isolation
+// by dispatching REPO_LOADING_FOR / REPO_LOADED / REPO_ERROR_FOR for two repos.
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case "REPO_LOADING":
-      return { ...state, repoLoading: true, repoError: null };
+    case "REPO_LOADING_FOR": {
+      // Only this repository's request status changes — other repos are
+      // untouched, so parallel hydration of Alpha + Beta stays independent.
+      return {
+        ...state,
+        repoRequests: { ...state.repoRequests, [action.repoKey]: { loading: true, error: null } },
+      };
+    }
     case "REPO_LOADED": {
       const repoKey = action.meta.fullName;
       return {
         ...state,
-        repoLoading: false,
-        repoError: null,
+        // Reconcile canonical vs requested casing of the repoKey.
+        repoRequests: {
+          ...state.repoRequests,
+          [repoKey.toLowerCase()]: { loading: false, error: null },
+        },
         activeRepoKey: repoKey,
         repos: { ...state.repos, [repoKey]: state.repos[repoKey] ?? emptyRepo(action.meta) },
         recent: state.recent.includes(repoKey) ? state.recent : [repoKey, ...state.recent].slice(0, 8),
       };
     }
-    case "REPO_ERROR":
-      return { ...state, repoLoading: false, repoError: action.error };
+    case "REPO_ERROR_FOR": {
+      // Only this repository's request status changes — other repos are
+      // untouched.
+      return {
+        ...state,
+        repoRequests: {
+          ...state.repoRequests,
+          [action.repoKey]: { loading: false, error: action.error },
+        },
+      };
+    }
 
     case "CLOSE_REPO":
-      return { ...state, activeRepoKey: null, repoError: null, repoLoading: false };
+      // Clear only the focused-repo pointer; per-repo request status is left
+      // intact so re-opening the same repository does not flash a stale
+      // error from a previous attempt in another window.
+      return { ...state, activeRepoKey: null };
+    case "RELEASE_REPO": {
+      if (!state.repos[action.repoKey]) return state;
+      const repos = { ...state.repos };
+      delete repos[action.repoKey];
+      const repoRequests = { ...state.repoRequests };
+      delete repoRequests[action.repoKey.toLowerCase()];
+      return {
+        ...state,
+        repos,
+        repoRequests,
+        activeRepoKey: state.activeRepoKey === action.repoKey ? null : state.activeRepoKey,
+        pinnedRepoKeys: state.pinnedRepoKeys.filter((k) => k !== action.repoKey),
+      };
+    }
     case "SWITCH_REPO":
       return state.repos[action.repoKey] ? { ...state, activeRepoKey: action.repoKey } : state;
     case "TOGGLE_PIN_REPO":
@@ -168,9 +213,9 @@ function reducer(state: State, action: Action): State {
         ? { ...state, pinnedRepoKeys: state.pinnedRepoKeys.filter((k) => k !== action.repoKey) }
         : { ...state, pinnedRepoKeys: [...state.pinnedRepoKeys, action.repoKey] };
     case "ADD_TAB":
-      return updateActiveRepo(state, (r) => ({ ...r, tabs: [...r.tabs, action.tab], activeTabId: action.activate ? action.tab.id : r.activeTabId }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: [...r.tabs, action.tab], activeTabId: action.activate ? action.tab.id : r.activeTabId }));
     case "CLOSE_TAB":
-      return updateActiveRepo(state, (r) => {
+      return updateRepo(state, action.repoKey, (r) => {
         const idx = r.tabs.findIndex((t) => t.id === action.id);
         if (idx === -1) return r;
         const tabs = r.tabs.filter((t) => t.id !== action.id);
@@ -179,9 +224,9 @@ function reducer(state: State, action: Action): State {
         return { ...r, tabs, activeTabId };
       });
     case "SET_ACTIVE":
-      return updateActiveRepo(state, (r) => ({ ...r, activeTabId: action.id }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, activeTabId: action.id }));
     case "MOVE_TAB":
-      return updateActiveRepo(state, (r) => {
+      return updateRepo(state, action.repoKey, (r) => {
         if (action.from === action.to || action.from < 0 || action.to < 0 || action.from >= r.tabs.length || action.to >= r.tabs.length) return r;
         const tabs = [...r.tabs];
         const [moved] = tabs.splice(action.from, 1);
@@ -189,13 +234,13 @@ function reducer(state: State, action: Action): State {
         return { ...r, tabs };
       });
     case "DIR_LOADING":
-      return updateActiveRepo(state, (r) => ({ ...r, treeState: { ...r.treeState, [action.path]: "loading" } }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, treeState: { ...r.treeState, [action.path]: "loading" } }));
     case "DIR_LOADED":
-      return updateActiveRepo(state, (r) => ({ ...r, treeCache: { ...r.treeCache, [action.path]: action.entries }, treeState: { ...r.treeState, [action.path]: "loaded" } }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, treeCache: { ...r.treeCache, [action.path]: action.entries }, treeState: { ...r.treeState, [action.path]: "loaded" } }));
     case "DIR_ERROR":
-      return updateActiveRepo(state, (r) => ({ ...r, treeState: { ...r.treeState, [action.path]: "error" } }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, treeState: { ...r.treeState, [action.path]: "error" } }));
     case "DIR_INVALIDATE":
-      return updateActiveRepo(state, (r) => {
+      return updateRepo(state, action.repoKey, (r) => {
         const treeCache = { ...r.treeCache };
         const treeState = { ...r.treeState };
         delete treeCache[action.path];
@@ -203,33 +248,29 @@ function reducer(state: State, action: Action): State {
         return { ...r, treeCache, treeState };
       });
     case "DIR_ATTACH":
-      return updateActiveRepo(state, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, entries: action.entries, entriesState: "loaded", entriesError: undefined } : t) }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, entries: action.entries, entriesState: "loaded", entriesError: undefined } : t) }));
     case "FILE_LOADING":
-      return updateActiveRepo(state, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, contentState: "loading" } : t) }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, contentState: "loading" } : t) }));
     case "FILE_LOADED":
-      return updateActiveRepo(state, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, content: action.content, language: action.language, size: action.size, contentState: "loaded", contentError: undefined } : t) }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, content: action.content, language: action.language, size: action.size, contentState: "loaded", contentError: undefined } : t) }));
     case "FILE_ERROR":
-      return updateActiveRepo(state, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, contentState: "error", contentError: action.error } : t) }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: r.tabs.map((t) => t.id === action.id ? { ...t, contentState: "error", contentError: action.error } : t) }));
     case "SET_EXPANDED":
-      return updateActiveRepo(state, (r) => ({ ...r, expanded: { ...r.expanded, [action.path]: action.value } }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, expanded: { ...r.expanded, [action.path]: action.value } }));
     case "SET_SELECTION":
-      return updateActiveRepo(state, (r) => ({ ...r, selection: action.paths }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, selection: action.paths }));
     case "SET_BRANCH":
-      return updateActiveRepo(state, (r) => ({ ...emptyRepo({ ...r.meta, branch: action.branch }), viewMode: r.viewMode }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...emptyRepo({ ...r.meta, branch: action.branch }), viewMode: r.viewMode }));
     case "SET_VIEW_MODE":
-      return updateActiveRepo(state, (r) => ({ ...r, viewMode: action.viewMode }));
+      return updateRepo(state, action.repoKey, (r) => ({ ...r, viewMode: action.viewMode }));
     default:
       return state;
   }
 }
 
-type StoreContextValue = {
-  state: State;
-  activeRepo: RepoState | null;
-  openRepo: (input: string) => Promise<void>;
-  closeRepo: () => void;
-  switchRepo: (repoKey: string) => void;
-  togglePinRepo: (repoKey: string) => void;
+/** Repository-scoped slice of the store API. Every function targets one
+ * fixed repository (inside a `RepoScope`) or the globally active one. */
+type ScopedActions = {
   setBranch: (branch: string) => void;
   openPath: (path: string, kind: "file" | "dir", opts?: { newTab?: boolean }) => void;
   openInNewTab: (path: string, kind: "file" | "dir") => void;
@@ -246,19 +287,49 @@ type StoreContextValue = {
   invalidateDir: (path: string) => void;
 };
 
-const StoreContext = createContext<StoreContextValue | null>(null);
+type StoreContextValue = ScopedActions & {
+  state: State;
+  activeRepo: RepoState | null;
+  openRepo: (input: string) => Promise<void>;
+  closeRepo: () => void;
+  releaseRepo: (repoKey: string) => void;
+  switchRepo: (repoKey: string) => void;
+  togglePinRepo: (repoKey: string) => void;
+};
+
+type StoreInternalValue = {
+  state: State;
+  actionsFor: (repoKey: string | null) => ScopedActions;
+  openRepo: (input: string) => Promise<void>;
+  closeRepo: () => void;
+  releaseRepo: (repoKey: string) => void;
+  switchRepo: (repoKey: string) => void;
+  togglePinRepo: (repoKey: string) => void;
+};
+
+const StoreContext = createContext<StoreInternalValue | null>(null);
+
+/** Fixes which repository the store hooks below this node operate on,
+ * independent of the globally focused repo — one per repository window. */
+const RepoScopeContext = createContext<string | null>(null);
+
+export function RepoScope({ repoKey, children }: { repoKey: string; children: ReactNode }) {
+  return <RepoScopeContext.Provider value={repoKey}>{children}</RepoScopeContext.Provider>;
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const activeRepo = state.activeRepoKey ? state.repos[state.activeRepoKey] ?? null : null;
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const loadRoot = useCallback(async (meta: RepoMeta) => {
+    const repoKey = meta.fullName;
     try {
       const root = await fetchContents(meta.owner, meta.repo, "", meta.branch);
-      dispatch({ type: "DIR_LOADED", path: "", entries: root });
+      dispatch({ type: "DIR_LOADED", repoKey, path: "", entries: root });
       return root;
     } catch {
-      dispatch({ type: "DIR_ERROR", path: "" });
+      dispatch({ type: "DIR_ERROR", repoKey, path: "" });
       return [];
     }
   }, []);
@@ -266,19 +337,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const openRepo = useCallback(async (input: string) => {
     const parsed = parseRepoInput(input);
     if (!parsed) {
-      dispatch({ type: "REPO_ERROR", error: "Invalid repository. Use owner/repo or a github.com URL." });
+      dispatch({
+        type: "REPO_ERROR_FOR",
+        repoKey: (input ?? "").toLowerCase(),
+        error: "Invalid repository. Use owner/repo or a github.com URL.",
+      });
       return;
     }
-    dispatch({ type: "REPO_LOADING" });
+    const reqKey = `${parsed.owner}/${parsed.repo}`.toLowerCase();
+    dispatch({ type: "REPO_LOADING_FOR", repoKey: reqKey });
     try {
       const meta = await fetchRepoMeta(parsed.owner, parsed.repo);
       const repoKey = meta.fullName;
-      const existed = Boolean(state.repos[repoKey]);
+      const existed = Boolean(stateRef.current.repos[repoKey]);
       dispatch({ type: "REPO_LOADED", meta });
-      let root: GithubEntry[] = [];
       if (!existed) {
-        root = await loadRoot(meta);
-        dispatch({ type: "ADD_TAB", activate: true, tab: emptyTab({ kind: "dir", path: "", label: meta.fullName, repoKey, branch: meta.branch, entries: root, entriesState: "loaded" }) });
+        const root = await loadRoot(meta);
+        dispatch({ type: "ADD_TAB", repoKey, activate: true, tab: emptyTab({ kind: "dir", path: "", label: meta.fullName, repoKey, branch: meta.branch, entries: root, entriesState: "loaded" }) });
       }
       try {
         const stored = JSON.parse(localStorage.getItem("gh-browser-recent") ?? "[]");
@@ -286,92 +361,185 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("gh-browser-recent", JSON.stringify(recent));
       } catch { /* ignore */ }
     } catch (err) {
-      dispatch({ type: "REPO_ERROR", error: err instanceof Error ? err.message : "Failed to load repository." });
+      dispatch({
+        type: "REPO_ERROR_FOR",
+        repoKey: reqKey,
+        error: err instanceof Error ? err.message : "Failed to load repository.",
+      });
     }
-  }, [loadRoot, state.repos]);
+  }, [loadRoot]);
 
   const closeRepo = useCallback(() => dispatch({ type: "CLOSE_REPO" }), []);
+  const releaseRepo = useCallback((repoKey: string) => dispatch({ type: "RELEASE_REPO", repoKey }), []);
   const switchRepo = useCallback((repoKey: string) => dispatch({ type: "SWITCH_REPO", repoKey }), []);
   const togglePinRepo = useCallback((repoKey: string) => dispatch({ type: "TOGGLE_PIN_REPO", repoKey }), []);
 
-  const setBranch = useCallback((branch: string) => {
-    if (!activeRepo) return;
-    const { owner, repo } = activeRepo.meta;
-    dispatch({ type: "SET_BRANCH", branch });
-    fetchContents(owner, repo, "", branch)
-      .then((root) => dispatch({ type: "DIR_LOADED", path: "", entries: root }))
-      .catch(() => dispatch({ type: "DIR_ERROR", path: "" }));
-  }, [activeRepo]);
+  // Scoped action sets are created once per repoKey (or once for the
+  // "follow the active repo" null scope) and stay referentially stable —
+  // they read current state through stateRef at call time.
+  const scopedCache = useRef(new Map<string | null, ScopedActions>());
+  const actionsFor = useCallback((scopeKey: string | null): ScopedActions => {
+    const cached = scopedCache.current.get(scopeKey);
+    if (cached) return cached;
 
-  const ensureDir = useCallback(async (path: string): Promise<GithubEntry[]> => {
-    if (!activeRepo) return [];
-    if (activeRepo.treeCache[path] && activeRepo.treeState[path] === "loaded") return activeRepo.treeCache[path];
-    dispatch({ type: "DIR_LOADING", path });
-    try {
-      const entries = await fetchContents(activeRepo.meta.owner, activeRepo.meta.repo, path, activeRepo.meta.branch);
-      dispatch({ type: "DIR_LOADED", path, entries });
-      return entries;
-    } catch {
-      dispatch({ type: "DIR_ERROR", path });
-      return [];
-    }
-  }, [activeRepo]);
+    const resolve = (): { repoKey: string; repo: RepoState } | null => {
+      const repoKey = scopeKey ?? stateRef.current.activeRepoKey;
+      if (!repoKey) return null;
+      const repo = stateRef.current.repos[repoKey];
+      return repo ? { repoKey, repo } : null;
+    };
 
-  const ensureFile = useCallback(async (id: string, path: string) => {
-    if (!activeRepo) return;
-    const tab = activeRepo.tabs.find((t) => t.id === id);
-    if (tab?.contentState === "loaded") return;
-    dispatch({ type: "FILE_LOADING", id });
-    try {
-      const { content, size } = await fetchFileContent(activeRepo.meta.owner, activeRepo.meta.repo, path, activeRepo.meta.branch);
-      dispatch({ type: "FILE_LOADED", id, content, size, language: languageFor(path) });
-    } catch (err) {
-      dispatch({ type: "FILE_ERROR", id, error: err instanceof Error ? err.message : "Failed to load file." });
-    }
-  }, [activeRepo]);
+    const ensureDir = async (path: string): Promise<GithubEntry[]> => {
+      const target = resolve();
+      if (!target) return [];
+      const { repoKey, repo } = target;
+      if (repo.treeCache[path] && repo.treeState[path] === "loaded") return repo.treeCache[path];
+      dispatch({ type: "DIR_LOADING", repoKey, path });
+      try {
+        const entries = await fetchContents(repo.meta.owner, repo.meta.repo, path, repo.meta.branch);
+        dispatch({ type: "DIR_LOADED", repoKey, path, entries });
+        return entries;
+      } catch {
+        dispatch({ type: "DIR_ERROR", repoKey, path });
+        return [];
+      }
+    };
 
-  const openPath = useCallback((path: string, kind: "file" | "dir", opts?: { newTab?: boolean }) => {
-    if (!activeRepo) return;
-    const meta = activeRepo.meta;
-    const existing = activeRepo.tabs.find((t) => t.path === path && t.repoKey === meta.fullName);
-    if (existing && !opts?.newTab) {
-      dispatch({ type: "SET_ACTIVE", id: existing.id });
-      if (kind === "file" && existing.contentState === "idle") void ensureFile(existing.id, path);
-      return;
-    }
-    const tab = emptyTab({ kind, path, label: tabLabel(path), repoKey: meta.fullName, branch: meta.branch });
-    dispatch({ type: "ADD_TAB", tab, activate: true });
-    if (kind === "file") void ensureFile(tab.id, path);
-    else void ensureDir(path).then((entries) => dispatch({ type: "DIR_ATTACH", id: tab.id, entries }));
-  }, [activeRepo, ensureDir, ensureFile]);
+    const ensureFile = async (id: string, path: string) => {
+      const target = resolve();
+      if (!target) return;
+      const { repoKey, repo } = target;
+      const tab = repo.tabs.find((t) => t.id === id);
+      if (tab?.contentState === "loaded") return;
+      dispatch({ type: "FILE_LOADING", repoKey, id });
+      try {
+        const { content, size } = await fetchFileContent(repo.meta.owner, repo.meta.repo, path, repo.meta.branch);
+        dispatch({ type: "FILE_LOADED", repoKey, id, content, size, language: languageFor(path) });
+      } catch (err) {
+        dispatch({ type: "FILE_ERROR", repoKey, id, error: err instanceof Error ? err.message : "Failed to load file." });
+      }
+    };
 
-  const openInNewTab = useCallback((path: string, kind: "file" | "dir") => openPath(path, kind, { newTab: true }), [openPath]);
-  const closeTab = useCallback((id: string) => dispatch({ type: "CLOSE_TAB", id }), []);
-  const loadFolderTab = useCallback(async (id: string, path: string) => { const entries = await ensureDir(path); dispatch({ type: "DIR_ATTACH", id, entries }); }, [ensureDir]);
-  const setActiveTab = useCallback((id: string) => {
-    dispatch({ type: "SET_ACTIVE", id });
-    const tab = activeRepo?.tabs.find((t) => t.id === id);
-    if (tab?.kind === "file" && tab.contentState === "idle") void ensureFile(id, tab.path);
-    else if (tab?.kind === "dir" && (tab.entriesState === "idle" || tab.entriesState === "error")) void loadFolderTab(id, tab.path);
-  }, [activeRepo, ensureFile, loadFolderTab]);
-  const moveTab = useCallback((from: number, to: number) => dispatch({ type: "MOVE_TAB", from, to }), []);
-  const toggleExpand = useCallback((path: string, value?: boolean) => { const next = value ?? !activeRepo?.expanded[path]; dispatch({ type: "SET_EXPANDED", path, value: next }); if (next) void ensureDir(path); }, [activeRepo, ensureDir]);
-  const setSelection = useCallback((paths: string[]) => dispatch({ type: "SET_SELECTION", paths }), []);
-  const setViewMode = useCallback((viewMode: ViewMode) => dispatch({ type: "SET_VIEW_MODE", viewMode }), []);
-  const seedDir = useCallback((path: string, entries: GithubEntry[]) => dispatch({ type: "DIR_LOADED", path, entries }), []);
-  const invalidateDir = useCallback((path: string) => dispatch({ type: "DIR_INVALIDATE", path }), []);
+    const loadFolderTab = async (id: string, path: string) => {
+      const target = resolve();
+      if (!target) return;
+      const entries = await ensureDir(path);
+      dispatch({ type: "DIR_ATTACH", repoKey: target.repoKey, id, entries });
+    };
 
-  const value = useMemo<StoreContextValue>(() => ({ state, activeRepo, openRepo, closeRepo, switchRepo, togglePinRepo, setBranch, openPath, openInNewTab, closeTab, setActiveTab, moveTab, ensureDir, ensureFile, loadFolderTab, toggleExpand, setSelection, setViewMode, seedDir, invalidateDir }), [state, activeRepo, openRepo, closeRepo, switchRepo, togglePinRepo, setBranch, openPath, openInNewTab, closeTab, setActiveTab, moveTab, ensureDir, ensureFile, loadFolderTab, toggleExpand, setSelection, setViewMode, seedDir, invalidateDir]);
+    const openPath = (path: string, kind: "file" | "dir", opts?: { newTab?: boolean }) => {
+      const target = resolve();
+      if (!target) return;
+      const { repoKey, repo } = target;
+      const existing = repo.tabs.find((t) => t.path === path && t.repoKey === repoKey);
+      if (existing && !opts?.newTab) {
+        dispatch({ type: "SET_ACTIVE", repoKey, id: existing.id });
+        if (kind === "file" && existing.contentState === "idle") void ensureFile(existing.id, path);
+        return;
+      }
+      const tab = emptyTab({ kind, path, label: tabLabel(path), repoKey, branch: repo.meta.branch });
+      dispatch({ type: "ADD_TAB", repoKey, tab, activate: true });
+      if (kind === "file") void ensureFile(tab.id, path);
+      else void ensureDir(path).then((entries) => dispatch({ type: "DIR_ATTACH", repoKey, id: tab.id, entries }));
+    };
+
+    const actions: ScopedActions = {
+      ensureDir,
+      ensureFile,
+      loadFolderTab,
+      openPath,
+      openInNewTab: (path, kind) => openPath(path, kind, { newTab: true }),
+      setBranch: (branch) => {
+        const target = resolve();
+        if (!target) return;
+        const { repoKey, repo } = target;
+        const { owner, repo: name } = repo.meta;
+        dispatch({ type: "SET_BRANCH", repoKey, branch });
+        fetchContents(owner, name, "", branch)
+          .then((root) => dispatch({ type: "DIR_LOADED", repoKey, path: "", entries: root }))
+          .catch(() => dispatch({ type: "DIR_ERROR", repoKey, path: "" }));
+      },
+      closeTab: (id) => {
+        const target = resolve();
+        if (target) dispatch({ type: "CLOSE_TAB", repoKey: target.repoKey, id });
+      },
+      setActiveTab: (id) => {
+        const target = resolve();
+        if (!target) return;
+        dispatch({ type: "SET_ACTIVE", repoKey: target.repoKey, id });
+        const tab = target.repo.tabs.find((t) => t.id === id);
+        if (tab?.kind === "file" && tab.contentState === "idle") void ensureFile(id, tab.path);
+        else if (tab?.kind === "dir" && (tab.entriesState === "idle" || tab.entriesState === "error")) void loadFolderTab(id, tab.path);
+      },
+      moveTab: (from, to) => {
+        const target = resolve();
+        if (target) dispatch({ type: "MOVE_TAB", repoKey: target.repoKey, from, to });
+      },
+      toggleExpand: (path, value) => {
+        const target = resolve();
+        if (!target) return;
+        const next = value ?? !target.repo.expanded[path];
+        dispatch({ type: "SET_EXPANDED", repoKey: target.repoKey, path, value: next });
+        if (next) void ensureDir(path);
+      },
+      setSelection: (paths) => {
+        const target = resolve();
+        if (target) dispatch({ type: "SET_SELECTION", repoKey: target.repoKey, paths });
+      },
+      setViewMode: (viewMode) => {
+        const target = resolve();
+        if (target) dispatch({ type: "SET_VIEW_MODE", repoKey: target.repoKey, viewMode });
+      },
+      seedDir: (path, entries) => {
+        const target = resolve();
+        if (target) dispatch({ type: "DIR_LOADED", repoKey: target.repoKey, path, entries });
+      },
+      invalidateDir: (path) => {
+        const target = resolve();
+        if (target) dispatch({ type: "DIR_INVALIDATE", repoKey: target.repoKey, path });
+      },
+    };
+    scopedCache.current.set(scopeKey, actions);
+    return actions;
+  }, []);
+
+  const value = useMemo<StoreInternalValue>(
+    () => ({ state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo }),
+    [state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo]
+  );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
 export function useStore(): StoreContextValue {
   const context = useContext(StoreContext);
+  const scope = useContext(RepoScopeContext);
   if (!context) throw new Error("useStore must be used within StoreProvider");
-  return context;
+  return useMemo<StoreContextValue>(() => {
+    const repoKey = scope ?? context.state.activeRepoKey;
+    return {
+      state: context.state,
+      activeRepo: repoKey ? context.state.repos[repoKey] ?? null : null,
+      openRepo: context.openRepo,
+      closeRepo: context.closeRepo,
+      releaseRepo: context.releaseRepo,
+      switchRepo: context.switchRepo,
+      togglePinRepo: context.togglePinRepo,
+      ...context.actionsFor(scope),
+    };
+  }, [context, scope]);
 }
 
+/** The repository this component operates on: the enclosing `RepoScope`'s
+ * repository inside a window, otherwise the globally focused one. */
 export function useActiveRepo(): RepoState | null {
   return useStore().activeRepo;
+}
+
+/** Per-repository hydration status for `repoKey`, isolated from every other
+ * repository window. Returns a neutral status when the key was never
+ * requested. Case-insensitive: pass the window's requested repoKey as-is. */
+export function useRepoRequest(repoKey: string | null): RepoRequest {
+  const { state } = useStore();
+  return state.repoRequests[(repoKey ?? "").toLowerCase()] ?? { loading: false, error: null };
 }

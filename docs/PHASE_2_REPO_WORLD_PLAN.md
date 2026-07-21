@@ -32,7 +32,7 @@ Consequences for this document and for whoever picks it up later:
 
 `PLAN.md` §5 ("Gamification-Readiness") already anticipated this by building six *data-model seams* into Phase 1 that a later presentation layer can consume without touching Phase-1 logic: `vitality.ts`, `layout.ts` (with `viewMode: "list" | "grid" | "city"` — `"city"` is a **reserved-but-unimplemented** value already in the type today, confirmed at `src/components/FileView.tsx:368` and `src/lib/store.tsx:47`), `classify.ts`, `merge.ts`, `events.ts`, and the view-mode registry. This plan is designed to consume those seams, not re-derive them.
 
-**Maintainer's aesthetic brief for this pass** (given directly in this session): a coherent low-poly, PSX-retro (PS1-era GTA III) free-roam world that *grows like a small town* — reading like one unified style, not four bolted-together game references. SimCity/Dorfromantik supply the town-growth and calm build-up feel; Spore supplies the organic/procedural variation in building silhouettes; GTA III on PSX supplies the navigation feel (free-roam camera, tight draw distance) and the general retro-3D direction. **The maintainer is writing the actual PSX-look shaders themselves** — this plan treats the retro *visual* technique (dithering, vertex snapping, texture-warp style, etc.) as the maintainer's own track, and only commits to the data mapping, navigation, and architecture staying shader-agnostic so that track can plug in independently (§4.4).
+**Aesthetic direction, revised mid-implementation (this session):** the original brief (SimCity/Dorfromantik/Spore/GTA-III-PSX, free-roam perspective camera, maintainer-authored shader deferred indefinitely) produced a first M13 cut the maintainer explicitly rejected as too tame — a plain instanced-box skyline with a placeholder material and no camera interaction. The corrected direction, given directly with a reference clip of **FEZ** (Polytron, 2012): the town should read as a **flat, orthographic 2D scene that is secretly a 3D structure** — the camera holds four fixed 90°-apart orthographic facings and *snaps* between them (not a free perspective orbit), and what looks like a disconnected 2D platformer layout from one facing reveals its actual depth when rotated. SimCity/Dorfromantik still supply the "town grows as the repo grows" data mapping (§3's entity table is unchanged); GTA-III-PSX free-roam navigation is **retired** in favor of FEZ's snap-rotation; the shader/material work is **no longer deferred** — the maintainer explicitly asked for it to be built now, using three.js's WebGPU renderer and TSL (Three.js Shading Language) node materials, with a WebGLRenderer fallback for browsers/environments without WebGPU.
 
 **Rendering engine decision (already made this session, not re-litigated):** React Three Fiber + Three.js, single engine. Babylon.js/PixiJS/A-Frame-WebXR were considered and rejected as a *combined* stack — two full 3D engines running side by side in one scene means two GL contexts, two scene graphs, duplicated concepts, and the exact "parallel second architecture for the same problem" pattern `docs/POST_PR8_REFERENCE_INTEGRATION.md` warns against. The repo currently has **zero** 3D/game dependencies (confirmed: no `three`, `@react-three/*`, `babylon`, `pixi`, no WebGL usage anywhere in `src` or `package.json`/`bun.lock`) — this is a from-scratch addition.
 
@@ -69,14 +69,15 @@ One coherent low-poly town, built from real repository data, not placeholder geo
 | Issue (`IssueSummary`, `src/features/issues/api.ts`) | Entries on a single shared **task-board** structure per district (or one town-central board), not one building per issue | Issue counts are unbounded; a board keeps mesh count O(1) regardless of issue volume, unlike a per-issue building. |
 | Merge conflict (`src/lib/merge.ts` hunk parser, already implemented) | A warning beacon atop the affected building | This plan does **not** commit to a literal "hunk-shooting minigame" (see §7 non-goals) — only a spatial *indicator* driven off data the merge module already parses. |
 
-### Camera: one rig, not two competing modes
+### Camera: FEZ-style orthographic 90°-snap rotation
 
-Rather than making the user pick between a SimCity top-down camera and a GTA-III free-roam camera, this plan uses **one continuous camera state machine** on a single `PerspectiveCamera`:
+Implemented as `SnapRotateCameraRig` (`src/features/repo-world/camera/world-camera-controller.ts`), superseding the earlier "town view / street view perspective rig" design:
 
-- **Default state ("town view")**: elevated, tilted-down, orbiting/panning over the whole district layout — delivers the SimCity/Dorfromantik build-up feel. Driven by drag-pan + scroll-zoom + WASD pan.
-- **Focus state ("street view")**: triggered by selecting/approaching a building — the same camera dollies down to a near-ground, GTA-III-eye-level framing and orbits that structure. Achieved as a *state transition* on the same rig (target distance + pitch interpolate), not a second camera or a mode switch buried in a menu.
-
-This avoids maintaining two camera implementations and avoids a "four games bolted together" look — it reads as one camera that lets you zoom from town to street level.
+- **`OrthographicCamera`, not `PerspectiveCamera`.** `<Canvas orthographic>` — flat, undistorted facings are the entire point of the FEZ illusion; perspective foreshortening would break it.
+- **Four fixed facings (`0 | 1 | 2 | 3`), 90° apart**, orbiting the building grid's bounding-box center at a constant distance/elevation. Changing `facing` animates `currentAngle` toward the target via per-frame lerp (`useFrame`) instead of a hard cut — a short, readable turn rather than a disorienting snap.
+- **Input:** `Q`/`ArrowLeft` and `E`/`ArrowRight` (keyboard, window-level listener in `Scene.tsx`) plus two on-screen "Rotate ⟲ / ⟳" buttons overlaid on the canvas. This is a **new, named interaction concern**, not a second FLUBBER — see §4.6, unchanged.
+- **Zoom** is recomputed from the canvas pixel size and the grid's bounding-box span (`groundSize`) so the whole town fits the window at any facing, and re-fits on resize.
+- No free-roam pan/orbit/dolly. Getting closer to a building is future scope (not committed to in this plan), not a continuous camera mode — matches FEZ's own restraint (you never get a free perspective camera in that game either).
 
 ---
 
@@ -137,16 +138,16 @@ Fix, matching the kernel's "stay mounted" rule instead of fighting it:
 - **Page Visibility API as a second pause trigger**, matching the pattern already established for Dock polling in `PLAN.md` M9 (`document.hidden` pause) — same idea, applied to the render loop.
 - Restoring the window simply flips `frameloop` back; no re-creation, no reload of the world model, no flash.
 
-### 4.4 Shading/material — out of scope for this pass, pluggable slot only
+### 4.4 Shading/material — implemented via three/webgpu + TSL, not deferred
 
-**The maintainer is authoring the PSX-look shaders themselves; this plan does not design or implement them.** Earlier drafts of this document sketched a specific PSX technique (low-res render target, ordered dithering, vertex snapping, affine-warp approximation); that concrete implementation is intentionally dropped here so it doesn't collide with the maintainer's own shader work.
+**Reversed from the earlier draft:** the maintainer initially planned to author the retro shader separately and asked for a placeholder only; they then explicitly asked for the real WebGPU/TSL implementation to be built now, as part of this pass. `src/features/repo-world/scene/materials/index.ts` implements it:
 
-What this plan does commit to, so the rest of the architecture doesn't block on the shading decision:
-
-- `Scene.tsx` and `buildings.ts` treat material/shader as an **injected, swappable dependency** — building meshes are built with a plain placeholder material by default (e.g. `MeshBasicMaterial`/`MeshStandardMaterial`) so M13/M14 are visually testable end-to-end before any custom shader exists, and the maintainer's material(s) drop in later without touching `world-model.ts`, the instancing setup (§4.5), or the window/registry wiring (§4.2).
-- The `materials/` slot under `src/features/repo-world/scene/` is reserved for the maintainer's shader/material code — not authored, named, or structurally pre-designed by this plan beyond "it plugs into the per-`(archetype, vitality-tier)` instanced-mesh buckets from §4.5."
-- Whatever technique is chosen later, **do not couple the retro look to the LOD/culling boundary** the way the earlier draft did (tying dithering/fog to draw-distance culling) — §4.5 below defines culling independently of any visual style so the culling strategy survives a shader swap unchanged.
-- Theming integration (reading `--dh-*` tokens for ambient/fog tint per `docs/THEMING_CONVENTIONS.md`, never a second theme provider) is a real constraint whatever shader ships, and is noted here so it isn't lost: whoever authors the material must read theme tokens once at mount, not subscribe a second theme system.
+- **Renderer:** `Scene.tsx`'s `<Canvas gl={createRenderer}>` uses a custom async renderer factory — `three/webgpu`'s `WebGPURenderer`, `await renderer.init()`'d before R3F starts rendering — with a `try/catch` fallback to the classic `THREE.WebGLRenderer` if WebGPU initialization throws (unsupported browser, no GPU/adapter, disabled flag, headless/software-only environments). Both branches return a real `THREE.Renderer`-compatible instance R3F can drive identically; nothing else in the scene needs to know which one is active.
+- **Materials are TSL node materials (`MeshBasicNodeMaterial` + `three/tsl` nodes)**, not plain `MeshStandardMaterial`. These compile to WGSL under `WebGPURenderer` and to GLSL under the `WebGLRenderer` fallback — the same material object works under either backend, which is exactly why the fallback above doesn't need a second material path.
+- **`createVitalityMaterials()`**: one `MeshBasicNodeMaterial` per `Vitality.level` (5 total, not per-instance), `colorNode = posterize(color(tierHex), 4)` — quantizes each tier's color into flat bands for a chunky, non-gradient retro look. Deliberately per-tier rather than per-instance-color: three's automatic `instanceColor` blending is an internal, unexported node (`three/tsl` does not re-export it), so wiring true per-instance TSL color would mean depending on an undocumented internal API; bucketing `<Instances>` by `(archetype, vitality-tier)` (§4.5, unchanged) and giving each bucket its own small fixed material achieves the same visual result through the public API surface.
+- **`createGroundMaterial()`**: a procedural TSL checkerboard (`floor`/`mod`/`mix` nodes on `positionWorld.xz`) — no texture asset, tiles stably as the grid grows, gives the ground the flat pixel-tile read the FEZ reference calls for.
+- **Not implemented in this pass:** the low-res-render-target/dither/vertex-snap PSX technique from the original draft. Posterization is the retro cue for now; a dedicated pixel/dither pass is a natural follow-up but was not asked for in this session and isn't invented here.
+- Theming integration (reading `--dh-*` tokens for ground/ambient tint per `docs/THEMING_CONVENTIONS.md`, never a second theme provider) remains a real, not-yet-implemented constraint — read once at mount when it's built, not wired to live theme-change events.
 
 ### 4.5 Performance: instancing, not one mesh per file
 
@@ -169,11 +170,11 @@ Kept lean per `PLAN.md` §9 ("Neue Abhängigkeiten sparsam, aber pragmatisch"):
 
 | Dependency | Why |
 |---|---|
-| `three` | The chosen rendering engine — required baseline for any WebGL scene. |
-| `@react-three/fiber` | React renderer for Three.js — lets the world scene live as ordinary React components consuming `RepoScope`-scoped data via hooks, matching every other DRAGHUB module's component style instead of a hand-rolled imperative Three.js layer. |
-| `@react-three/drei` | Helper library for R3F, justified narrowly by what M13/M14 need regardless of shading approach: `Instances`/`Instance` (instanced buildings, §4.5) and general scene helpers (camera controls primitives for §3's rig). `useFBO`/`shaderMaterial` remain available for whoever authors the retro material later (§4.4) but are not consumed by this plan's own milestones. De facto standard companion to R3F — utilities layered on the one already-chosen stack, not a second engine. |
+| `three` | The chosen rendering engine — `three/webgpu` (WebGPURenderer) and `three/tsl` (node-material shading language) are both entry points of this same package, not separate installs. |
+| `@react-three/fiber` | React renderer for Three.js — lets the world scene live as ordinary React components consuming `RepoScope`-scoped data via hooks, matching every other DRAGHUB module's component style instead of a hand-rolled imperative Three.js layer. Its `gl` prop accepting an async renderer factory (awaited, checked for a `.render` method) is what makes the WebGPU-with-WebGL-fallback pattern in §4.4 possible without any fiber-level patching. |
+| `@react-three/drei` | `Instances`/`Instance` for instanced buildings (§4.5) — accepts any `THREE.Material`, including the TSL node materials from §4.4, via its `material` prop. |
 
-**Not proposed for this plan's milestones:** `@react-three/postprocessing`/`postprocessing`. Since the retro shading technique itself is intentionally left to the maintainer (§4.4), this plan does not pre-decide whether it needs a postprocessing pipeline — that call belongs with whoever authors the shader, not this document.
+**Not proposed for this plan's milestones:** `@react-three/postprocessing`/`postprocessing`. The posterize/checker look (§4.4) is achieved entirely through TSL colorNodes on the base materials, no compositing pass needed yet.
 
 No state-management library addition — `world-model.ts` is a pure function over data the existing reducer-based stores already expose; the scene reads them via existing hooks (`useActiveRepo`, changes-store subscription, etc.), consistent with `PLAN.md` §9's rule to keep the reducer pattern and avoid Zustand/Redux/etc.
 
@@ -185,16 +186,16 @@ Numbered as a continuation of `PLAN.md`'s Phase-1 M1–M12 sequence, under a cle
 
 > Every milestone below is blocked by §0's gate. None may begin implementation until Phase 1 is maintainer-accepted and Phase 2 is separately, explicitly authorized to move from spec to code.
 
-### M13 — Static world render (one repo, top-level only)
+### M13 — Static world render + FEZ snap-rotation camera + TSL material (one repo, top-level only) — **implemented**
 - `world-model.ts` first cut: consumes `fetchTreeRecursive` output at depth 1 only (top-level dirs → districts, direct file children → buildings) plus `vitality.ts` for material tier.
-- `Scene.tsx` renders flat instanced building blocks with a placeholder material (§4.4) — no camera navigation yet beyond a fixed elevated town-view angle, no retro shader (that's a separate, maintainer-authored track that plugs in later without touching this milestone's code).
+- `Scene.tsx` renders instanced building blocks with real TSL node materials (posterized per-tier color, §4.4) under an orthographic `SnapRotateCameraRig` (§3) — this milestone's scope was extended mid-implementation, on explicit maintainer request, to include the camera and shading work originally planned for M14/M17.
 - Registers `repo-world` in the application registry, wired as a `RepositoryExplorerApp.tsx` toolbar button, `RepoScope`-scoped, added to `persistence.ts`'s `applications` set.
-- **Acceptance criterion:** opening "World" from a repository window for a real repo renders one building per top-level file (placeholder material is fine — no PSX look required yet); window survives minimize/restore without losing/recreating the GL context (frameloop pauses, doesn't unmount); reopening after reload restores the window (persistence allow-list works).
+- **Acceptance criterion:** opening "World" from a repository window for a real repo renders one building per top-level file, posterized-color by vitality tier, on a checkerboard TSL ground; `Q`/`E`/arrow keys and the on-screen rotate buttons snap the camera through all four facings with a smooth turn; window survives minimize/restore without losing/recreating the GL context (frameloop pauses, doesn't unmount); reopening after reload restores the window (persistence allow-list works). Verified via headless-Chromium screenshots at multiple facings with GitHub API responses mocked in-process (see repo commit history for this milestone).
 
-### M14 — Full tree + free-roam camera navigation
-- `world-model.ts` extended to the full recursive tree (district/densification rule from §3), instanced-mesh bucketing per `(archetype, vitality-tier)` in place (§4.5).
-- Camera state machine (`world-camera-controller.ts`): default town-view pan/zoom/orbit, focus/street-view transition on building selection, per §3.
-- **Acceptance criterion:** a mid-size real repo (hundreds of files) renders and navigates at interactive frame rates on a laptop GPU; the plain distance-based culling boundary (§4.5) measurably caps instanced draw calls (verify via a draw-call counter, not by eye — no fog is required to exist yet to prove this); selecting a building smoothly transitions the camera to street view and back.
+### M14 — Full recursive tree
+- `world-model.ts` extended from top-level-only to the full recursive tree (district/densification rule from §3), instanced-mesh bucketing per `(archetype, vitality-tier)` scaled up accordingly (§4.5).
+- The camera rig itself is **not** part of this milestone anymore — `SnapRotateCameraRig` already shipped in M13 and only needs its `center`/`groundSize` inputs to keep working as the grid grows, which they already do (computed from the bounding box of whatever `world-model.ts` returns).
+- **Acceptance criterion:** a mid-size real repo (hundreds of files) renders at interactive frame rates on a laptop GPU across all four facings; the plain distance-based culling boundary (§4.5) measurably caps instanced draw calls (verify via a draw-call counter, not by eye).
 
 ### M15 — Working-changes, PR, and issue overlays
 - Scaffolding overlays driven by the changes store (add/modify/delete/rename skins per §3).
@@ -205,9 +206,9 @@ Numbered as a continuation of `PLAN.md`'s Phase-1 M1–M12 sequence, under a cle
 - Subscribe `Scene.tsx` (or a dedicated hook) to `events.ts`'s `checkpoint.created` event; play a scaffolding-drop/completion animation for every path in the affected changeset.
 - **Acceptance criterion:** committing a checkpoint from the Working Changes panel triggers a visible, correctly-scoped growth animation in an open World window for that repo (and *only* that repo's window — no cross-repo bleed, per the mandatory repository-state rule).
 
-### M17 — Polish: branch time-of-day, LOD overflow handling, retro material integration
-- Branch-to-lighting-preset mapping (§3); graceful skyline-silhouette degradation for repos exceeding the practical instance cap (§4.5); integrating the maintainer's own retro shader/material into the `materials/` slot (§4.4) and tuning it against real device testing; theming-token integration for ambient/fog tint per light/dark mode, read once by whatever material ships.
-- **Acceptance criterion:** switching the active branch in a repository window re-skins its open World window's lighting without reloading the whole scene; a very large repo (thousands of files) still renders at interactive frame rates via silhouette fallback instead of stalling or dropping the tab; the maintainer's shader is wired in without any change to `world-model.ts`, the instancing setup, or the registry/window wiring.
+### M17 — Polish: branch time-of-day, LOD overflow handling, deeper shading
+- Branch-to-lighting-preset mapping (§3); graceful skyline-silhouette degradation for repos exceeding the practical instance cap (§4.5); optional further shading work beyond M13's posterize pass (e.g. a genuine low-res-render-target + ordered-dither pass) if the maintainer wants to push the retro look further; theming-token integration for ambient/fog tint per light/dark mode, read once at mount.
+- **Acceptance criterion:** switching the active branch in a repository window re-skins its open World window's lighting without reloading the whole scene; a very large repo (thousands of files) still renders at interactive frame rates via silhouette fallback instead of stalling or dropping the tab.
 
 ---
 
@@ -216,8 +217,7 @@ Numbered as a continuation of `PLAN.md`'s Phase-1 M1–M12 sequence, under a cle
 - **No multiplayer/backend design.** `PLAN.md` §10 leaves multiplayer hosting as an open, unmade maintainer decision; every milestone assumes single-user/client-only, matching Phase 1's 100%-client-side architecture.
 - **No literal FPS merge-conflict minigame.** This plan stops at a spatial *indicator* (a warning beacon, §3) and does not design a shooting-mechanic input scheme, hit detection, or win condition.
 - **No literal "PR mobspawn creature" system.** PRs are classified banners/kiosks (reusing `classifyPr()`), not spawned enemy creatures with behavior/AI — that would need game-logic design (spawn rate, movement, combat) far beyond a first spatial representation and isn't required by the phase contract's actual wording.
-- **No code written, no dependencies installed.** `three`/`@react-three/fiber`/`@react-three/drei` are proposed, not added.
-- **No PSX/retro shader design or implementation.** The maintainer is authoring their own shaders for the retro look; this plan only reserves a pluggable slot (§4.4) and keeps culling/instancing independent of whatever material ships.
+- **No dedicated pixel/dither post-process pass yet.** M13 ships posterize-based color quantization (real TSL, real retro cue) but not the fuller low-res-render-target/vertex-snap technique from the original draft — flagged as optional M17 follow-up (§6), not invented speculatively here.
 - **No `.dh`/DHF or FLUBBER redesign.** Both remain fully out of scope, per §2.
 - **No resolution of open Phase-1 decisions** (editor library — already CodeMirror 6 — auth model, wiki feasibility) — those are Phase-1 concerns tracked in `PLAN.md` §10, untouched here.
 
@@ -229,11 +229,11 @@ DRAGHUB has no automated UI/visual-regression test framework (`PLAN.md` §9). Sa
 
 - **Pure logic** (`world-model.ts`, archetype/tier lookup tables in `buildings.ts`) gets `bun test` coverage, exactly like `layout.ts`/`merge.ts`/`vitality.ts`/`classify.ts` today.
 - **Every milestone's Definition-of-Done**, matching `PLAN.md` §9: (1) `bun typecheck && bun lint` green, (2) manual QA in the browser including failure paths, (3) docs updated to reflect what shipped vs. what's still open — never marking a milestone done before end-to-end acceptance, per `PHASE_SCOPE_CONTRACT.md` §7.10.
-- **M13:** open a real repo's Explorer window, click the new World toolbar button, confirm buildings render (placeholder material is acceptable — no shading requirement yet); minimize the World window, wait, restore — confirm no black screen/context-loss and confirm (devtools GPU panel or a temporary debug counter) the render loop actually paused while minimized; reload the page, confirm the World window reappears.
-- **M14:** open a larger repo, confirm full recursive tree renders (spot-check building count against a manual folder count for a small test repo); drag-pan/zoom around town view; select a building, confirm smooth transition to street view and back; watch frame rate stays interactive; confirm buildings beyond the distance-culling boundary aren't rendered (debug wireframe/draw-call counter to confirm instancing keeps draw calls flat as file count grows — do this independently of any shader/fog, per §4.5).
+- **M13:** open a real repo's Explorer window, click the new World toolbar button, confirm buildings render with posterized per-tier color on a checkerboard TSL ground; press `Q`/`E` (or click the rotate buttons) and confirm the camera smoothly snaps through all four 90° facings; minimize the World window, wait, restore — confirm no black screen/context-loss and confirm (devtools GPU panel or a temporary debug counter) the render loop actually paused while minimized; reload the page, confirm the World window reappears. Done: verified via headless-Chromium screenshots with the GitHub API mocked in-process (this sandbox's proxy breaks real CORS preflights to api.github.com).
+- **M14:** open a larger repo, confirm full recursive tree renders (spot-check building count against a manual folder count for a small test repo); rotate through all four facings and watch frame rate stays interactive at each; confirm buildings beyond the distance-culling boundary aren't rendered (debug wireframe/draw-call counter to confirm instancing keeps draw calls flat as file count grows — do this independently of any shader/fog, per §4.5).
 - **M15:** stage a file add/modify/delete/rename while a World window for the same repo is open; confirm overlays update live and correctly scoped (open a *second* repo's World window simultaneously, confirm it does **not** react to the first repo's changes — the mandatory repository-state rule check). Confirm PR/issue banners/board match the flat panels for the same repo.
 - **M16:** create a working change, checkpoint it, confirm the growth animation fires once for the correct building(s) in the same repo's World window, and does *not* fire in a different repo's open World window.
-- **M17:** switch branches, confirm the paired World window's lighting preset updates without a full scene reload/flash; open a very large real-world repo (thousands of files), confirm silhouette fallback keeps the tab responsive; toggle light/dark theme, confirm ambient/fog tint follows without a second theme provider (spot-check `THEMING_CONVENTIONS.md` compliance — there should be no second persistence key/provider); confirm the maintainer's own retro shader drops into the `materials/` slot without changes to `world-model.ts`, instancing, or window/registry code.
+- **M17:** switch branches, confirm the paired World window's lighting preset updates without a full scene reload/flash; open a very large real-world repo (thousands of files), confirm silhouette fallback keeps the tab responsive; toggle light/dark theme, confirm ambient/fog tint follows without a second theme provider (spot-check `THEMING_CONVENTIONS.md` compliance — there should be no second persistence key/provider).
 
 ---
 
@@ -245,4 +245,7 @@ DRAGHUB has no automated UI/visual-regression test framework (`PLAN.md` §9). Sa
 - `src/features/desktop/WindowManagerProvider.tsx` — `openRepositoryChild` (already implemented, reused as-is).
 - `src/lib/layout.ts` and `src/lib/vitality.ts` — existing Phase-1 seams (`viewMode: "city"`, grid positions, vitality levels) that `world-model.ts` must consume rather than reinvent.
 - `src/lib/events.ts` and `src/features/changes/store.ts` / `src/features/changes/ops.ts` — the domain event bus (`checkpoint.created`) and per-repo working-change buckets that drive the scaffolding/growth-animation milestones (M15/M16).
+- `src/features/repo-world/scene/Scene.tsx` — WebGPU-with-WebGL-fallback renderer factory (`gl={createRenderer}`), orthographic `<Canvas>`, per-`(archetype, vitality-tier)` `<Instances>` buckets.
+- `src/features/repo-world/camera/world-camera-controller.ts` — `SnapRotateCameraRig`, the FEZ-style four-facing orthographic camera (§3).
+- `src/features/repo-world/scene/materials/index.ts` — `createVitalityMaterials()`/`createGroundMaterial()`, the TSL node materials (§4.4).
 - `docs/PHASE_SCOPE_CONTRACT.md` and `PLAN.md` §6/§12 — the binding scope/gate rules and the Phase-1 milestone checklist this plan's M13–M17 numbering continues from; must be re-checked before any implementation session begins.

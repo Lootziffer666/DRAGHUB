@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useActiveRepo, useRepoRequest, useStore } from "@/lib/store";
 import { fetchBranches } from "@/lib/github";
 import {
-  ChevronDown,
-  ExternalLink,
-  GitBranch,
-  Home,
-  Search,
+  ChevronDownRegular as ChevronDown,
+  OpenRegular as ExternalLink,
+  BranchForkRegular as GitBranch,
+  HomeRegular as Home,
+  SearchRegular as Search,
   Spinner,
-  Star,
-  Upload,
-  X,
-} from "./icons";
+  StarRegular as Star,
+  ArrowUploadRegular as Upload,
+  DismissRegular as X,
+} from "@/features/icons";
 import { UploadPanel } from "./UploadPanel";
 
 export function AddressBar({

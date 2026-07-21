@@ -12,7 +12,13 @@ import { FileView } from "@/components/FileView";
 import { RubberBand } from "@/features/desktop/RubberBand";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
 import type { WindowContentProps } from "@/features/desktop/types";
-import { GitBranch, GitCommit, Edit, FileIcon, Spinner } from "@/components/icons";
+import {
+  BranchForkRegular as GitBranch,
+  RecordRegular as GitCommit,
+  EditRegular as Edit,
+  DocumentRegular as FileIcon,
+  Spinner,
+} from "@/features/icons";
 import { DesktopWindowContext } from "./window-context";
 
 // Repositories currently being hydrated, so several windows (or StrictMode

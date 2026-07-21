@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Search } from "@/components/icons";
+import { SearchRegular as Search } from "@/features/icons";
 import { SearchPanel } from "./SearchPanel";
 import type { DesktopWindowState } from "@/features/desktop/types";
 

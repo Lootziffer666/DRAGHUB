@@ -6,13 +6,13 @@ import { useChanges } from "./changes";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
 import {
-  FilePlus,
-  GitCommit,
+  DocumentAddRegular as FilePlus,
+  RecordRegular as GitCommit,
   Spinner,
-  Trash,
-  Edit,
-  X,
-} from "@/components/icons";
+  DeleteRegular as Trash,
+  EditRegular as Edit,
+  DismissRegular as X,
+} from "@/features/icons";
 import type { ChangeKind } from "@/lib/github-ops";
 
 function kindIcon(kind: ChangeKind) {

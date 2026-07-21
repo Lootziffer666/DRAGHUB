@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GitCommit } from "@/components/icons";
+import { RecordRegular as GitCommit } from "@/features/icons";
 import { ChangesProvider as InnerProvider, useChanges } from "./changes";
 import { ChangesPanel } from "./ChangesPanel";
 import type { ReactNode } from "react";

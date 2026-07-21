@@ -4,15 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { formatBytes } from "@/lib/github";
 import {
-  ExternalLink,
-  FileIcon,
-  GitBranch,
+  OpenRegular as ExternalLink,
+  DocumentRegular as FileIcon,
+  BranchForkRegular as GitBranch,
   GithubMark,
-  Search,
+  SearchRegular as Search,
   Spinner,
-  Star,
-  X,
-} from "@/components/icons";
+  StarRegular as Star,
+  DismissRegular as X,
+} from "@/features/icons";
 import {
   searchRepositories,
   searchRelatedRepos,

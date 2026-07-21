@@ -21,7 +21,7 @@ import {
   codespacesUrl,
   wikiSpikeNote,
 } from "@/features/start-menu/api";
-import { Spinner, ExternalLink } from "@/components/icons";
+import { Spinner, OpenRegular as ExternalLink } from "@/features/icons";
 
 /**
  * Remaining repository-owned feature-window bodies (second integration

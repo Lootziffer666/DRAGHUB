@@ -19,7 +19,11 @@ import { emptyRecycleBinAll, recycleBinSummary } from "@/features/recycle-bin/re
 import type { WorkingChange } from "@/lib/github-ops";
 import { formatBytes } from "@/lib/github";
 import { events } from "@/lib/events";
-import { Trash, Undo, FileIcon } from "@/components/icons";
+import {
+  DeleteRegular as Trash,
+  ArrowUndoRegular as Undo,
+  DocumentRegular as FileIcon,
+} from "@/features/icons";
 
 function daysLeft(discardedAt: number): number {
   return Math.max(0, Math.ceil((discardedAt + GRACE_PERIOD_MS - Date.now()) / 86_400_000));

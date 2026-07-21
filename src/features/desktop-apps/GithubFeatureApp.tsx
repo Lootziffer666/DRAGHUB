@@ -17,7 +17,7 @@ import {
   closeIssue,
   type IssueSummary,
 } from "@/features/issues/api";
-import { Spinner } from "@/components/icons";
+import { Spinner } from "@/features/icons";
 import {
   TriageView,
   SecurityView,

@@ -23,7 +23,7 @@ import {
   isDirty,
   subscribeDirty,
 } from "@/lib/editor-sessions";
-import { Spinner } from "@/components/icons";
+import { Spinner } from "@/features/icons";
 import type { WindowContentProps } from "@/features/desktop/types";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];

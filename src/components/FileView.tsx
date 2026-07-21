@@ -6,17 +6,17 @@ import { useUI } from "./ui-context";
 import type { MenuItem } from "./ContextMenu";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
 import {
-  ChevronRight,
-  Copy,
-  Download,
-  ExternalLink,
-  FileIcon,
-  FileImage,
-  FileText,
-  FolderOpen,
-  Refresh,
+  ChevronRightRegular as ChevronRight,
+  CopyRegular as Copy,
+  ArrowDownloadRegular as Download,
+  OpenRegular as ExternalLink,
+  DocumentRegular as FileIcon,
+  ImageRegular as FileImage,
+  DocumentTextRegular as FileText,
+  FolderOpenRegular as FolderOpen,
+  ArrowClockwiseRegular as Refresh,
   Spinner,
-} from "./icons";
+} from "@/features/icons";
 import { fetchRepositoryBlob, formatBytes, type GithubEntry } from "@/lib/github";
 import { createImageUrlManager } from "@/lib/image-url";
 import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";

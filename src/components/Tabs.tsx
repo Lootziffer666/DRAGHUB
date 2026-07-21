@@ -4,7 +4,12 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { useActiveRepo, useStore, type Tab } from "@/lib/store";
 import { GH_NODE_MIME, type GhNodeDrag } from "@/lib/dnd";
 import { subscribeDirty, getDirtyKeys, sessionKey } from "@/lib/editor-sessions";
-import { FileIcon, Folder, Grip, X } from "./icons";
+import {
+  DocumentRegular as FileIcon,
+  FolderRegular as Folder,
+  ReOrderDotsVerticalRegular as Grip,
+  DismissRegular as X,
+} from "@/features/icons";
 
 const EMPTY_DIRTY: ReadonlySet<string> = new Set();
 

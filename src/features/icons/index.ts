@@ -7,4 +7,5 @@ export {
 } from "./file-icon-registry";
 export type { IconComponent as FileIconComponent } from "./file-icon-registry";
 export { GithubMark, DraghubMark } from "./brand-marks";
+export { Spinner } from "./spinner";
 export * from "./fluent-icons";

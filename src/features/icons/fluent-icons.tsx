@@ -96,6 +96,8 @@ export {
   DesktopRegular,
   MoreHorizontalRegular,
   ChevronUpDownRegular,
+  RecordRegular,
+  SpinnerIosRegular,
 } from "@fluentui/react-icons";
 
 export type { FluentIcon } from "@fluentui/react-icons";

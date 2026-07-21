@@ -14,24 +14,24 @@ import {
 import { promptNewName, promptRename, nameCollides } from "@/features/changes/actions";
 import { joinPath, parentOfPath, baseNameOfPath } from "@/lib/github-ops";
 import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Download,
-  Edit,
-  ExternalLink,
-  FileIcon,
-  FilePlus,
-  FileImage,
-  FileText,
-  Folder,
-  FolderOpen,
-  FolderPlus,
-  Refresh,
+  ChevronDownRegular as ChevronDown,
+  ChevronRightRegular as ChevronRight,
+  CopyRegular as Copy,
+  ArrowDownloadRegular as Download,
+  EditRegular as Edit,
+  OpenRegular as ExternalLink,
+  DocumentRegular as FileIcon,
+  DocumentAddRegular as FilePlus,
+  ImageRegular as FileImage,
+  DocumentTextRegular as FileText,
+  FolderRegular as Folder,
+  FolderOpenRegular as FolderOpen,
+  FolderAddRegular as FolderPlus,
+  ArrowClockwiseRegular as Refresh,
   Spinner,
-  Trash,
-  Undo,
-} from "./icons";
+  DeleteRegular as Trash,
+  ArrowUndoRegular as Undo,
+} from "@/features/icons";
 
 function fileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";

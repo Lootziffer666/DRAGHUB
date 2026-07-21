@@ -5,7 +5,13 @@ import { useActiveRepo, useStore } from "@/lib/store";
 import { useStaging } from "@/lib/staging";
 import { getGithubToken, setGithubToken } from "@/lib/github";
 import { formatBytes } from "@/lib/github-write";
-import { Upload, X, FileIcon, Spinner, Archive as ArchiveIcon } from "./icons";
+import {
+  ArrowUploadRegular as Upload,
+  DismissRegular as X,
+  DocumentRegular as FileIcon,
+  Spinner,
+  FolderZipRegular as ArchiveIcon,
+} from "@/features/icons";
 
 export function UploadPanel({
   open,

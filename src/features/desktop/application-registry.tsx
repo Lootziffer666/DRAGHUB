@@ -11,6 +11,7 @@ import { GithubFeatureApp } from "@/features/desktop-apps/GithubFeatureApp";
 import { ScratchpadApp } from "@/features/desktop-apps/ScratchpadApp";
 import { SettingsApp } from "@/features/desktop-apps/SettingsApp";
 import { RecycleBinApp } from "@/features/desktop-apps/RecycleBinApp";
+import { StarredReposApp } from "@/features/desktop-apps/StarredReposApp";
 const definitions: WindowApplicationDefinition[] = [
   {
     id: "repository-explorer",
@@ -111,6 +112,16 @@ const definitions: WindowApplicationDefinition[] = [
     minimumSize: { width: 400, height: 300 },
     allowMultiple: false,
     render: () => <RecycleBinApp />,
+  },
+  {
+    id: "starred-repos",
+    kind: "system",
+    title: "Starred Repositories",
+    iconKey: "star",
+    defaultSize: { width: 560, height: 520 },
+    minimumSize: { width: 380, height: 320 },
+    allowMultiple: false,
+    render: () => <StarredReposApp />,
   },
 ];
 export const applicationRegistry = new Map(definitions.map((d) => [d.id, d]));

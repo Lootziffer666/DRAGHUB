@@ -548,3 +548,17 @@ war komplett unbenutzt (siehe unten). Jetzt umgesetzt:
   konfliktbehaftete Datei also nicht automatisch vom normalen Editor
   unterscheiden; "Resolve Conflicts" ist deshalb ein bewusst gewählter,
   nicht automatisch vorbelegter Menüpunkt.
+
+**Status Starred-Repo-Manager / Issue #33 (umgesetzt 2026-07-22):** Neues
+Systemfenster `starred-repos` (`src/features/desktop-apps/StarredReposApp.tsx`,
+API-Modul `src/features/starred/api.ts`) — erreichbar über das Startmenü-
+Tool-Grid ("Starred") neben Scratchpad/Settings/Recycle Bin. Listet die
+echten GitHub-Stars des Nutzers (`GET /user/starred`, paginiert bis zu
+2000 Repos), erlaubt Filtern, Öffnen als reguläres Repository-Fenster,
+Unstarren (`DELETE /user/starred/{owner}/{repo}`) sowie Starren eines
+neuen Repos per `owner/repo`-Eingabe (`PUT /user/starred/{owner}/{repo}`).
+Bewusst getrennt vom Dock-„Pin“-Konzept: ein GitHub-Star ist eine echte,
+serverseitige Beziehung (über jeden GitHub-Client hinweg sichtbar), ein
+Dock-Pin ist ein rein lokaler DRAGHUB-Launcher-Shortcut — Starren pinnt
+nicht, Pinnen starred nicht. Browserverifiziert per Playwright (gemockte
+`/user/starred`-Liste, Filtern, Unstar, Star-per-Eingabe, Öffnen-Klick).

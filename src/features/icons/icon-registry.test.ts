@@ -37,6 +37,7 @@ describe("appIconFor — persisted icon keys resolve to real components", () => 
       "github",
       "settings",
       "recycle-bin",
+      "star",
       "search",
       "launcher",
       "changes",

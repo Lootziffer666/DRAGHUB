@@ -158,6 +158,18 @@ function HomeView({
           title: "Recycle Bin",
         }),
     },
+    {
+      id: "starred-repos",
+      label: "Starred",
+      iconKey: "star",
+      open: () =>
+        wm.openOrFocusWindow({
+          applicationId: "starred-repos",
+          owner: { type: "desktop" },
+          resource: { type: "system", systemId: "starred-repos" },
+          title: "Starred Repositories",
+        }),
+    },
   ];
 
   return (

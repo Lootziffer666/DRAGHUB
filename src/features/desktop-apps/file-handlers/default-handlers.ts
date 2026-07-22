@@ -83,6 +83,21 @@ export function registerDefaultFileHandlers(): void {
   });
 
   registerFileHandler({
+    id: "conflict-resolver",
+    title: "Resolve Conflicts",
+    applicationId: "conflict-resolver",
+    extensions: [],
+    surfaces: ["window"],
+    // Same class of file as Code Editor/Raw Text (any text file), but
+    // registered after both so it never wins the extension-tie default —
+    // it's a deliberate "Open with" choice, not an auto-selected one, since
+    // handler selection has no access to file content (only path/size) and
+    // so cannot itself detect which files actually contain conflict markers.
+    priority: 10,
+    canHandle: (resource) => !isNonText(resource),
+  });
+
+  registerFileHandler({
     id: "raw-text",
     title: "Raw Text",
     applicationId: "raw-text-viewer",

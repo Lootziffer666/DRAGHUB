@@ -31,6 +31,8 @@ import { createImageUrlManager } from "@/lib/image-url";
 import { parseLfsPointer, downloadLfsObject } from "@/lib/lfs";
 import { parseConflictHunks } from "@/lib/merge";
 import { useChanges } from "@/features/changes";
+import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
+import { useDesktopWindowScope } from "@/features/desktop-apps/window-context";
 import { tokenizeLines } from "@/lib/highlight";
 import { CodeEditor } from "./CodeEditor";
 import { renderMarkdown } from "@/lib/markdown";
@@ -561,6 +563,8 @@ function FileContentView({
     : "";
   const { stageEdit } = useChanges();
   const { openFileAtRef, markTabBranchedOff } = useStore();
+  const wm = useWindowManager();
+  const windowScope = useDesktopWindowScope();
   const [editing, setEditing] = useState(false);
   const [mdPreview, setMdPreview] = useState(isMarkdown);
   const [sizeGuardAccepted, setSizeGuardAccepted] = useState(false);
@@ -791,8 +795,27 @@ function FileContentView({
         </div>
       )}
       {conflictHunks.length > 0 && (
-        <div className="border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
-          {conflictHunks.length} merge conflict hunk{conflictHunks.length === 1 ? "" : "s"} detected. Edit the file, resolve markers, then save as a changeset delta.
+        <div className="flex items-center gap-2 border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+          <span>
+            {conflictHunks.length} merge conflict hunk{conflictHunks.length === 1 ? "" : "s"} detected.
+          </span>
+          {windowScope ? (
+            <button
+              onClick={() =>
+                wm.openRepositoryChild(
+                  windowScope.windowId,
+                  "conflict-resolver",
+                  { type: "file", repoKey: windowScope.repoKey, path: tab.path },
+                  tab.path
+                )
+              }
+              className="rounded border border-amber-400/60 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40"
+            >
+              Resolve conflicts…
+            </button>
+          ) : (
+            <span>Edit the file, resolve markers, then save as a changeset delta.</span>
+          )}
         </div>
       )}
       {editing && (

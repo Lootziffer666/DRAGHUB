@@ -1,6 +1,10 @@
 import type { WindowApplicationDefinition } from "./types";
 import { RepositoryExplorerApp } from "@/features/desktop-apps/RepositoryExplorerApp";
-import { FileViewerApp, FileEditorApp } from "@/features/desktop-apps/FileWindowApp";
+import {
+  FileViewerApp,
+  FileEditorApp,
+  ConflictResolverApp,
+} from "@/features/desktop-apps/FileWindowApp";
 import { RawTextViewerApp } from "@/features/desktop-apps/RawTextViewerApp";
 import { AudioPlayerApp } from "@/features/desktop-apps/AudioPlayerApp";
 import { GithubFeatureApp } from "@/features/desktop-apps/GithubFeatureApp";
@@ -37,6 +41,16 @@ const definitions: WindowApplicationDefinition[] = [
     minimumSize: { width: 420, height: 300 },
     allowMultiple: true,
     render: (p) => <FileEditorApp {...p} />,
+  },
+  {
+    id: "conflict-resolver",
+    kind: "editor",
+    title: "Resolve Conflicts",
+    iconKey: "tool",
+    defaultSize: { width: 920, height: 640 },
+    minimumSize: { width: 560, height: 400 },
+    allowMultiple: true,
+    render: (p) => <ConflictResolverApp {...p} />,
   },
   {
     id: "raw-text-viewer",

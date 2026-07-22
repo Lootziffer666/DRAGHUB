@@ -12,10 +12,11 @@ function titlesFor(path: string): string[] {
 }
 
 describe("default file handlers — realistic per-extension menus", () => {
-  test("a Markdown file offers Markdown Preview, Code Editor, Raw Text, Download", () => {
+  test("a Markdown file offers Markdown Preview, Code Editor, Resolve Conflicts, Raw Text, Download", () => {
     expect(titlesFor("README.md")).toEqual([
       "Markdown Preview",
       "Code Editor",
+      "Resolve Conflicts",
       "Raw Text",
       "Download",
     ]);
@@ -29,8 +30,13 @@ describe("default file handlers — realistic per-extension menus", () => {
     expect(titlesFor("assets/theme.mp3")).toEqual(["Audio Player", "Download"]);
   });
 
-  test("a plain source file offers Code Editor and Raw Text, not Markdown/Image/Audio", () => {
-    expect(titlesFor("src/main.ts")).toEqual(["Code Editor", "Raw Text", "Download"]);
+  test("a plain source file offers Code Editor, Resolve Conflicts and Raw Text, not Markdown/Image/Audio", () => {
+    expect(titlesFor("src/main.ts")).toEqual([
+      "Code Editor",
+      "Resolve Conflicts",
+      "Raw Text",
+      "Download",
+    ]);
   });
 
   test("an archive offers only Download (no archive viewer yet)", () => {

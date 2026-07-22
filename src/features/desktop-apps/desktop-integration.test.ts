@@ -10,6 +10,71 @@ const backing = new Map<string, string>();
   clear: () => backing.clear(),
 };
 
+// Minimal fake IndexedDB so stageEditDirect's blob writes (src/lib/staging-db.ts)
+// run inside bun test, which has no real IndexedDB.
+type FakeIdbRequest = { result?: unknown; onsuccess?: () => void; onerror?: () => void };
+function makeFakeIndexedDB() {
+  const blobs = new Map<string, Uint8Array>();
+  return {
+    open(_name: string, _version: number) {
+      const openReq: FakeIdbRequest = {};
+      queueMicrotask(() => {
+        const db = {
+          objectStoreNames: { contains: () => true },
+          createObjectStore: () => {},
+          transaction(_storeName: string, _mode: string) {
+            const tx: { oncomplete?: () => void; onerror?: () => void } = {};
+            return {
+              objectStore: () => ({
+                put: (value: Uint8Array, key: string) => {
+                  blobs.set(key, value);
+                  queueMicrotask(() => tx.oncomplete?.());
+                  return {};
+                },
+                get: (key: string) => {
+                  const req: FakeIdbRequest = {};
+                  queueMicrotask(() => {
+                    req.result = blobs.get(key);
+                    req.onsuccess?.();
+                  });
+                  return req;
+                },
+                delete: (key: string) => {
+                  blobs.delete(key);
+                  queueMicrotask(() => tx.oncomplete?.());
+                  return {};
+                },
+                clear: () => {
+                  blobs.clear();
+                  queueMicrotask(() => tx.oncomplete?.());
+                  return {};
+                },
+              }),
+              get oncomplete() {
+                return tx.oncomplete;
+              },
+              set oncomplete(v) {
+                tx.oncomplete = v;
+              },
+              get onerror() {
+                return tx.onerror;
+              },
+              set onerror(v) {
+                tx.onerror = v;
+              },
+            };
+          },
+          close: () => {},
+        };
+        openReq.result = db;
+        openReq.onsuccess?.();
+      });
+      return openReq;
+    },
+  };
+}
+(globalThis as Record<string, unknown>).indexedDB = makeFakeIndexedDB();
+
 import {
   changesFor,
   updateBucket,
@@ -231,6 +296,79 @@ describe("lifecycle adapter — resolveClose", () => {
     });
     expect(result.success).toBe(false);
     expect(result.error).toContain("token");
+  });
+
+  test("commit-and-close is blocked while the file still has conflict markers (editor scope)", async () => {
+    openSession(REPO_A, "conflicted.ts", "base");
+    updateDraft(
+      REPO_A,
+      "conflicted.ts",
+      "before\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\nafter"
+    );
+    const child = editorWindow("w2", REPO_A, "conflicted.ts", "w1");
+    const context: WindowCloseContext = {
+      ...closeContext(child),
+      blockers: [],
+      inspectionStatus: "ready",
+      resolutionStatus: "idle",
+    };
+    const result = await adapter.resolveClose(context, {
+      action: "commit-and-close",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("conflict");
+    // Nothing was staged and the dirty draft survives — closing failed, it
+    // did not silently discard or partially save.
+    expect(changesFor(REPO_A)).toHaveLength(0);
+    expect(isDirty(REPO_A, "conflicted.ts")).toBe(true);
+    discardDraft(REPO_A, "conflicted.ts");
+  });
+
+  test("commit-and-close resolves conflicted drafts normally once markers are gone", async () => {
+    openSession(REPO_A, "conflicted.ts", "base");
+    updateDraft(REPO_A, "conflicted.ts", "resolved content, no markers");
+    const child = editorWindow("w2", REPO_A, "conflicted.ts", "w1");
+    const context: WindowCloseContext = {
+      ...closeContext(child),
+      blockers: [],
+      inspectionStatus: "ready",
+      resolutionStatus: "idle",
+    };
+    const result = await adapter.resolveClose(context, {
+      action: "commit-and-close",
+    });
+    expect(result.success).toBe(true);
+    expect(changesFor(REPO_A)).toHaveLength(1);
+    expect(isDirty(REPO_A, "conflicted.ts")).toBe(false);
+  });
+
+  test("repository-wide checkpoint is blocked while any dirty draft has conflict markers", async () => {
+    openSession(REPO_A, "clean.ts", "base");
+    updateDraft(REPO_A, "clean.ts", "a clean edit");
+    openSession(REPO_A, "conflicted.ts", "base");
+    updateDraft(
+      REPO_A,
+      "conflicted.ts",
+      "<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch"
+    );
+    const context: WindowCloseContext = {
+      ...closeContext(repoWindow("w1", REPO_A)),
+      blockers: [],
+      inspectionStatus: "ready",
+      resolutionStatus: "idle",
+    };
+    const result = await adapter.resolveClose(context, {
+      action: "commit-and-close",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("conflicted.ts");
+    // Atomic: the clean draft was not staged either, since the blocked file
+    // was found before anything was written.
+    expect(changesFor(REPO_A)).toHaveLength(0);
+    expect(isDirty(REPO_A, "clean.ts")).toBe(true);
+    expect(isDirty(REPO_A, "conflicted.ts")).toBe(true);
+    discardDraft(REPO_A, "clean.ts");
+    discardDraft(REPO_A, "conflicted.ts");
   });
 
   test("close-clean succeeds without touching state", async () => {

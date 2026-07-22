@@ -22,6 +22,7 @@ import {
 } from "@/lib/editor-sessions";
 import { Spinner } from "@/features/icons";
 import type { WindowContentProps } from "@/features/desktop/types";
+import { ConflictResolverView } from "./ConflictResolverView";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"];
 
@@ -47,10 +48,18 @@ export function FileEditorApp(props: WindowContentProps) {
   return <FileWindowApp {...props} mode="editor" />;
 }
 
+/** Conflict resolver child application for `file` resources (issue #20) —
+ * same load/session plumbing as the plain editor above, but renders
+ * `ConflictResolverView`'s Ours/Theirs/Result body instead of a single
+ * CodeMirror instance. */
+export function ConflictResolverApp(props: WindowContentProps) {
+  return <FileWindowApp {...props} mode="resolve" />;
+}
+
 function FileWindowApp({
   resource,
   mode,
-}: WindowContentProps & { mode: "viewer" | "editor" }) {
+}: WindowContentProps & { mode: "viewer" | "editor" | "resolve" }) {
   const { state } = useStore();
   const requestedKey = resource.type === "file" ? resource.repoKey : "";
   const path = resource.type === "file" ? resource.path : "";
@@ -181,6 +190,17 @@ function FileWindowApp({
           )}
         </div>
       </div>
+    );
+  }
+
+  if (mode === "resolve") {
+    return (
+      <ConflictResolverView
+        repoKey={repoKey}
+        path={path}
+        branch={meta.branch}
+        initialText={text}
+      />
     );
   }
 

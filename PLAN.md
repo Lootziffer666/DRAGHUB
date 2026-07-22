@@ -505,3 +505,46 @@ PR #30s Aufzählung und nicht Teil dieser Änderung: Notification Center,
 Task View (Fensterübersicht) und die erweiterten Appearance-Settings
 (System-/zeitbasiertes Theme, Wallpaper-Picker, Sprache) — Letzteres
 inklusive der bewusst unangetasteten Wallpaper-Entscheidung.
+
+**Status Konfliktauflösung / Issue #20 (umgesetzt 2026-07-22):** M6s
+Häkchen bezog sich nur auf die reine Logik (`src/lib/merge.ts`); eine
+Oberfläche existierte nicht — `FileView.tsx` zeigte lediglich einen
+Hinweis-Banner ("N merge conflict hunks detected"), der weder das
+Speichern blockierte noch eine Ours/Theirs-Ansicht bot, und `resolveConflict()`
+war komplett unbenutzt (siehe unten). Jetzt umgesetzt:
+
+- Neues Fenster `conflict-resolver` (`src/features/desktop-apps/ConflictResolverView.tsx`,
+  gerendert über `FileWindowApp`s dritten `mode: "resolve"` neben
+  `viewer`/`editor` — dieselbe Datei-Lade-/Session-Logik, keine Parallel-
+  Architektur) mit Ours/Theirs-Karten pro verbleibender Konfliktregion
+  (Kontextzeilen, Accept Current/Incoming/Keep Both), "Accept all
+  Ours/Theirs" für mehrere Regionen, und einem frei editierbaren
+  Result-Editor (CodeMirror). Erreichbar über `Datei-Handler-Registry` →
+  "Open with → Resolve Conflicts" sowie einen neuen "Resolve conflicts…"-
+  Link im bestehenden Konflikt-Banner der Tab-Ansicht.
+- `src/lib/merge.ts`: `parseConflictHunks` vergibt jetzt positionsbasierte
+  statt zufällige Hunk-IDs (Bugfix — `resolveConflict()`s eigener
+  Choices-Map-Abgleich konnte nie treffen, da jeder Parse-Aufruf zuvor neue
+  `crypto.randomUUID()`-Werte erzeugte); neu: `hasUnresolvedConflicts()`
+  und `resolveConflictAt()` (löst genau eine Region auf, lässt alle
+  anderen unangetastet) — beide mit vollständiger `bun test`-Abdeckung
+  (`src/lib/merge.test.ts`).
+- Speichern/Staging wird blockiert, solange Markierungen bestehen — nicht
+  nur der Save-Button im Resolver-Fenster selbst, sondern auch der
+  Schließen-Dialog-Pfad (`lifecycle-adapter.ts`s editor-scope
+  `commit-and-close`) und der repository-weite Checkpoint-Pfad (jeder
+  dirty Draft wird vor dem Staging geprüft, atomar — ein blockierter
+  Konflikt lässt keine anderen Dateien halb gestaged zurück).
+- Nebenbefund beim Verifizieren im echten Browser: `openRepositoryChild`
+  akzeptiert ausschließlich die ID des *Wurzel*-Repository-Fensters; das
+  "Files"-Fenster reichte bisher versehentlich seine eigene Fenster-ID
+  durch, wodurch sowohl der bestehende "Changes"-Button als auch das
+  "Open with"-Menü dort schon vor dieser Änderung wirkungslos waren
+  (`GithubFeatureApp.tsx` behebt das jetzt für beide, nicht nur für den
+  neuen Resolver).
+- Absichtlich nicht angefasst: Konflikterkennung bleibt inhaltsbasiert
+  (Markierungen im Dateiinhalt) — die Datei-Handler-Registry kennt beim
+  Zuordnen von Anwendungen nur Pfad/Größe, keinen Inhalt, kann eine
+  konfliktbehaftete Datei also nicht automatisch vom normalen Editor
+  unterscheiden; "Resolve Conflicts" ist deshalb ein bewusst gewählter,
+  nicht automatisch vorbelegter Menüpunkt.

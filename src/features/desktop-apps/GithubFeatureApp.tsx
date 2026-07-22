@@ -11,6 +11,7 @@ import { Explorer } from "@/components/Explorer";
 import { Tabs } from "@/components/Tabs";
 import { FileView } from "@/components/FileView";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
+import { DesktopWindowContext } from "./window-context";
 import { OpenWithMenu } from "./file-handlers";
 import type { FileHandlerDefinition } from "./file-handlers";
 import {
@@ -44,10 +45,21 @@ import type { WindowContentProps } from "@/features/desktop/types";
  * bound to the window's `github-feature` resource — owner/repo come from the
  * resource's repoKey, never from a globally focused repository.
  */
-export function GithubFeatureApp({ windowId, resource }: WindowContentProps) {
+export function GithubFeatureApp({
+  windowId,
+  resource,
+  owner: windowOwner,
+}: WindowContentProps) {
   if (resource.type !== "github-feature") return null;
   const { repoKey, featureId } = resource;
   const [owner, repoName] = repoKey.split("/");
+  // `openRepositoryChild` only accepts the *root* repository window's id
+  // (it checks `parent.resource.type === "repository"`) — a github-feature
+  // window like this one owns that id via `owner.repositoryWindowId`, not
+  // via its own `windowId`, whenever it was itself opened as a repository
+  // child (which every github-feature window is).
+  const repositoryWindowId =
+    windowOwner.type === "repository" ? windowOwner.repositoryWindowId : windowId;
 
   switch (featureId) {
     case "pull-requests":
@@ -67,7 +79,13 @@ export function GithubFeatureApp({ windowId, resource }: WindowContentProps) {
     case "settings":
       return <BranchAwareView repoKey={repoKey} view="settings" />;
     case "files":
-      return <FilesWindow windowId={windowId} repoKey={repoKey} />;
+      return (
+        <FilesWindow
+          windowId={windowId}
+          repositoryWindowId={repositoryWindowId}
+          repoKey={repoKey}
+        />
+      );
     default:
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 bg-[var(--dh-surface)] p-6 text-center">
@@ -134,21 +152,38 @@ function ChangesWindow({ repoKey }: { repoKey: string }) {
  * This is the same Explorer/Tabs/FileView machinery the repository window
  * used to render by default; only where it's mounted changed.
  */
-function FilesWindow({ windowId, repoKey }: { windowId: string; repoKey: string }) {
+function FilesWindow({
+  windowId,
+  repositoryWindowId,
+  repoKey,
+}: {
+  windowId: string;
+  repositoryWindowId: string;
+  repoKey: string;
+}) {
   const resolved = useCanonicalRepo(repoKey);
   if (!resolved) return <WaitingForRepo repoKey={repoKey} />;
   return (
     <RepoScope repoKey={resolved.key}>
       <ChangesProvider>
         <UIProvider>
-          <FilesWindowBody windowId={windowId} />
+          <FilesWindowBody
+            windowId={windowId}
+            repositoryWindowId={repositoryWindowId}
+          />
         </UIProvider>
       </ChangesProvider>
     </RepoScope>
   );
 }
 
-function FilesWindowBody({ windowId }: { windowId: string }) {
+function FilesWindowBody({
+  windowId,
+  repositoryWindowId,
+}: {
+  windowId: string;
+  repositoryWindowId: string;
+}) {
   const wm = useWindowManager();
   const repo = useActiveRepo();
   const changes = useChanges();
@@ -169,6 +204,13 @@ function FilesWindowBody({ windowId }: { windowId: string }) {
   };
 
   return (
+    // Lets FileView (and anything else rendered under this window) resolve
+    // its own enclosing repository window — e.g. to open an owned child
+    // window like the conflict resolver via `openRepositoryChild` (issue
+    // #20), which only accepts the *root* repository window's id.
+    <DesktopWindowContext.Provider
+      value={{ windowId: repositoryWindowId, repoKey }}
+    >
     <div className="flex h-full flex-col bg-[var(--dh-surface)] text-[var(--dh-text)]">
       <AddressBar
         onGoHome={() => wm.minimizeWindow(windowId)}
@@ -179,7 +221,7 @@ function FilesWindowBody({ windowId }: { windowId: string }) {
         <button
           onClick={() =>
             wm.openRepositoryChild(
-              windowId,
+              repositoryWindowId,
               "github-feature",
               { type: "github-feature", repoKey, featureId: "changes" },
               `${repo.meta.repo} — Changes`
@@ -206,7 +248,7 @@ function FilesWindowBody({ windowId }: { windowId: string }) {
             meta={{ owner: repo.meta.owner, repo: repo.meta.repo, branch: repo.meta.branch }}
             onOpenHandler={(handler: FileHandlerDefinition) =>
               wm.openRepositoryChild(
-                windowId,
+                repositoryWindowId,
                 handler.applicationId,
                 { type: "file", repoKey, path: activeTab.path },
                 activeTab.label
@@ -245,6 +287,7 @@ function FilesWindowBody({ windowId }: { windowId: string }) {
         </span>
       </div>
     </div>
+    </DesktopWindowContext.Provider>
   );
 }
 

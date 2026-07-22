@@ -20,6 +20,7 @@ import {
   stageEditDirect,
 } from "@/features/changes/ops";
 import { getGithubToken, languageFromPath } from "@/lib/github";
+import { hasUnresolvedConflicts, parseConflictHunks } from "@/lib/merge";
 
 /**
  * Real window-close / Recycle-Bin lifecycle adapter (Stage 4 of the
@@ -144,6 +145,17 @@ export function createDesktopLifecycleAdapter(
         const session = getSession(repoKey, scope.path);
         const draft = session?.draft ?? "";
         if (resolution.action === "commit-and-close") {
+          // Closing the resolver (or any editor window) via the desktop's
+          // close dialog must not be a way around the resolver's own
+          // Save-button gate — a draft that still contains conflict
+          // markers is never staged as a Working Change (issue #20).
+          if (hasUnresolvedConflicts(draft)) {
+            const remaining = parseConflictHunks(draft).length;
+            return {
+              success: false,
+              error: `Resolve ${remaining} remaining conflict region${remaining === 1 ? "" : "s"} in ${scope.path} before saving.`,
+            };
+          }
           // Stages ONLY this file as a Working Change — no repository
           // checkpoint, no other draft or Working Change is touched.
           await stageEditDirect(repoKey, scope.path, draft);
@@ -175,6 +187,22 @@ export function createDesktopLifecycleAdapter(
       const repoKey = canonical(scope.repoKey);
 
       if (resolution.action === "commit-and-close") {
+        // Checked before the token check: whether a conflicted draft can be
+        // committed is never a question of credentials, and surfacing the
+        // real blocker first avoids sending the user to Settings for a file
+        // they still need to come back and resolve either way (issue #20).
+        // Checked up front against every dirty draft, before staging
+        // anything, so a blocked file can't leave the repository with some
+        // drafts already staged and others not.
+        const dirty = dirtySessionsFor(repoKey);
+        const blocked = dirty.find((s) => hasUnresolvedConflicts(s.draft));
+        if (blocked) {
+          const remaining = parseConflictHunks(blocked.draft).length;
+          return {
+            success: false,
+            error: `Resolve ${remaining} remaining conflict region${remaining === 1 ? "" : "s"} in ${blocked.path} before creating a checkpoint.`,
+          };
+        }
         if (!getGithubToken()) {
           return {
             success: false,
@@ -184,7 +212,7 @@ export function createDesktopLifecycleAdapter(
         }
         // Unsaved drafts anywhere in the repository (including owned child
         // editor windows) become staged changes so the checkpoint includes them.
-        for (const s of dirtySessionsFor(repoKey)) {
+        for (const s of dirty) {
           await stageEditDirect(repoKey, s.path, s.draft);
           discardDraft(repoKey, s.path);
         }

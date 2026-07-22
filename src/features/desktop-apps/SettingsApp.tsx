@@ -7,10 +7,19 @@ import {
   setGithubToken,
   clearGithubToken,
 } from "@/lib/github";
+import { getAiConfig, setAiConfig, clearAiConfig, type AiConfig } from "@/lib/ai";
 import { useWindowManager } from "@/features/desktop/WindowManagerProvider";
 import { useDraghubTheme, type ThemeMode } from "@/features/theme";
 
-/** Desktop Settings — GitHub access token and desktop-session maintenance. */
+const EMPTY_AI_FORM: AiConfig = {
+  baseUrl: "",
+  apiKey: "",
+  chatModel: "",
+  embeddingModel: "",
+};
+
+/** Desktop Settings — GitHub access token, AI provider and desktop-session
+ * maintenance. */
 export function SettingsApp() {
   const wm = useWindowManager();
   const { mode, setMode } = useDraghubTheme();
@@ -19,9 +28,19 @@ export function SettingsApp() {
   const [savedFlash, setSavedFlash] = useState(false);
   const [hasStored, setHasStored] = useState(false);
 
+  const [aiForm, setAiForm] = useState<AiConfig>(EMPTY_AI_FORM);
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [showAiKey, setShowAiKey] = useState(false);
+  const [aiSavedFlash, setAiSavedFlash] = useState(false);
+
   useEffect(() => {
     const stored = getGithubToken();
     setHasStored(Boolean(stored));
+    const ai = getAiConfig();
+    if (ai) {
+      setAiForm(ai);
+      setAiConfigured(true);
+    }
   }, []);
 
   const save = () => {
@@ -31,6 +50,19 @@ export function SettingsApp() {
     setToken("");
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1500);
+  };
+
+  const saveAi = () => {
+    if (!aiForm.baseUrl.trim() || !aiForm.apiKey.trim()) return;
+    setAiConfig({
+      baseUrl: aiForm.baseUrl.trim(),
+      apiKey: aiForm.apiKey.trim(),
+      chatModel: aiForm.chatModel.trim(),
+      embeddingModel: aiForm.embeddingModel.trim(),
+    });
+    setAiConfigured(true);
+    setAiSavedFlash(true);
+    window.setTimeout(() => setAiSavedFlash(false), 1500);
   };
 
   return (
@@ -96,6 +128,76 @@ export function SettingsApp() {
               Remove token
             </button>
           )}
+        </div>
+      </section>
+
+      <section className="mb-6">
+        <h3 className="mb-1 text-sm font-semibold">AI provider</h3>
+        <p className="mb-2 text-xs text-[var(--dh-text-secondary)]">
+          Any OpenAI-compatible endpoint — point this at your own ANVIL-BELLOWS
+          instance or a hosted provider. Used for the Starred Repositories
+          manager&apos;s AI categorization and semantic search. Stored only in
+          this browser&apos;s localStorage.
+        </p>
+        <div className="flex flex-col gap-2">
+          <input
+            value={aiForm.baseUrl}
+            onChange={(e) => setAiForm((f) => ({ ...f, baseUrl: e.target.value }))}
+            placeholder="Base URL — e.g. https://bellows.example.com/v1"
+            className="rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm outline-none focus:border-[var(--dh-focus-ring)]"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type={showAiKey ? "text" : "password"}
+              value={aiForm.apiKey}
+              onChange={(e) => setAiForm((f) => ({ ...f, apiKey: e.target.value }))}
+              placeholder="API key"
+              className="flex-1 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm outline-none focus:border-[var(--dh-focus-ring)]"
+            />
+            <button
+              onClick={() => setShowAiKey((v) => !v)}
+              className="rounded-md border border-[var(--dh-window-border)] px-2 py-1.5 text-xs text-[var(--dh-text-secondary)] hover:border-[var(--dh-window-border-active)]"
+            >
+              {showAiKey ? "Hide" : "Show"}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={aiForm.chatModel}
+              onChange={(e) => setAiForm((f) => ({ ...f, chatModel: e.target.value }))}
+              placeholder="Chat model (default gpt-4o-mini)"
+              className="flex-1 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm outline-none focus:border-[var(--dh-focus-ring)]"
+            />
+            <input
+              value={aiForm.embeddingModel}
+              onChange={(e) => setAiForm((f) => ({ ...f, embeddingModel: e.target.value }))}
+              placeholder="Embedding model (default text-embedding-3-small)"
+              className="flex-1 rounded-md border border-[var(--dh-window-border)] bg-[var(--dh-surface-raised)] px-3 py-1.5 text-sm outline-none focus:border-[var(--dh-focus-ring)]"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveAi}
+              className="rounded-md bg-[var(--dh-accent)] px-3 py-1.5 text-xs font-medium text-[var(--dh-accent-foreground)] hover:opacity-90"
+            >
+              Save
+            </button>
+            <span className={aiConfigured ? "text-emerald-700 dark:text-emerald-400 text-xs" : "text-xs text-[var(--dh-text-secondary)]"}>
+              {aiSavedFlash ? "AI provider saved." : aiConfigured ? "AI provider configured." : "No AI provider configured."}
+            </span>
+            {aiConfigured && (
+              <button
+                onClick={() => {
+                  clearAiConfig();
+                  setAiConfigured(false);
+                  setAiForm(EMPTY_AI_FORM);
+                }}
+                className="text-xs text-red-600 dark:text-red-400 hover:underline"
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
       </section>
 

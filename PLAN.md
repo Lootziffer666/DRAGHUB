@@ -607,3 +607,47 @@ Viewer"). Entsprechend jetzt als Phase-1-Feature umgesetzt:
   erzeugten Test-GLB-Datei (Würfel): Öffnen über „Open with → 3D Model
   Viewer", korrekte perspektivische Drei-Viertel-Ansicht, Pause/Resume,
   Reset View — keine Konsolenfehler.
+
+**Status KI-Kategorisierung & semantische Suche für #33 (umgesetzt
+2026-07-22):** Auf Maintainer-Wunsch ausgebaut — ausdrücklich nur diese
+zwei Fähigkeiten aus dem GithubStarsManager-Vergleich, der Rest (Release-
+Abos, Fork-Management, Gists, WebDAV) bleibt bewusst draußen.
+
+- `src/lib/ai.ts`: generischer, providerneutraler Client für eine
+  OpenAI-kompatible `/chat/completions`- und `/embeddings`-Schnittstelle
+  (Base URL/API-Key/Modellnamen frei konfigurierbar — kein Hardcoding auf
+  OpenAI selbst). Der Maintainer zeigt hiermit explizit auf seine eigene
+  ANVIL-BELLOWS-Instanz statt auf einen bestimmten Hosted-Anbieter.
+  Konfiguration liegt wie der GitHub-Token in `localStorage`, neue
+  „AI provider"-Sektion in den Desktop-Settings (`SettingsApp.tsx`).
+- `src/features/starred/categorize.ts`: KI-Kategorisierung in Batches (20
+  Repos/Aufruf), bereits vergebene Kategorien werden dem Modell im Prompt
+  mitgegeben, damit das Vokabular klein bleibt statt zu wuchern. Cache in
+  `localStorage`, invalidiert per Content-Hash (Name+Beschreibung+Sprache)
+  — ein geänderter Repo-Text macht seine Kategorie automatisch wieder
+  „unkategorisiert" statt eine veraltete Zuordnung stumm zu behalten. Ein
+  fehlschlagender Batch bricht nicht den ganzen Lauf ab.
+- `src/features/starred/semantic-search.ts`: Embeddings werden gecacht im
+  bereits vorhandenen generischen IndexedDB-Blobstore
+  (`src/lib/staging-db.ts`, namespaced key `ai-embed:*`) statt eine zweite
+  IndexedDB-Datenbank für einen weiteren kleinen Cache aufzuziehen. Reines
+  Client-seitiges kNN gegen die Anfrage-Embedding-Similarity (Kosinus) —
+  bei der Größenordnung „ein Nutzer, seine Stars" (Hunderte, keine
+  Millionen) braucht es keine Vektordatenbank wie Cloudflare Vectorize.
+- UI in `StarredReposApp.tsx`: Kategorie-Chips (inkl. „Uncategorized"),
+  „Categorize with AI"/„Recategorize all", separate „Smart search"-Zeile
+  (explizit per Klick/Enter ausgelöst, nicht live pro Tastendruck, um die
+  AI-API nicht bei jedem Zeichen zu belasten) mit Fortschrittsanzeige und
+  Ergebnis-Modus, der die normale Liste ersetzt statt sie zu überlagern.
+  Beides klar getrennt von der bestehenden reinen Text-Filterzeile.
+- Vollständige Testabdeckung der reinen Logik: `src/lib/ai.test.ts`
+  (Config-Persistenz, Kosinus-Ähnlichkeit, Hash-Determinismus),
+  `src/features/starred/categorize.test.ts` (Response-Parsing,
+  Cache-Staleness), `src/features/starred/semantic-search.test.ts`
+  (Embedding-Cache-Hit/Miss, Ranking-Reihenfolge — mit gefaktem `fetch`
+  und gefaktem IndexedDB, demselben Muster wie
+  `desktop-integration.test.ts`). Browserverifiziert end-to-end mit
+  gemocktem OpenAI-kompatiblen Endpunkt (`https://bellows.example/v1`):
+  Settings zeigt gespeicherte Werte korrekt vorausgefüllt, Kategorisierung
+  erzeugt und filtert nach Chips, Smart Search rankt und filtert korrekt
+  nach Relevanz — keine Konsolenfehler.

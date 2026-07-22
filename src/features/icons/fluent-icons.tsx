@@ -110,6 +110,10 @@ export {
   ArrowRotateClockwiseRegular,
   PauseRegular,
   PlayRegular,
+  SparkleRegular,
+  SearchSparkleRegular,
+  TagMultipleRegular,
+  DismissCircleFilled,
 } from "@fluentui/react-icons";
 
 export type { FluentIcon } from "@fluentui/react-icons";

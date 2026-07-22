@@ -211,6 +211,8 @@ const MIME_BY_EXT: Record<string, string> = {
   ico: "image/x-icon",
   bmp: "image/bmp",
   avif: "image/avif",
+  glb: "model/gltf-binary",
+  gltf: "model/gltf+json",
 };
 
 function mimeFromPath(path: string): string | null {

@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 import {
+  CubeFilled,
   DocumentRegular,
   DocumentTextRegular,
   FolderFilled,
@@ -20,7 +21,8 @@ export type FileIconKey =
   | "image"
   | "audio"
   | "markdown"
-  | "archive";
+  | "archive"
+  | "model";
 
 const fileIcons: Record<FileIconKey, IconComponent> = {
   folder: FolderFilled,
@@ -31,6 +33,7 @@ const fileIcons: Record<FileIconKey, IconComponent> = {
   audio: MusicNote2Filled,
   markdown: MarkdownRegular,
   archive: FolderZipRegular,
+  model: CubeFilled,
 };
 
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "bmp", "avif"]);
@@ -38,6 +41,7 @@ const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "oga", "m4a", "flac", "aac", "op
 const MARKDOWN_EXT = new Set(["md", "mdx"]);
 const TEXT_EXT = new Set(["txt", "rst", "log"]);
 const ARCHIVE_EXT = new Set(["zip", "7z", "rar", "tar", "gz"]);
+const MODEL_EXT = new Set(["glb", "gltf"]);
 
 export function fileIconKeyForPath(name: string): FileIconKey {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -45,6 +49,7 @@ export function fileIconKeyForPath(name: string): FileIconKey {
   if (AUDIO_EXT.has(ext)) return "audio";
   if (MARKDOWN_EXT.has(ext)) return "markdown";
   if (ARCHIVE_EXT.has(ext)) return "archive";
+  if (MODEL_EXT.has(ext)) return "model";
   if (TEXT_EXT.has(ext)) return "file";
   return "code";
 }

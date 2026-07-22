@@ -12,6 +12,7 @@ import { ScratchpadApp } from "@/features/desktop-apps/ScratchpadApp";
 import { SettingsApp } from "@/features/desktop-apps/SettingsApp";
 import { RecycleBinApp } from "@/features/desktop-apps/RecycleBinApp";
 import { StarredReposApp } from "@/features/desktop-apps/StarredReposApp";
+import { ModelViewerApp } from "@/features/desktop-apps/ModelViewerApp";
 const definitions: WindowApplicationDefinition[] = [
   {
     id: "repository-explorer",
@@ -62,6 +63,16 @@ const definitions: WindowApplicationDefinition[] = [
     minimumSize: { width: 380, height: 280 },
     allowMultiple: true,
     render: (p) => <RawTextViewerApp {...p} />,
+  },
+  {
+    id: "model-viewer",
+    kind: "viewer",
+    title: "3D Model Viewer",
+    iconKey: "model",
+    defaultSize: { width: 720, height: 560 },
+    minimumSize: { width: 360, height: 280 },
+    allowMultiple: true,
+    render: (p) => <ModelViewerApp {...p} />,
   },
   {
     id: "audio-player",

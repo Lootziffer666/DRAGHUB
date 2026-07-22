@@ -38,6 +38,7 @@ describe("appIconFor — persisted icon keys resolve to real components", () => 
       "settings",
       "recycle-bin",
       "star",
+      "model",
       "search",
       "launcher",
       "changes",
@@ -64,7 +65,7 @@ describe("appIconFor — persisted icon keys resolve to real components", () => 
 
 describe("file icon registry", () => {
   test("every file-type key resolves to a defined component", () => {
-    const keys = ["folder", "folder-open", "file", "code", "image", "audio", "markdown", "archive"] as const;
+    const keys = ["folder", "folder-open", "file", "code", "image", "audio", "markdown", "archive", "model"] as const;
     for (const key of keys) {
       expect(resolveFileIcon(key)).toBeDefined();
     }
@@ -75,6 +76,8 @@ describe("file icon registry", () => {
     expect(fileIconKeyForPath("theme.mp3")).toBe("audio");
     expect(fileIconKeyForPath("README.md")).toBe("markdown");
     expect(fileIconKeyForPath("archive.zip")).toBe("archive");
+    expect(fileIconKeyForPath("model.glb")).toBe("model");
+    expect(fileIconKeyForPath("scene.gltf")).toBe("model");
     expect(fileIconKeyForPath("notes.txt")).toBe("file");
     expect(fileIconKeyForPath("main.ts")).toBe("code");
     expect(fileIconKeyForPath("Dockerfile")).toBe("code");

@@ -30,6 +30,11 @@ describe("default file handlers — realistic per-extension menus", () => {
     expect(titlesFor("assets/theme.mp3")).toEqual(["Audio Player", "Download"]);
   });
 
+  test("a glb/gltf model offers 3D Model Viewer and Download only — never Code Editor or Raw Text", () => {
+    expect(titlesFor("assets/character.glb")).toEqual(["3D Model Viewer", "Download"]);
+    expect(titlesFor("assets/scene.gltf")).toEqual(["3D Model Viewer", "Download"]);
+  });
+
   test("a plain source file offers Code Editor, Resolve Conflicts and Raw Text, not Markdown/Image/Audio", () => {
     expect(titlesFor("src/main.ts")).toEqual([
       "Code Editor",
@@ -44,7 +49,7 @@ describe("default file handlers — realistic per-extension menus", () => {
   });
 
   test("Download is always present, always last", () => {
-    for (const path of ["a.md", "a.png", "a.mp3", "a.ts", "a.zip"]) {
+    for (const path of ["a.md", "a.png", "a.mp3", "a.ts", "a.zip", "a.glb"]) {
       const titles = titlesFor(path);
       expect(titles[titles.length - 1]).toBe("Download");
     }

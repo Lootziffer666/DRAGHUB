@@ -562,3 +562,48 @@ serverseitige Beziehung (über jeden GitHub-Client hinweg sichtbar), ein
 Dock-Pin ist ein rein lokaler DRAGHUB-Launcher-Shortcut — Starren pinnt
 nicht, Pinnen starred nicht. Browserverifiziert per Playwright (gemockte
 `/user/starred`-Liste, Filtern, Unstar, Star-per-Eingabe, Öffnen-Klick).
+
+**Maintainer-Hinweis zu #33:** Als Referenz genannt: [AmintaCCCP/GithubStarsManager](https://github.com/AmintaCCCP/GithubStarsManager)
+— ein deutlich weiter ausgebautes Projekt (KI-Kategorisierung/semantische
+Suche über Cloudflare Vectorize, Release-Abo mit Plattform-Asset-Filterung,
+Fork-Management, Gist-Browsing, WebDAV-Backup). Die obige DRAGHUB-Umsetzung
+deckt den Kernvertrag ab (anzeigen/filtern/öffnen/(un)starren), aber nicht
+diese Zusatzfunktionen — das war beim ursprünglichen Issue #33 (nur Titel,
+keine Beschreibung) nicht erkennbar verlangt. Vor einem Ausbau in diese
+Richtung sollte der Maintainer priorisieren, welche der genannten
+Zusatzfunktionen tatsächlich gewünscht sind, statt dass ein Agent das rät.
+
+**Status 3D-Modell-Viewer (umgesetzt 2026-07-22, Korrektur einer
+Fehleinordnung):** Der Agent hatte einen GLB/GLTF-Turntable-Viewer
+zunächst fälschlich unter „Phase 2" (räumliche/gamifizierte
+Repository-Darstellung, gesperrt bis Phase 1 abgenommen ist) einsortiert.
+Maintainer-Korrektur: ein Datei-Viewer für ein einzelnes 3D-Modell in
+einem Fenster ist keine spielbare/gamifizierte Repository-Weltdarstellung
+— er gehört in dieselbe Kategorie wie Bild-Viewer/Audio-Player (Phase 1,
+§2 der PHASE_SCOPE_CONTRACT.md: „Bild-Thumbnails und minimierbare
+Viewer"). Entsprechend jetzt als Phase-1-Feature umgesetzt:
+
+- Neue Abhängigkeit `three` (+ `@types/three`, Dev). Kein Abweichen von
+  der bestehenden Konvention (statische Imports wie bei CodeMirror/JSZip/
+  libarchive.js — kein `next/dynamic` o. Ä. sonst irgendwo im Code).
+- `src/features/desktop-apps/ModelViewerApp.tsx`, registriert als
+  `model-viewer` (kind `viewer`) + Datei-Handler für `.glb`/`.gltf`
+  (Priorität 30, wie Image/Audio — verdrängt Code Editor/Raw Text/
+  Conflict Resolver für diese Endungen, da beide Formate binär bzw.
+  auf externe relative Puffer-Referenzen angewiesen sind, die ein
+  einzelner Blob-URL-Fetch nicht auflösen kann).
+- Lädt die Binärdatei über denselben authentifizierten Pfad wie Bilder/
+  Audio (`getRepositoryBlob`, bestehende 5-MB-Guard — gilt hier
+  unverändert, keine Sonderbehandlung für große GLBs in dieser Runde).
+- `GLTFLoader` + `OrbitControls` (three/examples/jsm): Kamera fittet sich
+  automatisch an die Bounding-Sphere des Modells, Turntable-Rotation über
+  `OrbitControls.autoRotate` (dieselbe Kamerabewegung wie manuelles
+  Ziehen/Zoomen, kein zweites konkurrierendes Rotationssystem), Pause/
+  Resume- und Reset-View-Button. Vollständiges Aufräumen (Renderer,
+  Controls, Geometrien/Materialien, ResizeObserver, Object-URL) beim
+  Fenster-Schließen.
+- Neuer semantischer Icon-Key `model` (Würfel) für App-/Datei-Icons.
+- Browserverifiziert mit einer echten, per Three.js-GLTFExporter
+  erzeugten Test-GLB-Datei (Würfel): Öffnen über „Open with → 3D Model
+  Viewer", korrekte perspektivische Drei-Viertel-Ansicht, Pause/Resume,
+  Reset View — keine Konsolenfehler.

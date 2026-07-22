@@ -27,6 +27,12 @@ export const AUDIO_EXTENSIONS = [
 
 export const MARKDOWN_EXTENSIONS = ["md", "mdx"];
 
+// .gltf is technically JSON, but it typically references external binary
+// buffers/textures by relative path — something a single blob-URL fetch
+// can't resolve — so it's treated as a dedicated-viewer format like .glb,
+// not routed through the generic text editor.
+export const MODEL_EXTENSIONS = ["glb", "gltf"];
+
 // Extensions no generic text handler (Code Editor, Raw Text) should claim —
 // they are binary or have a dedicated handler already. Archive formats are
 // listed here too even though there is no archive handler yet (§4 of the
@@ -35,6 +41,7 @@ export const MARKDOWN_EXTENSIONS = ["md", "mdx"];
 const NON_TEXT_EXTENSIONS = new Set([
   ...IMAGE_EXTENSIONS,
   ...AUDIO_EXTENSIONS,
+  ...MODEL_EXTENSIONS,
   "zip",
   "7z",
   "rar",
@@ -105,6 +112,16 @@ export function registerDefaultFileHandlers(): void {
     surfaces: ["window"],
     priority: 10,
     canHandle: (resource) => !isNonText(resource),
+  });
+
+  registerFileHandler({
+    id: "model-viewer",
+    title: "3D Model Viewer",
+    applicationId: "model-viewer",
+    extensions: MODEL_EXTENSIONS,
+    surfaces: ["window"],
+    priority: 30,
+    canHandle: () => true,
   });
 
   registerFileHandler({

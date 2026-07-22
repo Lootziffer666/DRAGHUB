@@ -23,6 +23,7 @@ import {
   SettingsRegular,
   ShieldCheckmarkRegular,
   StarFilled,
+  CubeRegular,
   TableRegular,
   TagRegular,
 } from "./fluent-icons";
@@ -45,6 +46,7 @@ export type AppIconKey =
   | "settings"
   | "recycle-bin"
   | "star"
+  | "model"
   | "search"
   | "launcher"
   | "changes"
@@ -73,6 +75,7 @@ const appIcons: Record<AppIconKey, IconComponent> = {
   settings: SettingsRegular,
   "recycle-bin": BinRecycleRegular,
   star: StarFilled,
+  model: CubeRegular,
   search: SearchRegular,
   launcher: AppsRegular,
   changes: ArrowSyncRegular,

@@ -105,6 +105,11 @@ export {
   ArchiveRegular,
   PinRegular,
   PinFilled,
+  CubeRegular,
+  CubeFilled,
+  ArrowRotateClockwiseRegular,
+  PauseRegular,
+  PlayRegular,
 } from "@fluentui/react-icons";
 
 export type { FluentIcon } from "@fluentui/react-icons";

@@ -471,3 +471,37 @@ Regressionstests abgedeckt:
   Working-Changes-Bucket des Repos bleibt unberührt), und ein
   Viewer-Schließen hat nie einen Domänen-Effekt. Das Verhalten beim
   Schließen eines Repository-Fensters bleibt unverändert.
+
+**Status Dock (umgesetzt 2026-07-22):** M9s Häkchen war zu weit gefasst —
+im Kernel des native-Workspace-Umbaus (PR #30) existierte kein Dock, nur
+die Taskbar (laufende Fenster, gruppiert). Beide Bausteine erfüllen
+unterschiedliche Verträge und bleiben getrennt: die Taskbar zeigt, was
+gerade läuft; das neue `src/features/desktop/Dock.tsx` zeigt angepinnte
+Repositories — unabhängig davon, ob sie gerade offen sind, genau wie ein
+macOS-Dock gegenüber seinem Fenster-Umschalter. Umgesetzt: linksseitige,
+immer sichtbare Leiste mit Start-Button (öffnet das Kapitänskajüte-
+Startmenü) und angepinnten Repository-Icons (laufend-Indikator-Punkt,
+Klick öffnet/fokussiert das Fensterobjekt, Drag-Reorder, Unpin-Button);
+Pins werden über `localStorage` (`gh-browser-pinned`) persistiert und
+überleben — anders als zuvor — auch `RELEASE_REPO` (Pin ist ein
+Dock-Favorit, kein Cache-Zustand); Pin/Unpin ist aus dem Startmenü heraus
+bedienbar (Recent-Liste, Suchergebnisse, neue "Pinned to Dock"-Sektion).
+`geometry.ts` reserviert die Dock-Breite (`DesktopViewport.dockWidth`) in
+`usableBounds`/`clampBounds`, und `.desktop-canvas` bekommt denselben
+linken Inset, sodass auch maximierte Fenster nie unter dem Dock rendern
+(MULTI_REPO_WINDOW_DOCK_SPEC.md §8, browserverifiziert per Playwright/
+mockter GitHub-API inkl. Reload-Persistenz und Maximieren-Screenshot). Auf
+schmalen Mobile-Viewports (<720px) bleibt der Dock ausgeblendet — angepinnte
+Repos bleiben dort über das Startmenü erreichbar. Die tote Altimplementierung
+`src/features/dock/` (nie eingebunden) wurde entfernt.
+
+**Status Startmenü (umgesetzt 2026-07-22):** Das Kapitänskajüte-Startmenü
+aus PR #30 war ausschließlich über `Ctrl/Cmd+K` bzw. den Taskbar-Text
+"Launcher / Search" erreichbar — kein eigener, sichtbarer Einstiegspunkt.
+Der neue Dock-Start-Button ist jetzt dieser Einstiegspunkt. Inhaltlich
+ergänzt: eine "Pinned to Dock"-Sektion sowie Pin/Unpin-Schnellzugriffe in
+der Recent- und Ergebnisliste (siehe Dock-Status oben). Weiterhin offen aus
+PR #30s Aufzählung und nicht Teil dieser Änderung: Notification Center,
+Task View (Fensterübersicht) und die erweiterten Appearance-Settings
+(System-/zeitbasiertes Theme, Wallpaper-Picker, Sprache) — Letzteres
+inklusive der bewusst unangetasteten Wallpaper-Entscheidung.

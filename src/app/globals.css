@@ -230,7 +230,9 @@ input:focus-visible {
 }
 .desktop-canvas {
   position: absolute;
-  inset: 46px 0 78px;
+  /* Left inset reserves the Dock's own width so a maximized window (which
+   * fills 100% of this box) never renders behind it. */
+  inset: 46px 0 78px 72px;
   overflow: hidden;
   touch-action: none;
 }
@@ -541,6 +543,127 @@ input:focus-visible {
   color: var(--dh-text-secondary);
   font-size: 8px;
 }
+/* The Dock: a persistent, left-edge pinned-repository launcher. Distinct
+ * from .desktop-taskbar (which reflects currently-running windows) — the
+ * Dock reflects favorites the user chose to keep one click away, open or
+ * not (MULTI_REPO_WINDOW_DOCK_SPEC.md §8). */
+.desktop-dock {
+  position: absolute;
+  z-index: 10001;
+  inset: 56px auto 88px 8px;
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dh-surface-raised) 68%, transparent);
+  box-shadow: var(--dh-shadow-taskbar);
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+.dock-start {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 9px;
+  background: var(--dh-surface);
+  color: var(--dh-lime-brand);
+  font-size: 19px;
+}
+.dock-start:hover {
+  background: var(--dh-surface-hover);
+}
+.dock-divider {
+  flex: none;
+  width: 32px;
+  height: 1px;
+  background: var(--dh-window-border);
+}
+.dock-pins {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.dock-empty {
+  padding: 4px 2px;
+  color: var(--dh-text-disabled);
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.3;
+}
+.dock-item {
+  position: relative;
+  flex: none;
+  width: 44px;
+}
+.dock-item.drag-over:before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dh-lime-brand);
+}
+.dock-item > button:first-child {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 10px;
+  background: var(--dh-surface);
+  color: var(--dh-text);
+  font-size: 17px;
+}
+.dock-item > button:first-child:hover {
+  border-color: var(--dh-window-border-active);
+  background: var(--dh-surface-hover);
+}
+.dock-item .dot {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dh-text-disabled);
+  transform: translateX(-50%);
+}
+.dock-item .dot.active {
+  background: var(--dh-lime-brand);
+}
+.dock-unpin {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  display: none;
+  place-items: center;
+  border: 1px solid var(--dh-window-border);
+  border-radius: 50%;
+  background: var(--dh-surface-raised);
+  color: var(--dh-text-secondary);
+  font-size: 9px;
+}
+.dock-item:hover .dock-unpin {
+  display: grid;
+}
+.dock-unpin:hover {
+  color: var(--dh-danger);
+}
 .rubber-band {
   height: 42px;
   display: flex;
@@ -665,6 +788,12 @@ input:focus-visible {
   }
   .desktop-shortcut {
     position: absolute;
+  }
+  .desktop-dock {
+    /* One full-screen window at a time on a phone-sized viewport leaves no
+     * room for a persistent icon rail; pinned repositories stay reachable
+     * through the Start Menu instead. */
+    display: none;
   }
   .desktop-window,
   .desktop-window.maximized {

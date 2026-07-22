@@ -4,6 +4,7 @@ import { Button } from "@fluentui/react-components";
 import { DraghubMark } from "@/features/icons";
 import { deriveCloseScope } from "@/features/desktop-apps/lifecycle-adapter";
 import { DesktopCanvas } from "./DesktopCanvas";
+import { Dock } from "./Dock";
 import { Taskbar } from "./Taskbar";
 import { useWindowManager } from "./WindowManagerProvider";
 export function DesktopShell() {
@@ -53,6 +54,7 @@ export function DesktopShell() {
         </div>
       </header>
       <DesktopCanvas />
+      <Dock />
       <Taskbar />
       {closing && context && (
         <div

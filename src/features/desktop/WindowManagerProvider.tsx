@@ -158,6 +158,10 @@ function viewport(): DesktopViewport {
         height: window.innerHeight,
         systemBarHeight: 46,
         taskbarHeight: 78,
+        // The Dock is hidden below the same 720px breakpoint the mobile
+        // single-window layout uses (see globals.css), so it reserves no
+        // usable-area width there either.
+        dockWidth: window.innerWidth < 720 ? 0 : 72,
       };
 }
 export function WindowManagerProvider({

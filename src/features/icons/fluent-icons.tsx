@@ -103,6 +103,8 @@ export {
   GlobeRegular,
   ToggleLeftRegular,
   ArchiveRegular,
+  PinRegular,
+  PinFilled,
 } from "@fluentui/react-icons";
 
 export type { FluentIcon } from "@fluentui/react-icons";

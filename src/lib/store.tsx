@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   useRef,
@@ -79,6 +80,8 @@ type Action =
   | { type: "RELEASE_REPO"; repoKey: string }
   | { type: "SWITCH_REPO"; repoKey: string }
   | { type: "TOGGLE_PIN_REPO"; repoKey: string }
+  | { type: "REORDER_PINNED_REPOS"; order: string[] }
+  | { type: "HYDRATE_PINNED_REPOS"; keys: string[] }
   | { type: "ADD_TAB"; repoKey: string; tab: Tab; activate: boolean }
   | { type: "CLOSE_TAB"; repoKey: string; id: string }
   | { type: "SET_ACTIVE"; repoKey: string; id: string }
@@ -206,12 +209,15 @@ export function reducer(state: State, action: Action): State {
       delete repos[action.repoKey];
       const repoRequests = { ...state.repoRequests };
       delete repoRequests[action.repoKey.toLowerCase()];
+      // Pins are Dock shortcuts, not a cache of hydrated repo state — a
+      // repository stays pinned after its window closes and its data is
+      // released, the same way a taskbar/dock shortcut survives quitting
+      // the app it launches.
       return {
         ...state,
         repos,
         repoRequests,
         activeRepoKey: state.activeRepoKey === action.repoKey ? null : state.activeRepoKey,
-        pinnedRepoKeys: state.pinnedRepoKeys.filter((k) => k !== action.repoKey),
       };
     }
     case "SWITCH_REPO":
@@ -220,6 +226,15 @@ export function reducer(state: State, action: Action): State {
       return state.pinnedRepoKeys.includes(action.repoKey)
         ? { ...state, pinnedRepoKeys: state.pinnedRepoKeys.filter((k) => k !== action.repoKey) }
         : { ...state, pinnedRepoKeys: [...state.pinnedRepoKeys, action.repoKey] };
+    case "REORDER_PINNED_REPOS":
+      // Defensive: only ever reorder keys that are actually pinned, so a
+      // stale/foreign order array can't inject unpinned repos into the Dock.
+      return {
+        ...state,
+        pinnedRepoKeys: action.order.filter((k) => state.pinnedRepoKeys.includes(k)),
+      };
+    case "HYDRATE_PINNED_REPOS":
+      return { ...state, pinnedRepoKeys: action.keys };
     case "ADD_TAB":
       return updateRepo(state, action.repoKey, (r) => ({ ...r, tabs: [...r.tabs, action.tab], activeTabId: action.activate ? action.tab.id : r.activeTabId }));
     case "CLOSE_TAB":
@@ -314,6 +329,7 @@ type StoreContextValue = ScopedActions & {
   releaseRepo: (repoKey: string) => void;
   switchRepo: (repoKey: string) => void;
   togglePinRepo: (repoKey: string) => void;
+  reorderPinnedRepos: (order: string[]) => void;
 };
 
 type StoreInternalValue = {
@@ -324,6 +340,7 @@ type StoreInternalValue = {
   releaseRepo: (repoKey: string) => void;
   switchRepo: (repoKey: string) => void;
   togglePinRepo: (repoKey: string) => void;
+  reorderPinnedRepos: (order: string[]) => void;
 };
 
 const StoreContext = createContext<StoreInternalValue | null>(null);
@@ -392,6 +409,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const releaseRepo = useCallback((repoKey: string) => dispatch({ type: "RELEASE_REPO", repoKey }), []);
   const switchRepo = useCallback((repoKey: string) => dispatch({ type: "SWITCH_REPO", repoKey }), []);
   const togglePinRepo = useCallback((repoKey: string) => dispatch({ type: "TOGGLE_PIN_REPO", repoKey }), []);
+  const reorderPinnedRepos = useCallback((order: string[]) => dispatch({ type: "REORDER_PINNED_REPOS", order }), []);
+
+  // Dock pins are hydrated from localStorage after mount (never during the
+  // lazy reducer init) so the very first client render still matches the
+  // server-rendered empty-Dock markup — same mount-only-effect pattern the
+  // theme provider uses to avoid a hydration mismatch.
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("gh-browser-pinned") ?? "[]");
+      if (Array.isArray(stored) && stored.length)
+        dispatch({ type: "HYDRATE_PINNED_REPOS", keys: stored.filter((k): k is string => typeof k === "string") });
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("gh-browser-pinned", JSON.stringify(state.pinnedRepoKeys));
+    } catch { /* ignore */ }
+  }, [state.pinnedRepoKeys]);
 
   // Scoped action sets are created once per repoKey (or once for the
   // "follow the active repo" null scope) and stay referentially stable —
@@ -557,8 +592,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<StoreInternalValue>(
-    () => ({ state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo }),
-    [state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo]
+    () => ({ state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo, reorderPinnedRepos }),
+    [state, actionsFor, openRepo, closeRepo, releaseRepo, switchRepo, togglePinRepo, reorderPinnedRepos]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -578,6 +613,7 @@ export function useStore(): StoreContextValue {
       releaseRepo: context.releaseRepo,
       switchRepo: context.switchRepo,
       togglePinRepo: context.togglePinRepo,
+      reorderPinnedRepos: context.reorderPinnedRepos,
       ...context.actionsFor(scope),
     };
   }, [context, scope]);

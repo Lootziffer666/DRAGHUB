@@ -4,18 +4,23 @@ export type DesktopViewport = {
   height: number;
   systemBarHeight: number;
   taskbarHeight: number;
+  /** Width reserved for the persistent left-edge Dock. Windows — including
+   * maximized ones — must never render behind it (MULTI_REPO_WINDOW_DOCK_SPEC
+   * §8: "The Dock must have reserved layout space"). */
+  dockWidth: number;
 };
 export const DEFAULT_VIEWPORT: DesktopViewport = {
   width: 1440,
   height: 900,
   systemBarHeight: 46,
   taskbarHeight: 76,
+  dockWidth: 72,
 };
 export function usableBounds(v: DesktopViewport): WindowBounds {
   return {
-    x: 0,
+    x: v.dockWidth,
     y: v.systemBarHeight,
-    width: v.width,
+    width: Math.max(200, v.width - v.dockWidth),
     height: Math.max(200, v.height - v.systemBarHeight - v.taskbarHeight),
   };
 }
@@ -31,8 +36,8 @@ export function clampBounds(
     width,
     height,
     x: Math.min(
-      Math.max(bounds.x, -width + titleReach),
-      area.width - titleReach,
+      Math.max(bounds.x, area.x - width + titleReach),
+      area.x + area.width - titleReach,
     ),
     y: Math.min(Math.max(bounds.y, area.y), area.y + area.height - 44),
   };

@@ -14,6 +14,8 @@ import {
   DocumentRegular as FileIcon,
   BranchForkRegular as GitBranch,
   GithubMark,
+  PinFilled,
+  PinRegular,
   PlugConnectedRegular,
   SearchRegular as Search,
   Spinner,
@@ -108,7 +110,7 @@ function HomeView({
 }: {
   onSelectRepo: (fullName: string) => void;
 }) {
-  const { state } = useStore();
+  const { state, togglePinRepo } = useStore();
   const wm = useWindowManager();
   const rate = useGithubRateLimit();
   const { identity, loading: identityLoading } = useGithubIdentity();
@@ -190,21 +192,37 @@ function HomeView({
             </p>
           ) : (
             <ul className="flex flex-col gap-0.5">
-              {recent.map((key) => (
-                <li key={key}>
-                  <button
-                    onClick={() => onSelectRepo(key)}
-                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
-                  >
-                    <GithubMark
-                      width={12}
-                      height={12}
-                      className="shrink-0 text-[var(--dh-text-secondary)]"
-                    />
-                    <span className="truncate">{key}</span>
-                  </button>
-                </li>
-              ))}
+              {recent.map((key) => {
+                const pinned = state.pinnedRepoKeys.includes(key);
+                return (
+                  <li key={key} className="group flex items-center">
+                    <button
+                      onClick={() => onSelectRepo(key)}
+                      className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
+                    >
+                      <GithubMark
+                        width={12}
+                        height={12}
+                        className="shrink-0 text-[var(--dh-text-secondary)]"
+                      />
+                      <span className="truncate">{key}</span>
+                    </button>
+                    <button
+                      onClick={() => togglePinRepo(key)}
+                      aria-label={pinned ? `Unpin ${key} from Dock` : `Pin ${key} to Dock`}
+                      title={pinned ? "Unpin from Dock" : "Pin to Dock"}
+                      className={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity",
+                        pinned
+                          ? "text-[var(--dh-lime-brand)] opacity-100"
+                          : "text-[var(--dh-text-secondary)] opacity-0 hover:bg-[var(--dh-surface-hover)] group-hover:opacity-100 group-focus-within:opacity-100",
+                      ].join(" ")}
+                    >
+                      {pinned ? <PinFilled width={13} height={13} /> : <PinRegular width={13} height={13} />}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -227,6 +245,36 @@ function HomeView({
           )}
         </div>
       </div>
+
+      {state.pinnedRepoKeys.length > 0 && (
+        <div className="rounded-lg border border-[var(--dh-window-border)] bg-[var(--dh-surface)] p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--dh-text-secondary)]">
+            <PinFilled width={13} height={13} />
+            Pinned to Dock
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {state.pinnedRepoKeys.map((key) => (
+              <li key={key} className="group flex items-center">
+                <button
+                  onClick={() => onSelectRepo(key)}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] text-[var(--dh-text)] hover:bg-[var(--dh-surface-hover)]"
+                >
+                  <GithubMark width={12} height={12} className="shrink-0 text-[var(--dh-text-secondary)]" />
+                  <span className="truncate">{key}</span>
+                </button>
+                <button
+                  onClick={() => togglePinRepo(key)}
+                  aria-label={`Unpin ${key} from Dock`}
+                  title="Unpin from Dock"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--dh-text-secondary)] opacity-0 transition-opacity hover:bg-[var(--dh-surface-hover)] group-hover:opacity-100 group-focus-within:opacity-100"
+                >
+                  <X width={13} height={13} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Adaptive: only appears when there's something to act on — the
           "widgets generated according to usage" idea, using real local
@@ -495,52 +543,73 @@ function RepoList({
   repos: SearchRepo[];
   onSelect: (fullName: string) => void;
 }) {
+  const { state, togglePinRepo } = useStore();
   if (repos.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">
-      {repos.map((r) => (
-        <button
-          key={r.id}
-          onClick={() => onSelect(r.fullName)}
-          className="group flex flex-col gap-1 rounded-lg border border-transparent px-3 py-2 text-left hover:border-[var(--dh-window-border)] hover:bg-[var(--dh-surface-hover)]/60"
-        >
-          <div className="flex items-center gap-2">
-            <GithubMark width={15} height={15} className="shrink-0 text-[var(--dh-text-secondary)]" />
-            <span className="truncate font-medium text-[var(--dh-text)]">
-              {r.fullName}
-            </span>
-            <span className="ml-auto flex shrink-0 items-center gap-3 text-[12px] text-[var(--dh-text-secondary)]">
-              {r.language && (
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-blue-400" />
-                  {r.language}
+      {repos.map((r) => {
+        const pinned = state.pinnedRepoKeys.includes(r.fullName);
+        return (
+          <div key={r.id} className="group relative">
+            <button
+              onClick={() => onSelect(r.fullName)}
+              className="flex w-full flex-col gap-1 rounded-lg border border-transparent px-3 py-2 pr-9 text-left hover:border-[var(--dh-window-border)] hover:bg-[var(--dh-surface-hover)]/60"
+            >
+              <div className="flex items-center gap-2">
+                <GithubMark width={15} height={15} className="shrink-0 text-[var(--dh-text-secondary)]" />
+                <span className="truncate font-medium text-[var(--dh-text)]">
+                  {r.fullName}
                 </span>
+                <span className="ml-auto flex shrink-0 items-center gap-3 text-[12px] text-[var(--dh-text-secondary)]">
+                  {r.language && (
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-blue-400" />
+                      {r.language}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <Star width={12} height={12} className="text-amber-700 dark:text-amber-400" />
+                    {r.stars.toLocaleString()}
+                  </span>
+                </span>
+              </div>
+              {r.description && (
+                <p className="line-clamp-2 text-[13px] text-[var(--dh-text-secondary)]">
+                  {r.description}
+                </p>
               )}
-              <span className="flex items-center gap-1">
-                <Star width={12} height={12} className="text-amber-700 dark:text-amber-400" />
-                {r.stars.toLocaleString()}
-              </span>
-            </span>
+              {r.topics.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {r.topics.slice(0, 5).map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full bg-[var(--dh-surface-hover)] px-2 py-0.5 text-[11px] text-[var(--dh-text-secondary)]"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePinRepo(r.fullName);
+              }}
+              aria-label={pinned ? `Unpin ${r.fullName} from Dock` : `Pin ${r.fullName} to Dock`}
+              title={pinned ? "Unpin from Dock" : "Pin to Dock"}
+              className={[
+                "absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded transition-opacity",
+                pinned
+                  ? "text-[var(--dh-lime-brand)] opacity-100"
+                  : "text-[var(--dh-text-secondary)] opacity-0 hover:bg-[var(--dh-surface-hover)] group-hover:opacity-100 group-focus-within:opacity-100",
+              ].join(" ")}
+            >
+              {pinned ? <PinFilled width={14} height={14} /> : <PinRegular width={14} height={14} />}
+            </button>
           </div>
-          {r.description && (
-            <p className="line-clamp-2 text-[13px] text-[var(--dh-text-secondary)]">
-              {r.description}
-            </p>
-          )}
-          {r.topics.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {r.topics.slice(0, 5).map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full bg-[var(--dh-surface-hover)] px-2 py-0.5 text-[11px] text-[var(--dh-text-secondary)]"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-        </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
